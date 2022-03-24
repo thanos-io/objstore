@@ -6,7 +6,7 @@ package objtesting
 import (
 	"testing"
 
-	"github.com/thanos-io/thanos/pkg/objstore"
+	"github.com/thanos-io/objstore"
 )
 
 // TestObjStoreAcceptanceTest_e2e tests all known implementation against interface behavior contract we agreed on.

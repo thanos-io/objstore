@@ -21,7 +21,7 @@ import (
 	"google.golang.org/api/option"
 	"gopkg.in/yaml.v2"
 
-	"github.com/thanos-io/thanos/pkg/objstore"
+	"github.com/thanos-io/objstore"
 )
 
 // DirDelim is the delimiter used to model a directory structure in an object store bucket.

@@ -9,18 +9,18 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/thanos-io/thanos/pkg/objstore/bos"
-	"github.com/thanos-io/thanos/pkg/objstore/client"
-	"github.com/thanos-io/thanos/pkg/objstore/filesystem"
+	"github.com/thanos-io/objstore/bos"
+	"github.com/thanos-io/objstore/client"
+	"github.com/thanos-io/objstore/filesystem"
 
-	"github.com/thanos-io/thanos/pkg/objstore"
-	"github.com/thanos-io/thanos/pkg/objstore/azure"
-	"github.com/thanos-io/thanos/pkg/objstore/cos"
-	"github.com/thanos-io/thanos/pkg/objstore/gcs"
-	"github.com/thanos-io/thanos/pkg/objstore/oss"
-	"github.com/thanos-io/thanos/pkg/objstore/s3"
-	"github.com/thanos-io/thanos/pkg/objstore/swift"
-	"github.com/thanos-io/thanos/pkg/testutil"
+	"github.com/thanos-io/objstore"
+	"github.com/thanos-io/objstore/azure"
+	"github.com/thanos-io/objstore/cos"
+	"github.com/thanos-io/objstore/gcs"
+	"github.com/thanos-io/objstore/oss"
+	"github.com/thanos-io/objstore/s3"
+	"github.com/thanos-io/objstore/swift"
+	"github.com/thanos-io/objstore/testutil"
 )
 
 // IsObjStoreSkipped returns true if given provider ID is found in THANOS_TEST_OBJSTORE_SKIP array delimited by comma e.g:

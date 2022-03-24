@@ -14,7 +14,7 @@ import (
 
 	"github.com/go-kit/log"
 
-	"github.com/thanos-io/thanos/pkg/testutil"
+	"github.com/thanos-io/objstore/testutil"
 )
 
 func TestBucket_Get_ShouldReturnErrorIfServerTruncateResponse(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-kit/log"
 
-	"github.com/thanos-io/thanos/pkg/testutil"
+	"github.com/thanos-io/objstore/testutil"
 )
 
 func Test_getContainerURL(t *testing.T) {

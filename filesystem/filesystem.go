@@ -14,8 +14,8 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 
-	"github.com/thanos-io/thanos/pkg/objstore"
-	"github.com/thanos-io/thanos/pkg/runutil"
+	"github.com/thanos-io/objstore"
+	"github.com/thanos-io/objstore/runutil"
 )
 
 // Config stores the configuration for storing and accessing blobs in filesystem.

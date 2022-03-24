@@ -9,6 +9,7 @@ import (
 	"io"
 	"math"
 	"math/rand"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -22,10 +23,9 @@ import (
 	"github.com/tencentyun/cos-go-sdk-v5"
 	"gopkg.in/yaml.v2"
 
-	"github.com/thanos-io/thanos/pkg/exthttp"
-	"github.com/thanos-io/thanos/pkg/objstore"
-	"github.com/thanos-io/thanos/pkg/objstore/clientutil"
-	"github.com/thanos-io/thanos/pkg/runutil"
+	"github.com/thanos-io/objstore"
+	"github.com/thanos-io/objstore/clientutil"
+	"github.com/thanos-io/objstore/runutil"
 )
 
 // DirDelim is the delimiter used to model a directory structure in an object store bucket.
@@ -107,7 +107,19 @@ type HTTPConfig struct {
 
 // DefaultTransport build http.Transport from config.
 func DefaultTransport(c HTTPConfig) *http.Transport {
-	transport := exthttp.NewTransport()
+	transport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+			DualStack: true,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
 	transport.IdleConnTimeout = time.Duration(c.IdleConnTimeout)
 	transport.ResponseHeaderTimeout = time.Duration(c.ResponseHeaderTimeout)
 	transport.TLSHandshakeTimeout = time.Duration(c.TLSHandshakeTimeout)
@@ -146,7 +158,10 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string) (*B
 			return nil, errors.Wrap(err, "parse endpoint")
 		}
 	} else {
-		bucketURL = cos.NewBucketURL(fmt.Sprintf("%s-%s", config.Bucket, config.AppId), config.Region, true)
+		bucketURL, err = cos.NewBucketURL(fmt.Sprintf("%s-%s", config.Bucket, config.AppId), config.Region, true)
+		if err != nil {
+			return nil, errors.Wrap(err, "new bucket url")
+		}
 	}
 	b := &cos.BaseURL{BucketURL: bucketURL}
 	client := cos.NewClient(b, &http.Client{

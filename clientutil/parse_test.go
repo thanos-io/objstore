@@ -9,7 +9,7 @@ import (
 	"time"
 
 	alioss "github.com/aliyun/aliyun-oss-go-sdk/oss"
-	"github.com/thanos-io/thanos/pkg/testutil"
+	"github.com/thanos-io/objstore/testutil"
 )
 
 func TestParseLastModified(t *testing.T) {

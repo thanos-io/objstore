@@ -18,7 +18,7 @@ import (
 	"github.com/Azure/go-autorest/autorest/azure/auth"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
-	"github.com/thanos-io/thanos/pkg/objstore"
+	"github.com/thanos-io/objstore"
 )
 
 // DirDelim is the delimiter used to model a directory structure in an object store bucket.

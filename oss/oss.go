@@ -22,8 +22,8 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 
-	"github.com/thanos-io/thanos/pkg/objstore"
-	"github.com/thanos-io/thanos/pkg/objstore/clientutil"
+	"github.com/thanos-io/objstore"
+	"github.com/thanos-io/objstore/clientutil"
 )
 
 // Part size for multi part upload.

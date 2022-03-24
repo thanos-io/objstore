@@ -17,7 +17,7 @@ import (
 	"github.com/go-kit/log"
 	"github.com/minio/minio-go/v7/pkg/encrypt"
 
-	"github.com/thanos-io/thanos/pkg/testutil"
+	"github.com/thanos-io/objstore/testutil"
 )
 
 const endpoint string = "localhost:80"

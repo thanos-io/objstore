@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/prometheus/common/model"
-	"github.com/thanos-io/thanos/pkg/testutil"
+	"github.com/thanos-io/objstore/testutil"
 )
 
 func Test_parseConfig(t *testing.T) {
