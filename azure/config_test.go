@@ -235,7 +235,7 @@ http_config:
   `)
 	cfg, err := parseConfig(input)
 	testutil.Ok(t, err)
-	transport, err := DefaultTransport(cfg)
+	transport, err := defaultTransport(cfg)
 	testutil.Ok(t, err)
 	testutil.Equals(t, true, transport.TLSClientConfig.InsecureSkipVerify)
 }
