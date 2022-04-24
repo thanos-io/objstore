@@ -83,6 +83,7 @@ type Config struct {
 	HTTPConfig         HTTPConfig        `yaml:"http_config"`
 	TraceConfig        TraceConfig       `yaml:"trace"`
 	ListObjectsVersion string            `yaml:"list_objects_version"`
+	BucketLookup       string            `yaml:"bucket_lookup"`
 	// PartSize used for multipart upload. Only used if uploaded object size is known and larger than configured PartSize.
 	// NOTE we need to make sure this number does not produce more parts than 10 000.
 	PartSize    uint64    `yaml:"part_size"`
@@ -265,10 +266,11 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string) (*B
 	}
 
 	client, err := minio.New(config.Endpoint, &minio.Options{
-		Creds:     credentials.NewChainCredentials(chain),
-		Secure:    !config.Insecure,
-		Region:    config.Region,
-		Transport: rt,
+		Creds:        credentials.NewChainCredentials(chain),
+		Secure:       !config.Insecure,
+		Region:       config.Region,
+		Transport:    rt,
+		BucketLookup: withBucketLookup(config.BucketLookup),
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "initialize s3 client")
@@ -329,6 +331,20 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string) (*B
 		listObjectsV1:   config.ListObjectsVersion == "v1",
 	}
 	return bkt, nil
+}
+
+func withBucketLookup(lookup string) minio.BucketLookupType {
+	if lookup == "" {
+		return minio.BucketLookupAuto
+	}
+	switch lookup {
+	case "path":
+		return minio.BucketLookupPath
+	case "dns":
+		return minio.BucketLookupDNS
+	default:
+		return minio.BucketLookupAuto
+	}
 }
 
 // Name returns the bucket name for s3.
