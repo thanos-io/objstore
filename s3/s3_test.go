@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/go-kit/log"
+	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/encrypt"
 
 	"github.com/thanos-io/objstore/testutil"
@@ -34,6 +35,33 @@ insecure: false`)
 	if cfg.Insecure {
 		t.Errorf("parsing of insecure failed: got %v, expected %v", cfg.Insecure, false)
 	}
+}
+
+func TestParseConfig_LookupStyle(t *testing.T) {
+	input := []byte(`bucket: abcd
+endpoint: "s3-endpoint"
+insecure: false`)
+	cfg, err := parseConfig(input)
+	testutil.Ok(t, err)
+	testutil.Ok(t, validate(cfg))
+	testutil.Equals(t, minio.BucketLookupAuto, withLookupStyle(cfg.LookupStyle))
+
+	input = []byte(`bucket: abcd
+endpoint: "s3-endpoint"
+insecure: false
+lookup_style: vhost`)
+	cfg, err = parseConfig(input)
+	testutil.Ok(t, err)
+	testutil.Ok(t, validate(cfg))
+
+	input = []byte(`bucket: abcd
+endpoint: "s3-endpoint"
+insecure: false
+lookup_style: xxx`)
+	cfg, err = parseConfig(input)
+	testutil.Ok(t, err)
+	testutil.NotOk(t, validate(cfg))
+	testutil.Equals(t, minio.BucketLookupAuto, withLookupStyle(cfg.LookupStyle))
 }
 
 func TestParseConfig_SSEConfig(t *testing.T) {
