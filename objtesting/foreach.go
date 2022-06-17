@@ -11,6 +11,7 @@ import (
 
 	"github.com/thanos-io/objstore/bos"
 	"github.com/thanos-io/objstore/client"
+
 	"github.com/thanos-io/objstore/filesystem"
 
 	"github.com/thanos-io/objstore"
