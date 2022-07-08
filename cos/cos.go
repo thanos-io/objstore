@@ -123,6 +123,9 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string) (*B
 		}
 	} else {
 		bucketURL, err = cos.NewBucketURL(fmt.Sprintf("%s-%s", config.Bucket, config.AppId), config.Region, true)
+		if err != nil {
+			return nil, errors.Wrap(err, "create bucket")
+		}
 	}
 	b := &cos.BaseURL{BucketURL: bucketURL}
 	tpt, _ := exthttp.DefaultTransport(config.HTTPConfig)

@@ -1,0 +1,85 @@
+name: Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  skip-check:
+    name: Skip check
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.skip-check.outputs.should_skip }}
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - id: skip-check
+        uses: fkirc/skip-duplicate-actions@v4
+        with:
+          do_not_skip: '["schedule", "workflow_dispatch"]'
+          paths: |-
+            [
+              "**.go",
+              ".github/workflows/test.yml",
+              ".go-version",
+              "go.mod",
+              "go.sum"
+            ]
+          skip_after_successful_duplicate: false
+
+  lint:
+    runs-on: ubuntu-latest
+    name: Linters (Static Analysis) for Go
+    env:
+      GOBIN: /tmp/.bin
+    steps:
+      - name: Checkout code into the Go module directory.
+        uses: actions/checkout@v3
+
+      - name: Install Go
+        uses: actions/setup-go@v3
+        with:
+          go-version-file: .go-version
+          cache: true
+
+      - name: Format
+        run: make format
+
+      - name: Lint
+        run: make lint
+  test:
+    runs-on: ubuntu-latest
+    name: Run tests
+    env:
+      GOBIN: /tmp/.bin
+    steps:
+      - name: Install Go.
+        uses: actions/setup-go@v3
+        with:
+          go-version-file: .go-version
+          cache: true
+
+      - name: Check out code into the Go module directory.
+        uses: actions/checkout@v3
+
+      - name: Run unit tests
+        env:
+          # THANOS_TEST_OBJSTORE_SKIP: AZURE,COS,ALIYUNOSS,BOS
+          THANOS_TEST_OBJSTORE_SKIP: GCS,S3,SWIFT,AZURE,COS,ALIYUNOSS,BOS
+          # Variables for Swift testing.
+          OS_AUTH_URL: http://127.0.0.1:5000/v2.0
+          OS_PASSWORD: s3cr3t
+          OS_PROJECT_NAME: admin
+          OS_REGION_NAME: RegionOne
+          OS_USERNAME: admin.
+        # TODO(kakkoyun): Make this work with GCS,S3,SWIFT!
+        run: |-
+          if [ -z ${GCP_PROJECT} ]; then
+            export THANOS_TEST_OBJSTORE_SKIP=${THANOS_TEST_OBJSTORE_SKIP},GCS,S3
+          fi
+          echo "Skipping tests for object storages: ${THANOS_TEST_OBJSTORE_SKIP}"
+          make test-local
