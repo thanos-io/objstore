@@ -7,15 +7,11 @@ import (
 	"context"
 
 	"github.com/opentracing/opentracing-go"
-	"github.com/opentracing/opentracing-go/ext"
 )
 
 const (
 	// ForceTracingBaggageKey is a request header name that forces tracing sampling.
 	ForceTracingBaggageKey = "X-Thanos-Force-Tracing"
-
-	// traceIdResponseHeader is a response header name that stores trace ID.
-	traceIDResponseHeader = "X-Thanos-Trace-Id"
 )
 
 // Aliases to avoid spreading opentracing package to Thanos code.
@@ -33,11 +29,6 @@ type Tracer interface {
 	GetTraceIDFromSpanContext(ctx opentracing.SpanContext) (string, bool)
 }
 
-// ContextWithTracer returns a new `context.Context` that holds a reference to given opentracing.Tracer.
-func ContextWithTracer(ctx context.Context, tracer opentracing.Tracer) context.Context {
-	return context.WithValue(ctx, tracerKey, tracer)
-}
-
 // tracerFromContext extracts opentracing.Tracer from the given context.
 func tracerFromContext(ctx context.Context) opentracing.Tracer {
 	val := ctx.Value(tracerKey)
@@ -45,15 +36,6 @@ func tracerFromContext(ctx context.Context) opentracing.Tracer {
 		return sp
 	}
 	return nil
-}
-
-// CopyTraceContext copies the necessary trace context from given source context to target context.
-func CopyTraceContext(trgt, src context.Context) context.Context {
-	ctx := ContextWithTracer(trgt, tracerFromContext(src))
-	if parentSpan := opentracing.SpanFromContext(src); parentSpan != nil {
-		ctx = opentracing.ContextWithSpan(ctx, parentSpan)
-	}
-	return ctx
 }
 
 // StartSpan starts and returns span with `operationName` and hooking as child to a span found within given context if any.
@@ -71,26 +53,6 @@ func StartSpan(ctx context.Context, operationName string, opts ...opentracing.St
 	}
 	span = tracer.StartSpan(operationName, opts...)
 	return span, opentracing.ContextWithSpan(ctx, span)
-}
-
-// DoInSpanWtihErr executes function doFn inside new span with `operationName` name and hooking as child to a span found within given context if any.
-// It uses opentracing.Tracer propagated in context. If no found, it uses noop tracer notification.
-// It logs the error inside the new span created, which differentiates it from DoInSpan and DoWithSpan.
-func DoInSpanWithErr(ctx context.Context, operationName string, doFn func(context.Context) error, opts ...opentracing.StartSpanOption) {
-	span, newCtx := StartSpan(ctx, operationName, opts...)
-	defer span.Finish()
-	err := doFn(newCtx)
-	if err != nil {
-		ext.LogError(span, err)
-	}
-}
-
-// DoInSpan executes function doFn inside new span with `operationName` name and hooking as child to a span found within given context if any.
-// It uses opentracing.Tracer propagated in context. If no found, it uses noop tracer notification.
-func DoInSpan(ctx context.Context, operationName string, doFn func(context.Context), opts ...opentracing.StartSpanOption) {
-	span, newCtx := StartSpan(ctx, operationName, opts...)
-	defer span.Finish()
-	doFn(newCtx)
 }
 
 // DoWithSpan executes function doFn inside new span with `operationName` name and hooking as child to a span found within given context if any.
