@@ -4,9 +4,16 @@
 package objstore
 
 import (
+	"bytes"
+	"context"
+	"io"
+	"os"
 	"testing"
 
+	"github.com/go-kit/log"
+	"github.com/pkg/errors"
 	promtest "github.com/prometheus/client_golang/prometheus/testutil"
+	"go.uber.org/atomic"
 
 	"github.com/thanos-io/objstore/testutil"
 )
@@ -64,50 +71,83 @@ func TestMetricBucket_Close(t *testing.T) {
 	testutil.Assert(t, promtest.ToFloat64(bkt.lastSuccessfulUploadTime) > lastUpload)
 }
 
-//func TestTracingReader(t *testing.T) {
-//	r := bytes.NewReader([]byte("hello world"))
-//	tr := newTracingReadCloser(NopCloserWithSize(r), nil)
-//
-//	size, err := TryToGetSize(tr)
-//
-//	testutil.Ok(t, err)
-//	testutil.Equals(t, int64(11), size)
-//
-//	smallBuf := make([]byte, 4)
-//	n, err := io.ReadFull(tr, smallBuf)
-//	testutil.Ok(t, err)
-//	testutil.Equals(t, 4, n)
-//
-//	// Verify that size is still the same, after reading 4 bytes.
-//	size, err = TryToGetSize(tr)
-//
-//	testutil.Ok(t, err)
-//	testutil.Equals(t, int64(11), size)
-//}
-//
-//func TestTimingTracingReader(t *testing.T) {
-//	m := BucketWithMetrics("", NewInMemBucket(), nil)
-//	r := bytes.NewReader([]byte("hello world"))
-//
-//	tr := NopCloserWithSize(r)
-//	tr = newTimingReadCloser(tr, "", m.opsDuration, m.opsFailures, func(err error) bool {
-//		return false
-//	})
-//	tr = newTracingReadCloser(tr, nil)
-//
-//	size, err := TryToGetSize(tr)
-//
-//	testutil.Ok(t, err)
-//	testutil.Equals(t, int64(11), size)
-//
-//	smallBuf := make([]byte, 4)
-//	n, err := io.ReadFull(tr, smallBuf)
-//	testutil.Ok(t, err)
-//	testutil.Equals(t, 4, n)
-//
-//	// Verify that size is still the same, after reading 4 bytes.
-//	size, err = TryToGetSize(tr)
-//
-//	testutil.Ok(t, err)
-//	testutil.Equals(t, int64(11), size)
-//}
+func TestTracingReader(t *testing.T) {
+	r := bytes.NewReader([]byte("hello world"))
+	tr := newTracingReadCloser(NopCloserWithSize(r), nil)
+
+	size, err := TryToGetSize(tr)
+
+	testutil.Ok(t, err)
+	testutil.Equals(t, int64(11), size)
+
+	smallBuf := make([]byte, 4)
+	n, err := io.ReadFull(tr, smallBuf)
+	testutil.Ok(t, err)
+	testutil.Equals(t, 4, n)
+
+	// Verify that size is still the same, after reading 4 bytes.
+	size, err = TryToGetSize(tr)
+
+	testutil.Ok(t, err)
+	testutil.Equals(t, int64(11), size)
+}
+
+func TestTimingTracingReader(t *testing.T) {
+	m := BucketWithMetrics("", NewInMemBucket(), nil)
+	r := bytes.NewReader([]byte("hello world"))
+
+	tr := NopCloserWithSize(r)
+	tr = newTimingReadCloser(tr, "", m.opsDuration, m.opsFailures, func(err error) bool {
+		return false
+	})
+	tr = newTracingReadCloser(tr, nil)
+
+	size, err := TryToGetSize(tr)
+
+	testutil.Ok(t, err)
+	testutil.Equals(t, int64(11), size)
+
+	smallBuf := make([]byte, 4)
+	n, err := io.ReadFull(tr, smallBuf)
+	testutil.Ok(t, err)
+	testutil.Equals(t, 4, n)
+
+	// Verify that size is still the same, after reading 4 bytes.
+	size, err = TryToGetSize(tr)
+
+	testutil.Ok(t, err)
+	testutil.Equals(t, int64(11), size)
+}
+
+func TestDownloadDir_CleanUp(t *testing.T) {
+	b := unreliableBucket{
+		Bucket:  NewInMemBucket(),
+		n:       3,
+		current: atomic.NewInt32(0),
+	}
+	tempDir := t.TempDir()
+
+	testutil.Ok(t, b.Upload(context.Background(), "dir/obj1", bytes.NewReader([]byte("1"))))
+	testutil.Ok(t, b.Upload(context.Background(), "dir/obj2", bytes.NewReader([]byte("2"))))
+	testutil.Ok(t, b.Upload(context.Background(), "dir/obj3", bytes.NewReader([]byte("3"))))
+
+	// We exapect the third Get to fail
+	testutil.NotOk(t, DownloadDir(context.Background(), log.NewNopLogger(), b, "dir/", "dir/", tempDir))
+	_, err := os.Stat(tempDir)
+	testutil.Assert(t, os.IsNotExist(err))
+}
+
+// unreliableBucket implements Bucket and returns an error on every n-th Get.
+type unreliableBucket struct {
+	Bucket
+
+	n       int32
+	current *atomic.Int32
+}
+
+func (b unreliableBucket) Get(ctx context.Context, name string) (io.ReadCloser, error) {
+	if b.current.Inc()%b.n == 0 {
+		return nil, errors.Errorf("some error message")
+	}
+	return b.Bucket.Get(ctx, name)
+}
