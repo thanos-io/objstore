@@ -11,6 +11,7 @@ import (
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	yaml "gopkg.in/yaml.v2"
 
 	"github.com/thanos-io/objstore"
@@ -40,11 +41,12 @@ const (
 type BucketConfig struct {
 	Type   ObjProvider `yaml:"type"`
 	Config interface{} `yaml:"config"`
+	Prefix string      `yaml:"prefix" default:""`
 }
 
 // NewBucket initializes and returns new object storage clients.
 // NOTE: confContentYaml can contain secrets.
-func NewBucket(logger log.Logger, confContentYaml []byte, component string) (objstore.Bucket, error) {
+func NewBucket(logger log.Logger, confContentYaml []byte, reg prometheus.Registerer, component string) (objstore.InstrumentedBucket, error) {
 	level.Info(logger).Log("msg", "loading bucket configuration")
 	bucketConf := &BucketConfig{}
 	if err := yaml.UnmarshalStrict(confContentYaml, bucketConf); err != nil {
@@ -80,5 +82,6 @@ func NewBucket(logger log.Logger, confContentYaml []byte, component string) (obj
 	if err != nil {
 		return nil, errors.Wrap(err, fmt.Sprintf("create %s client", bucketConf.Type))
 	}
-	return bucket, nil
+
+	return objstore.NewTracingBucket(objstore.BucketWithMetrics(bucket.Name(), objstore.NewPrefixedBucket(bucket, bucketConf.Prefix), reg)), nil
 }
