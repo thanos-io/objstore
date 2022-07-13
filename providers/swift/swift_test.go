@@ -6,7 +6,7 @@ package swift
 import (
 	"testing"
 
-	"github.com/thanos-io/objstore/testutil"
+	"github.com/efficientgo/tools/core/pkg/testutil"
 )
 
 func TestParseConfig(t *testing.T) {

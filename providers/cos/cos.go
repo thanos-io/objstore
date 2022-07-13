@@ -16,16 +16,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/efficientgo/tools/core/pkg/logerrcapture"
 	"github.com/go-kit/log"
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
 	"github.com/tencentyun/cos-go-sdk-v5"
-	"gopkg.in/yaml.v2"
-
 	"github.com/thanos-io/objstore"
-	"github.com/thanos-io/objstore/clientutil"
 	"github.com/thanos-io/objstore/exthttp"
-	"github.com/thanos-io/objstore/runutil"
+	"gopkg.in/yaml.v2"
 )
 
 // DirDelim is the delimiter used to model a directory structure in an object store bucket.
@@ -157,14 +155,14 @@ func (b *Bucket) Attributes(ctx context.Context, name string) (objstore.ObjectAt
 		return objstore.ObjectAttributes{}, err
 	}
 
-	size, err := clientutil.ParseContentLength(resp.Header)
+	size, err := exthttp.ParseContentLength(resp.Header)
 	if err != nil {
 		return objstore.ObjectAttributes{}, err
 	}
 
 	// tencent cos return Last-Modified header in RFC1123 format.
 	// see api doc for details: https://intl.cloud.tencent.com/document/product/436/7729
-	mod, err := clientutil.ParseLastModified(resp.Header, time.RFC1123)
+	mod, err := exthttp.ParseLastModified(resp.Header, time.RFC1123)
 	if err != nil {
 		return objstore.ObjectAttributes{}, err
 	}
@@ -310,7 +308,7 @@ func (b *Bucket) getRange(ctx context.Context, name string, off, length int64) (
 		return nil, err
 	}
 	if _, err := resp.Body.Read(nil); err != nil {
-		runutil.ExhaustCloseWithLogOnErr(b.logger, resp.Body, "cos get range obj close")
+		logerrcapture.ExhaustClose(b.logger, resp.Body, "cos get range obj close")
 		return nil, err
 	}
 	// Add size info into reader to pass it to Upload function.

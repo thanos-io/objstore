@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/efficientgo/tools/core/pkg/testutil"
 	"github.com/thanos-io/objstore/exthttp"
-	"github.com/thanos-io/objstore/testutil"
 )
 
 type TestCase struct {

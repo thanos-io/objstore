@@ -7,9 +7,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/efficientgo/tools/core/pkg/testutil"
 	"github.com/go-kit/log"
-
-	"github.com/thanos-io/objstore/testutil"
 )
 
 func Test_getContainerURL(t *testing.T) {

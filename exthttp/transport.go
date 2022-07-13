@@ -11,7 +11,7 @@ import (
 	"github.com/prometheus/common/model"
 )
 
-// TODO(bwplotka): HTTPConfig stores the http.Transport configuration for the cos and s3 minio client.
+// HTTPConfig stores the http.Transport configuration for the cos and s3 minio client.
 type HTTPConfig struct {
 	IdleConnTimeout       model.Duration `yaml:"idle_conn_timeout"`
 	ResponseHeaderTimeout model.Duration `yaml:"response_header_timeout"`

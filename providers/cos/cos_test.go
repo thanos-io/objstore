@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/efficientgo/tools/core/pkg/testutil"
 	"github.com/prometheus/common/model"
 	"github.com/thanos-io/objstore/exthttp"
-	"github.com/thanos-io/objstore/testutil"
 )
 
 func Test_parseConfig(t *testing.T) {

@@ -1,15 +1,14 @@
 // Copyright (c) The Thanos Authors.
 // Licensed under the Apache License 2.0.
 
-package clientutil
+package exthttp
 
 import (
 	"net/http"
 	"testing"
 	"time"
 
-	alioss "github.com/aliyun/aliyun-oss-go-sdk/oss"
-	"github.com/thanos-io/objstore/testutil"
+	"github.com/efficientgo/tools/core/pkg/testutil"
 )
 
 func TestParseLastModified(t *testing.T) {
@@ -54,7 +53,7 @@ func TestParseLastModified(t *testing.T) {
 		t.Run(testName, func(t *testing.T) {
 			meta := http.Header{}
 			if testData.headerValue != "" {
-				meta.Add(alioss.HTTPHeaderLastModified, testData.headerValue)
+				meta.Add(LastModifiedHeader, testData.headerValue)
 			}
 
 			actual, err := ParseLastModified(meta, testData.format)
@@ -93,7 +92,7 @@ func TestParseContentLength(t *testing.T) {
 		t.Run(testName, func(t *testing.T) {
 			meta := http.Header{}
 			if testData.headerValue != "" {
-				meta.Add(alioss.HTTPHeaderContentLength, testData.headerValue)
+				meta.Add(ContentLengthHeader, testData.headerValue)
 			}
 
 			actual, err := ParseContentLength(meta)

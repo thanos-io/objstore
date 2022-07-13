@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/thanos-io/objstore/testutil"
+	"github.com/efficientgo/tools/core/pkg/testutil"
 )
 
 func TestPrefixedBucket_Acceptance(t *testing.T) {

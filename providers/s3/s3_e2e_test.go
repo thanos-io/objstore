@@ -10,12 +10,10 @@ import (
 	"testing"
 
 	"github.com/efficientgo/e2e"
+	"github.com/efficientgo/tools/core/pkg/testutil"
 	"github.com/go-kit/log"
-
-	"github.com/thanos-io/objstore/s3"
+	"github.com/thanos-io/objstore/providers/s3"
 	"github.com/thanos-io/objstore/test/e2e/e2ethanos"
-
-	"github.com/thanos-io/objstore/testutil"
 )
 
 // Regression benchmark for https://github.com/thanos-io/thanos/issues/3917.

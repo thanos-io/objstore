@@ -9,18 +9,17 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/thanos-io/objstore/bos"
-	"github.com/thanos-io/objstore/client"
-	"github.com/thanos-io/objstore/filesystem"
-
+	"github.com/efficientgo/tools/core/pkg/testutil"
 	"github.com/thanos-io/objstore"
-	"github.com/thanos-io/objstore/azure"
-	"github.com/thanos-io/objstore/cos"
-	"github.com/thanos-io/objstore/gcs"
-	"github.com/thanos-io/objstore/oss"
-	"github.com/thanos-io/objstore/s3"
-	"github.com/thanos-io/objstore/swift"
-	"github.com/thanos-io/objstore/testutil"
+	"github.com/thanos-io/objstore/client"
+	"github.com/thanos-io/objstore/providers/azure"
+	"github.com/thanos-io/objstore/providers/bos"
+	"github.com/thanos-io/objstore/providers/cos"
+	"github.com/thanos-io/objstore/providers/filesystem"
+	"github.com/thanos-io/objstore/providers/gcs"
+	"github.com/thanos-io/objstore/providers/oss"
+	"github.com/thanos-io/objstore/providers/s3"
+	"github.com/thanos-io/objstore/providers/swift"
 )
 
 // IsObjStoreSkipped returns true if given provider ID is found in THANOS_TEST_OBJSTORE_SKIP array delimited by comma e.g:

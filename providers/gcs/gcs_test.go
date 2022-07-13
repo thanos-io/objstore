@@ -12,9 +12,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/efficientgo/tools/core/pkg/testutil"
 	"github.com/go-kit/log"
-
-	"github.com/thanos-io/objstore/testutil"
 )
 
 func TestBucket_Get_ShouldReturnErrorIfServerTruncateResponse(t *testing.T) {
@@ -28,7 +27,7 @@ func TestBucket_Get_ShouldReturnErrorIfServerTruncateResponse(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	os.Setenv("STORAGE_EMULATOR_HOST", srv.Listener.Addr().String())
+	testutil.Ok(t, os.Setenv("STORAGE_EMULATOR_HOST", srv.Listener.Addr().String()))
 
 	cfg := Config{
 		Bucket:         "test-bucket",

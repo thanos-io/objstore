@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/thanos-io/objstore/testutil"
+	"github.com/efficientgo/tools/core/pkg/testutil"
 )
 
 func CreateTemporaryTestBucketName(t testing.TB) string {

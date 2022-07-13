@@ -12,8 +12,7 @@ import (
 	"testing"
 
 	"github.com/efficientgo/e2e"
-
-	"github.com/thanos-io/objstore/testutil"
+	"github.com/efficientgo/tools/core/pkg/testutil"
 )
 
 func CleanScenario(t testing.TB, e *e2e.DockerEnvironment) func() {
