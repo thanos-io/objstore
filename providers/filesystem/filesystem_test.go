@@ -9,7 +9,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/thanos-io/objstore/testutil"
+	"github.com/efficientgo/tools/core/pkg/testutil"
 )
 
 func TestDelete_EmptyDirDeletionRaceCondition(t *testing.T) {

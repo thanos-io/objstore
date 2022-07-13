@@ -24,11 +24,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/discovery/targetgroup"
+	"github.com/thanos-io/objstore/providers/s3"
 	"gopkg.in/yaml.v2"
 
 	"github.com/thanos-io/objstore/client"
 	"github.com/thanos-io/objstore/exthttp"
-	"github.com/thanos-io/objstore/s3"
 )
 
 const (

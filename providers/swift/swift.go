@@ -14,15 +14,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/efficientgo/tools/core/pkg/errcapture"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/ncw/swift"
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
-	"gopkg.in/yaml.v2"
-
 	"github.com/thanos-io/objstore"
-	"github.com/thanos-io/objstore/runutil"
+	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -313,7 +312,7 @@ func (c *Container) Upload(_ context.Context, name string, r io.Reader) (err err
 			return errors.Wrap(err, "create file")
 		}
 	}
-	defer runutil.CloseWithErrCapture(&err, file, "upload object close")
+	defer errcapture.Do(&err, file.Close, "upload object close")
 	if _, err := io.Copy(file, r); err != nil {
 		return errors.Wrap(err, "uploading object")
 	}

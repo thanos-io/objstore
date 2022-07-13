@@ -129,11 +129,6 @@ func (conf *Config) validate() error {
 	return nil
 }
 
-// HTTPConfig exists here only because Cortex depends on it, and we depend on Cortex.
-// Deprecated.
-// TODO(bwplotka): Remove it, once we remove Cortex cycle dep, or Cortex stops using this.
-type HTTPConfig = exthttp.HTTPConfig
-
 // parseConfig unmarshals a buffer into a Config with default values.
 func parseConfig(conf []byte) (Config, error) {
 	config := DefaultConfig

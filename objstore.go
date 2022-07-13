@@ -14,13 +14,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/efficientgo/tools/core/pkg/logerrcapture"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-
-	"github.com/thanos-io/objstore/runutil"
 )
 
 const (
@@ -88,7 +87,7 @@ type BucketReader interface {
 	Attributes(ctx context.Context, name string) (ObjectAttributes, error)
 }
 
-// InstrumentedBucket is a BucketReader with optional instrumentation control.
+// InstrumentedBucketReader is a BucketReader with optional instrumentation control.
 type InstrumentedBucketReader interface {
 	BucketReader
 
@@ -131,7 +130,8 @@ type ObjectAttributes struct {
 // Some implementations may return only size of unread data in the reader, so it's best to call this method before
 // doing any reading.
 //
-// TODO(https://github.com/thanos-io/thanos/issues/678): Remove guessing length when minio provider will support multipart upload without this.
+// NOTE(https://github.com/thanos-io/thanos/issues/678): This is needed for providers who does not support
+// multipart upload without knowing length in advance e.g. S3.
 func TryToGetSize(r io.Reader) (int64, error) {
 	switch f := r.(type) {
 	case *os.File:
@@ -204,7 +204,7 @@ func UploadFile(ctx context.Context, logger log.Logger, bkt Bucket, src, dst str
 	if err != nil {
 		return errors.Wrapf(err, "open file %s", src)
 	}
-	defer runutil.CloseWithLogOnErr(logger, r, "close file %s", src)
+	defer logerrcapture.Do(logger, r.Close, "close file %s", src)
 
 	if err := bkt.Upload(ctx, dst, r); err != nil {
 		return errors.Wrapf(err, "upload file %s as %s", src, dst)
@@ -232,7 +232,7 @@ func DownloadFile(ctx context.Context, logger log.Logger, bkt BucketReader, src,
 	if err != nil {
 		return errors.Wrapf(err, "get file %s", src)
 	}
-	defer runutil.CloseWithLogOnErr(logger, rc, "download block's file reader")
+	defer logerrcapture.Do(logger, rc.Close, "close block's file reader")
 
 	f, err := os.Create(dst)
 	if err != nil {
@@ -245,7 +245,7 @@ func DownloadFile(ctx context.Context, logger log.Logger, bkt BucketReader, src,
 			}
 		}
 	}()
-	defer runutil.CloseWithLogOnErr(logger, f, "download block's output file")
+	defer logerrcapture.Do(logger, f.Close, "close block's output file")
 
 	if _, err = io.Copy(f, rc); err != nil {
 		return errors.Wrap(err, "copy object to file")

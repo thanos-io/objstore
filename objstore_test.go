@@ -10,12 +10,11 @@ import (
 	"os"
 	"testing"
 
+	"github.com/efficientgo/tools/core/pkg/testutil"
 	"github.com/go-kit/log"
 	"github.com/pkg/errors"
 	promtest "github.com/prometheus/client_golang/prometheus/testutil"
 	"go.uber.org/atomic"
-
-	"github.com/thanos-io/objstore/testutil"
 )
 
 func TestMetricBucket_Close(t *testing.T) {

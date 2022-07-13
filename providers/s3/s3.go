@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/efficientgo/tools/core/pkg/logerrcapture"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/minio/minio-go/v7"
@@ -27,7 +28,6 @@ import (
 	"github.com/prometheus/common/version"
 	"github.com/thanos-io/objstore"
 	"github.com/thanos-io/objstore/exthttp"
-	"github.com/thanos-io/objstore/runutil"
 	"gopkg.in/yaml.v2"
 )
 
@@ -111,11 +111,6 @@ var DefaultConfig = Config{
 	PartSize:         1024 * 1024 * 64, // 64MB.
 	BucketLookupType: AutoLookup,
 }
-
-// HTTPConfig exists here only because Cortex depends on it, and we depend on Cortex.
-// Deprecated.
-// TODO(bwplotka): Remove it, once we remove Cortex cycle dep, or Cortex stops using this.
-type HTTPConfig = exthttp.HTTPConfig
 
 // Config stores the configuration for s3 bucket.
 type Config struct {
@@ -425,7 +420,7 @@ func (b *Bucket) getRange(ctx context.Context, name string, off, length int64) (
 	// NotFoundObject error is revealed only after first Read. This does the initial GetRequest. Prefetch this here
 	// for convenience.
 	if _, err := r.Read(nil); err != nil {
-		runutil.CloseWithLogOnErr(b.logger, r, "s3 get range obj close")
+		defer logerrcapture.Do(b.logger, r.Close, "s3 get range obj close")
 
 		// First GET Object request error.
 		return nil, err
