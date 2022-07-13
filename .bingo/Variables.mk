@@ -1,4 +1,4 @@
-# Auto generated binary variables helper managed by https://github.com/bwplotka/bingo v0.4.3. DO NOT EDIT.
+# Auto generated binary variables helper managed by https://github.com/bwplotka/bingo v0.6. DO NOT EDIT.
 # All tools are designed to be build inside $GOBIN.
 BINGO_DIR := $(dir $(lastword $(MAKEFILE_LIST)))
 GOPATH ?= $(shell go env GOPATH)
@@ -40,10 +40,4 @@ $(GOLANGCI_LINT): $(BINGO_DIR)/golangci-lint.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
 	@echo "(re)installing $(GOBIN)/golangci-lint-v1.46.2"
 	@cd $(BINGO_DIR) && $(GO) build -mod=mod -modfile=golangci-lint.mod -o=$(GOBIN)/golangci-lint-v1.46.2 "github.com/golangci/golangci-lint/cmd/golangci-lint"
-
-MINIO := $(GOBIN)/minio-v0.0.0-20220704210254-b311abed3176
-$(MINIO): $(BINGO_DIR)/minio.mod
-	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
-	@echo "(re)installing $(GOBIN)/minio-v0.0.0-20220704210254-b311abed3176"
-	@cd $(BINGO_DIR) && $(GO) build -mod=mod -modfile=minio.mod -o=$(GOBIN)/minio-v0.0.0-20220704210254-b311abed3176 "github.com/minio/minio"
 

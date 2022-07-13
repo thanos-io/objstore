@@ -27,7 +27,7 @@ import (
 const (
 	// DirDelim is the delimiter used to model a directory structure in an object store bucket.
 	DirDelim = '/'
-	// Name of the directory in bucket, where to store file parts of SLO and DLO.
+	// SegmentsDir represent name of the directory in bucket, where to store file parts of SLO and DLO.
 	SegmentsDir = "segments/"
 )
 
