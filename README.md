@@ -1,52 +1,119 @@
-<p align="center"><img src="docs/img/Thanos-logo_fullmedium.png" alt="Thanos Logo"></p>
+<p align="center"><img src="Thanos-logo_fullmedium.png" alt="Thanos Logo"></p>
 
 [![Latest Release](https://img.shields.io/github/release/thanos-io/objstore.svg?style=flat-square)](https://github.com/thanos-io/objstore/releases/latest) [![Slack](https://img.shields.io/badge/join%20slack-%23thanos-brightgreen.svg)](https://slack.cncf.io/)
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/thanos-io/objstore)](https://goreportcard.com/report/github.com/thanos-io/objstore) [![Go Code reference](https://img.shields.io/badge/code%20reference-go.dev-darkblue.svg)](https://pkg.go.dev/github.com/thanos-io/objstore?tab=subdirectories) 
+[![Go Report Card](https://goreportcard.com/badge/github.com/thanos-io/objstore)](https://goreportcard.com/report/github.com/thanos-io/objstore) [![Go Code reference](https://img.shields.io/badge/code%20reference-go.dev-darkblue.svg)](https://pkg.go.dev/github.com/thanos-io/objstore?tab=subdirectories)
 
 [![Tests](https://github.com/thanos-io/objstore/workflows/Test/badge.svg)](https://github.com/thanos-io/objstore/actions?query=workflow%3Atest)
 
-# Thanos Object Storage
+# Thanos Object Storage Client
 
-Thanos uses object storage as primary storage for metrics and metadata related to them.
-This repo contains a standalone Go package that handles object storage operations.
+`objstore` is a Go module providing unified interface and efficient clients to work with various object storage providers.
 
-## Documentation 
+Features:
 
-Check out the [documentation](https://thanos.io/tip/thanos/storage.md/) for more up-to-date version.
+* Ability to perform common operations with clear contract against most popular object storages.
+* High focus on efficiency and reliability required for distributed databases on object storages.
+* Optional built-in YAML based configuration definition for consistent configuration.
+* Optional Prometheus metric instrumentation for bucket operations.
 
-### Configuring Access to Object Storage
+> This moduile is battle-tested and used on high scale production by projects like Thanos, Loki, Cortex, Mimir, Tempo, Parca and more.
 
-Thanos supports any object stores that can be implemented against Thanos [objstore.Bucket interface](../pkg/objstore/objstore.go).
+## Contributing
 
-All clients can be configured using `--objstore.config-file` to reference to the configuration file or `--objstore.config` to put yaml config directly.
+Contributions are very welcome! See our [CONTRIBUTING.md](https://github.com/thanos-io/thanos/blob/main/CONTRIBUTING.md) for more information.
 
-#### How to use our special `config` flags?
+## Community
 
-**You can either pass YAML file defined below in `--objstore.config-file` or pass the YAML content directly using `--objstore.config`** We recommend the latter as it gives an explicit static view of configuration for each component. It also saves you the fuss of creating and managing additional file.
+Thanos is an open source project and we value and welcome new contributors and members of the community. Here are ways to get in touch with the community:
 
-Don't be afraid of multiline flags!
+* Slack: [#thanos](https://slack.cncf.io/)
+* Issue Tracker: [GitHub Issues](https://github.com/thanos-io/thanos/issues)
 
-In Kubernetes it is as easy as (on Thanos sidecar example):
+## Adopters
 
-```yaml
-      - args:
-        - sidecar
-        - |
-          --objstore.config=type: GCS
-          config:
-            bucket: <bucket>
-        - --prometheus.url=http://localhost:9090
-        - |
-          --tracing.config=type: STACKDRIVER
-          config:
-            service_name: ""
-            project_id: <project>
-            sample_factor: 16
-        - --tsdb.path=/prometheus-data
+See [`Adopters List`](https://github.com/thanos-io/thanos/blob/main/website/data/adopters.yml.
+
+## Background
+
+This library was initially developed as a Thanos [`objstore` package](https://github.com/thanos-io/thanos/tree/79ab7c65cb4b66b9dcc4fa537cb43b00cc65066c/pkg/objstore). Thanos uses object storage as primary storage for metrics and metadata related to them. This package ended up being used by other projects like Cortex, Loki, Mimir, Tempo, Parca and more.
+
+Given reusability, Thanos community promoted this package to standalone Go module with smaller amount of dependencies.
+
+## Maintainers
+
+See [MAINTAINERS.md](https://github.com/thanos-io/thanos/blob/main/MAINTAINERS.md)
+
+### How to use `objstore`
+
+The core this module is the [`Bucket` interface](objstore.go):
+
+```go mdox-exec="sed -n '37,50p' objstore.go"
+type Bucket interface {
+	io.Closer
+	BucketReader
+
+	// Upload the contents of the reader as an object into the bucket.
+	// Upload should be idempotent.
+	Upload(ctx context.Context, name string, r io.Reader) error
+
+	// Delete removes the object with the given name.
+	// If object does not exists in the moment of deletion, Delete should throw error.
+	Delete(ctx context.Context, name string) error
+
+	// Name returns the bucket name for the provider.
+	Name() string
 ```
 
-#### Supported Clients
+All [provider implementations](providers) have to implement `Bucket` interface that allows common read and write operations that all supported by all object providers. If you want to limit the code that will do bucket operation to only read access (smart idea, allowing to limit access permissions), you can use the [`BucketReader` interface](objstore.go):
+
+```go mdox-exec="sed -n '68,88p' objstore.go"
+type BucketReader interface {
+	// Iter calls f for each entry in the given directory (not recursive.). The argument to f is the full
+	// object name including the prefix of the inspected directory.
+	// Entries are passed to function in sorted order.
+	Iter(ctx context.Context, dir string, f func(string) error, options ...IterOption) error
+
+	// Get returns a reader for the given object name.
+	Get(ctx context.Context, name string) (io.ReadCloser, error)
+
+	// GetRange returns a new range reader for the given object name and range.
+	GetRange(ctx context.Context, name string, off, length int64) (io.ReadCloser, error)
+
+	// Exists checks if the given object exists in the bucket.
+	Exists(ctx context.Context, name string) (bool, error)
+
+	// IsObjNotFoundErr returns true if error means that object is not found. Relevant to Get operations.
+	IsObjNotFoundErr(err error) bool
+
+	// Attributes returns information about the specified object.
+	Attributes(ctx context.Context, name string) (ObjectAttributes, error)
+}
+```
+
+Those interfaces represent the object storage operations your code can use from `objstore` clients.
+
+#### Factory
+
+Generally, you have two ways of using `objstore` module:
+
+First is to import the provider you want e.g. [`github.com/thanos-io/objstore/providers/s3`](providers/s3) and instantiate it with available constructor (e.g. `NewBucket`).
+
+The second option is to use the factory `NewBucket(logger log.Logger, confContentYaml []byte, reg prometheus.Registerer, component string)` that will instantiate the object storage client based on YAML file provided. The YAML file has generally the format like this:
+
+```yaml
+type: <PROVIDER_TYPE>
+config:
+  <PROVIDER_TYPE specific options>
+```
+
+The exact option depends on provider and are in sections below.
+
+> NOTE: All code snippets are auto-generated from code and up-to-date.
+
+Check out the [Thanos documentation](https://thanos.io/tip/thanos/storage.md/) to see how Thanos uses this module.
+
+#### Supported Providers (Clients)
 
 Current object storage client implementations:
 
@@ -58,6 +125,7 @@ Current object storage client implementations:
 | [OpenStack Swift](#openstack-swift)                                                    | Beta (working PoC) | Production Usage      | yes               | @FUSAKLA                |
 | [Tencent COS](#tencent-cos)                                                            | Beta               | Production Usage      | no                | @jojohappy,@hanjm       |
 | [AliYun OSS](#aliyun-oss)                                                              | Beta               | Production Usage      | no                | @shaulboozhiao,@wujinhu |
+| [Baidu BOS](#baidu-bos)                                                                | Beta               | Production Usage      | no                | ??                      |
 | [Local Filesystem](#filesystem)                                                        | Stable             | Testing and Demo only | yes               | @bwplotka               |
 
 **Missing support to some object storage?** Check out [how to add your client section](#how-to-add-a-new-client-to-thanos)
@@ -68,9 +136,9 @@ NOTE: Currently Thanos requires strong consistency (write-read) for object store
 
 Thanos uses the [minio client](https://github.com/minio/minio-go) library to upload Prometheus data into AWS S3.
 
-You can configure an S3 bucket as an object store with YAML, either by passing the configuration directly to the `--objstore.config` parameter, or (preferably) by passing the path to a configuration file to the `--objstore.config-file` option.
+> NOTE: S3 client was designed for AWS S3, but it can be configured against other S3-compatible object storages e.g Ceph
 
-NOTE: Minio client was mainly for AWS S3, but it can be configured against other S3-compatible object storages e.g Ceph
+The S# object storage yaml configuration definition:
 
 ```yaml mdox-exec="go run scripts/cfggen/main.go --name=s3.Config"
 type: S3
@@ -262,7 +330,7 @@ Details about AWS policies: https://docs.aws.amazon.com/AmazonS3/latest/dev/usin
 
 If you want to use IAM credential retrieved from an instance profile, Thanos needs to authenticate through AWS STS. For this purposes you can specify your own STS Endpoint.
 
-By default Thanos will use endpoint: https://sts.amazonaws.com and AWS region coresponding endpoints.
+By default Thanos will use endpoint: https://sts.amazonaws.com and AWS region corresponding endpoints.
 
 ##### GCS
 
@@ -339,8 +407,6 @@ thanos tools bucket ls --objstore.config="${OBJSTORE_CONFIG}"
 ##### Azure
 
 To use Azure Storage as Thanos object store, you need to precreate storage account from Azure portal or using Azure CLI. Follow the instructions from Azure Storage Documentation: [https://docs.microsoft.com/en-us/azure/storage/common/storage-quickstart-create-account](https://docs.microsoft.com/en-us/azure/storage/common/storage-quickstart-create-account?tabs=portal)
-
-To configure Azure Storage account as an object store you need to provide a path to Azure storage config file in flag `--objstore.config-file`.
 
 Config file format is the following:
 
@@ -459,13 +525,11 @@ The `secret_key` and `secret_id` field is required. The `http_config` field is o
 1. Provide the values of `bucket`, `region` and `app_id` keys.
 2. Provide the values of `endpoint` key with url format when you want to specify vpc internal endpoint. Please refer to the document of [endpoint](https://intl.cloud.tencent.com/document/product/436/6224) for more detail.
 
-Set the flags `--objstore.config-file` to reference to the configuration file.
-
 ##### AliYun OSS
 
 In order to use AliYun OSS object storage, you should first create a bucket with proper Storage Class , ACLs and get the access key on the AliYun cloud. Go to [https://www.alibabacloud.com/product/oss](https://www.alibabacloud.com/product/oss) for more detail.
 
-To use AliYun OSS object storage, please specify following yaml configuration file in `objstore.config*` flag.
+The AliYun OSS object storage yaml configuration definition:
 
 ```yaml mdox-exec="go run scripts/cfggen/main.go --name=oss.Config"
 type: ALIYUNOSS
@@ -477,11 +541,9 @@ config:
 prefix: ""
 ```
 
-Use --objstore.config-file to reference to this configuration file.
-
 ##### Baidu BOS
 
-In order to use Baidu BOS object storage, you should apply for a Baidu Account and create an object storage bucket first. Refer to [Baidu Cloud Documents](https://cloud.baidu.com/doc/BOS/index.html) for more details. To use Baidu BOS object storage, please specify the following yaml configuration file in `--objstore.config*` flag.
+In order to use Baidu BOS object storage, you should apply for a Baidu Account and create an object storage bucket first. Refer to [Baidu Cloud Documents](https://cloud.baidu.com/doc/BOS/index.html) for more details. The Baidu BOS object storage yaml configuration definition:
 
 ```yaml mdox-exec="go run scripts/cfggen/main.go --name=bos.Config"
 type: BOS
@@ -499,6 +561,8 @@ This storage type is used when user wants to store and access the bucket in the 
 
 NOTE: This storage type is experimental and might be inefficient. It is NOT advised to use it as the main storage for metrics in production environment. Particularly there is no planned support for distributed filesystems like NFS. This is mainly useful for testing and demos.
 
+Filesystem "object storage" yaml configuration definition:
+
 ```yaml mdox-exec="go run scripts/cfggen/main.go --name=filesystem.Config"
 type: FILESYSTEM
 config:
@@ -510,32 +574,12 @@ prefix: ""
 
 Following checklist allows adding new Go code client to supported providers:
 
-1. Create new directory under `pkg/objstore/<provider>`
+1. Create new directory under `./providers/<provider>`
 2. Implement [objstore.Bucket interface](objstore.go)
 3. Add `NewTestBucket` constructor for testing purposes, that creates and deletes temporary bucket.
 4. Use created `NewTestBucket` in [ForeachStore method](objtesting/foreach.go) to ensure we can run tests against new provider. (In PR)
 5. RUN the [TestObjStoreAcceptanceTest](objtesting/acceptance_e2e_test.go) against your provider to ensure it fits. Fix any found error until test passes. (In PR)
 6. Add client implementation to the factory in [factory](client/factory.go) code. (Using as small amount of flags as possible in every command)
-
-[//]: # (7. Add client struct config to [bucketcfggen]&#40;scripts/cfggen/main.go&#41; to allow config auto generation.)
+7. Add client struct config to [cfggen](scripts/cfggen/main.go); to allow config auto generation.
 
 At that point, anyone can use your provider by spec.
-
-## Contributing
-
-Contributions are very welcome! See our [CONTRIBUTING.md](https://github.com/thanos-io/thanos/blob/main/CONTRIBUTING.md) for more information.
-
-## Community
-
-Thanos is an open source project and we value and welcome new contributors and members of the community. Here are ways to get in touch with the community:
-
-* Slack: [#thanos](https://slack.cncf.io/)
-* Issue Tracker: [GitHub Issues](https://github.com/thanos-io/thanos/issues)
-
-## Adopters
-
-See [`Adopters List`](https://github.com/thanos-io/thanos/blob/main/website/data/adopters.yml.
-
-## Maintainers
-
-See [MAINTAINERS.md](https://github.com/thanos-io/thanos/blob/main/MAINTAINERS.md)

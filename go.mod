@@ -14,6 +14,7 @@ require (
 	github.com/baidubce/bce-sdk-go v0.9.111
 	github.com/efficientgo/e2e v0.12.1
 	github.com/efficientgo/tools/core v0.0.0-20220225185207-fe763185946b
+	github.com/fatih/structtag v1.2.0
 	github.com/go-kit/log v0.2.1
 	github.com/minio/minio-go/v7 v7.0.23
 	github.com/ncw/swift v1.0.53
@@ -26,6 +27,7 @@ require (
 	go.uber.org/atomic v1.9.0
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5
 	google.golang.org/api v0.80.0
+	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	gopkg.in/yaml.v2 v2.4.0
 )
 
@@ -39,6 +41,8 @@ require (
 	github.com/Azure/go-autorest/autorest/date v0.3.0 // indirect
 	github.com/Azure/go-autorest/logger v0.2.1 // indirect
 	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
+	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 // indirect
+	github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.11.0 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.1 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.7 // indirect
