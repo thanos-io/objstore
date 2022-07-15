@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/efficientgo/tools/core/pkg/testutil"
+
 	"github.com/thanos-io/objstore"
 	"github.com/thanos-io/objstore/client"
 	"github.com/thanos-io/objstore/providers/azure"

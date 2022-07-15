@@ -17,6 +17,7 @@ import (
 	"github.com/Azure/go-autorest/autorest/azure/auth"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
+
 	"github.com/thanos-io/objstore/exthttp"
 )
 

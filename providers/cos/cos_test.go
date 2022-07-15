@@ -9,6 +9,7 @@ import (
 
 	"github.com/efficientgo/tools/core/pkg/testutil"
 	"github.com/prometheus/common/model"
+
 	"github.com/thanos-io/objstore/exthttp"
 )
 

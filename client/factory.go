@@ -12,6 +12,9 @@ import (
 	"github.com/go-kit/log/level"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"gopkg.in/yaml.v2"
+
+	"github.com/thanos-io/objstore"
 	"github.com/thanos-io/objstore/providers/azure"
 	"github.com/thanos-io/objstore/providers/bos"
 	"github.com/thanos-io/objstore/providers/cos"
@@ -20,9 +23,6 @@ import (
 	"github.com/thanos-io/objstore/providers/oss"
 	"github.com/thanos-io/objstore/providers/s3"
 	"github.com/thanos-io/objstore/providers/swift"
-	yaml "gopkg.in/yaml.v2"
-
-	"github.com/thanos-io/objstore"
 )
 
 type ObjProvider string
