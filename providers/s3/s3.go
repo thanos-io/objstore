@@ -26,9 +26,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/common/version"
+	"gopkg.in/yaml.v2"
+
 	"github.com/thanos-io/objstore"
 	"github.com/thanos-io/objstore/exthttp"
-	"gopkg.in/yaml.v2"
 )
 
 type ctxKey int
@@ -111,6 +112,11 @@ var DefaultConfig = Config{
 	PartSize:         1024 * 1024 * 64, // 64MB.
 	BucketLookupType: AutoLookup,
 }
+
+// HTTPConfig exists here only because Cortex depends on it, and we depend on Cortex.
+// Deprecated.
+// TODO(bwplotka): Remove it, once we remove Cortex cycle dep, or Cortex stops using this.
+type HTTPConfig = exthttp.HTTPConfig
 
 // Config stores the configuration for s3 bucket.
 type Config struct {
@@ -480,6 +486,10 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) error {
 			PartSize:             partSize,
 			ServerSideEncryption: sse,
 			UserMetadata:         b.putUserMetadata,
+			// 4 is what minio-go have as the default. To be certain we do micro benchmark before any changes we
+			// ensure we pin this number to four.
+			// TODO(bwplotka): Consider adjusting this number to GOMAXPROCS or to expose this in config if it becomes bottleneck.
+			NumThreads: 4,
 		},
 	); err != nil {
 		return errors.Wrap(err, "upload s3 object")

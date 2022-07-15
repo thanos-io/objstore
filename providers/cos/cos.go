@@ -21,9 +21,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
 	"github.com/tencentyun/cos-go-sdk-v5"
-	"github.com/thanos-io/objstore"
-	"github.com/thanos-io/objstore/exthttp"
 	"gopkg.in/yaml.v2"
+
+	"github.com/thanos-io/objstore"
+	"github.com/thanos-io/objstore/clientutil"
+	"github.com/thanos-io/objstore/exthttp"
 )
 
 // DirDelim is the delimiter used to model a directory structure in an object store bucket.
@@ -155,14 +157,14 @@ func (b *Bucket) Attributes(ctx context.Context, name string) (objstore.ObjectAt
 		return objstore.ObjectAttributes{}, err
 	}
 
-	size, err := exthttp.ParseContentLength(resp.Header)
+	size, err := clientutil.ParseContentLength(resp.Header)
 	if err != nil {
 		return objstore.ObjectAttributes{}, err
 	}
 
 	// tencent cos return Last-Modified header in RFC1123 format.
 	// see api doc for details: https://intl.cloud.tencent.com/document/product/436/7729
-	mod, err := exthttp.ParseLastModified(resp.Header, time.RFC1123)
+	mod, err := clientutil.ParseLastModified(resp.Header, time.RFC1123)
 	if err != nil {
 		return objstore.ObjectAttributes{}, err
 	}

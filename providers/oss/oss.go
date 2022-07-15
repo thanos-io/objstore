@@ -20,8 +20,9 @@ import (
 	alioss "github.com/aliyun/aliyun-oss-go-sdk/oss"
 	"github.com/go-kit/log"
 	"github.com/pkg/errors"
-	"github.com/thanos-io/objstore/exthttp"
 	"gopkg.in/yaml.v2"
+
+	"github.com/thanos-io/objstore/clientutil"
 
 	"github.com/thanos-io/objstore"
 )
@@ -139,14 +140,14 @@ func (b *Bucket) Attributes(ctx context.Context, name string) (objstore.ObjectAt
 		return objstore.ObjectAttributes{}, err
 	}
 
-	size, err := exthttp.ParseContentLength(m)
+	size, err := clientutil.ParseContentLength(m)
 	if err != nil {
 		return objstore.ObjectAttributes{}, err
 	}
 
 	// aliyun oss return Last-Modified header in RFC1123 format.
 	// see api doc for details: https://www.alibabacloud.com/help/doc-detail/31985.htm
-	mod, err := exthttp.ParseLastModified(m, time.RFC1123)
+	mod, err := clientutil.ParseLastModified(m, time.RFC1123)
 	if err != nil {
 		return objstore.ObjectAttributes{}, err
 	}

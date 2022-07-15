@@ -17,6 +17,7 @@ import (
 	"github.com/efficientgo/tools/core/pkg/testutil"
 	"github.com/go-kit/log"
 	"github.com/minio/minio-go/v7/pkg/encrypt"
+
 	"github.com/thanos-io/objstore/exthttp"
 )
 

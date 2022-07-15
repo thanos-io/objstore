@@ -27,7 +27,7 @@ func TestBucket_Get_ShouldReturnErrorIfServerTruncateResponse(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	testutil.Ok(t, os.Setenv("STORAGE_EMULATOR_HOST", srv.Listener.Addr().String()))
+	os.Setenv("STORAGE_EMULATOR_HOST", srv.Listener.Addr().String())
 
 	cfg := Config{
 		Bucket:         "test-bucket",

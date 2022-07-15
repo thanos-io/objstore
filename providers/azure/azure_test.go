@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/efficientgo/tools/core/pkg/testutil"
+
 	"github.com/thanos-io/objstore/exthttp"
 )
 

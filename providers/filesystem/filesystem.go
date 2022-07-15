@@ -13,8 +13,9 @@ import (
 
 	"github.com/efficientgo/tools/core/pkg/errcapture"
 	"github.com/pkg/errors"
-	"github.com/thanos-io/objstore"
 	"gopkg.in/yaml.v2"
+
+	"github.com/thanos-io/objstore"
 )
 
 // Config stores the configuration for storing and accessing blobs in filesystem.

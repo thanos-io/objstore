@@ -26,6 +26,7 @@ require (
 	github.com/tencentyun/cos-go-sdk-v5 v0.7.34
 	go.uber.org/atomic v1.9.0
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5
+	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
 	google.golang.org/api v0.80.0
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	gopkg.in/yaml.v2 v2.4.0
