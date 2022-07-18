@@ -19,6 +19,7 @@ require (
 	github.com/minio/minio-go/v7 v7.0.23
 	github.com/ncw/swift v1.0.53
 	github.com/opentracing/opentracing-go v1.2.0
+	github.com/oracle/oci-go-sdk/v65 v65.13.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.12.2
 	github.com/prometheus/common v0.35.0
@@ -61,6 +62,7 @@ require (
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/go-logfmt/logfmt v0.5.1 // indirect
+	github.com/gofrs/flock v0.8.1 // indirect
 	github.com/golang-jwt/jwt/v4 v4.2.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
@@ -88,6 +90,7 @@ require (
 	github.com/satori/go.uuid v1.2.0 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/smartystreets/assertions v1.2.1 // indirect
+	github.com/sony/gobreaker v0.5.0 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	go.uber.org/goleak v1.1.12 // indirect
 	golang.org/x/crypto v0.0.0-20220214200702-86341886e292 // indirect

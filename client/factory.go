@@ -20,6 +20,7 @@ import (
 	"github.com/thanos-io/objstore/providers/cos"
 	"github.com/thanos-io/objstore/providers/filesystem"
 	"github.com/thanos-io/objstore/providers/gcs"
+	"github.com/thanos-io/objstore/providers/oci"
 	"github.com/thanos-io/objstore/providers/oss"
 	"github.com/thanos-io/objstore/providers/s3"
 	"github.com/thanos-io/objstore/providers/swift"
@@ -36,6 +37,7 @@ const (
 	COS        ObjProvider = "COS"
 	ALIYUNOSS  ObjProvider = "ALIYUNOSS"
 	BOS        ObjProvider = "BOS"
+	OCI        ObjProvider = "OCI"
 )
 
 type BucketConfig struct {
@@ -76,6 +78,8 @@ func NewBucket(logger log.Logger, confContentYaml []byte, reg prometheus.Registe
 		bucket, err = filesystem.NewBucketFromConfig(config)
 	case string(BOS):
 		bucket, err = bos.NewBucket(logger, config, component)
+	case string(OCI):
+		bucket, err = oci.NewBucket(logger, config)
 	default:
 		return nil, errors.Errorf("bucket with type %s is not supported", bucketConf.Type)
 	}

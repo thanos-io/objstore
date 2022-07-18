@@ -11,6 +11,8 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/thanos-io/objstore/providers/oci"
+
 	"github.com/fatih/structtag"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -41,6 +43,7 @@ var (
 		client.ALIYUNOSS:  oss.Config{},
 		client.FILESYSTEM: filesystem.Config{},
 		client.BOS:        bos.Config{},
+		client.OCI:        oci.Config{},
 	}
 )
 
