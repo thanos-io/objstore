@@ -13,7 +13,7 @@ We use *breaking :warning:* to mark changes that are not backward compatible (re
 ### Fixed
 
 ### Added
-- [#17](https://github.com/thanos-io/objstore/pull/17) Add Storj DCS Object Storage Bucket support.
+- [#18](https://github.com/thanos-io/objstore/pull/18) Add Storj DCS Object Storage Bucket support.
 - [#15](https://github.com/thanos-io/objstore/pull/15) Add Oracle Cloud Infrastructure Object Storage Bucket support.
 
 ### Changed
