@@ -9,8 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/thanos-io/objstore/providers/oci"
-
 	"github.com/efficientgo/tools/core/pkg/testutil"
 
 	"github.com/thanos-io/objstore"
@@ -20,6 +18,7 @@ import (
 	"github.com/thanos-io/objstore/providers/cos"
 	"github.com/thanos-io/objstore/providers/filesystem"
 	"github.com/thanos-io/objstore/providers/gcs"
+	"github.com/thanos-io/objstore/providers/oci"
 	"github.com/thanos-io/objstore/providers/oss"
 	"github.com/thanos-io/objstore/providers/s3"
 	"github.com/thanos-io/objstore/providers/swift"
