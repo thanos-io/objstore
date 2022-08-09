@@ -5,13 +5,13 @@ package storj
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"strings"
 
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
+	"github.com/pkg/errors"
 	"github.com/thanos-io/objstore"
 	"gopkg.in/yaml.v2"
 	"storj.io/common/fpath"
