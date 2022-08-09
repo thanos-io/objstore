@@ -49,19 +49,6 @@ pipeline_config:
 		wantFailValidate: true,
 	},
 	{
-		name: "Missing storage account key",
-		config: []byte(`storage_account: "asdfasdf"
-storage_account_key: ""
-container: "MyContainer"
-endpoint: "blob.core.windows.net"
-reader_config:
-  "max_retry_requests": 100
-pipeline_config:
-  "try_timeout": 0`),
-		wantFailParse:    false,
-		wantFailValidate: true,
-	},
-	{
 		name: "Negative max_tries",
 		config: []byte(`storage_account: "asdfasdf"
 storage_account_key: "asdfsdf"
@@ -115,24 +102,9 @@ pipeline_config:
 		wantFailValidate: false,
 	},
 	{
-		name: "msi resource used with storage accounts",
-		config: []byte(`storage_account: "asdfasdf"
-storage_account_key: "asdfsdf"
-msi_resource: "https://example.blob.core.windows.net"
-container: "MyContainer"
-endpoint: "not.valid"
-reader_config:
-  "max_retry_requests": 100
-pipeline_config:
-  "try_timeout": "10s"`),
-		wantFailParse:    false,
-		wantFailValidate: true,
-	},
-	{
 		name: "Valid MSI Resource",
 		config: []byte(`storage_account: "myAccount"
 storage_account_key: ""
-msi_resource: "https://example.blob.core.windows.net"
 container: "MyContainer"
 endpoint: "not.valid"
 reader_config:
@@ -156,7 +128,6 @@ container: "MyContainer"`),
 		config: []byte(`storage_account: "myAccount"
 storage_account_key: ""
 user_assigned_id: "1234-56578678-655"
-msi_resource: "https://example.blob.core.windows.net"
 container: "MyContainer"`),
 		wantFailParse:    false,
 		wantFailValidate: false,
