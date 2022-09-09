@@ -419,3 +419,32 @@ func TestBucket_Get_ShouldReturnErrorIfServerTruncateResponse(t *testing.T) {
 	_, err = ioutil.ReadAll(reader)
 	testutil.Equals(t, io.ErrUnexpectedEOF, err)
 }
+
+func TestParseConfig_CustomStorageClass(t *testing.T) {
+	for _, testCase := range []struct{
+		name, storageClassKey string
+	}{
+		{ name: "ProperCase", storageClassKey: "X-Amz-Storage-Class" },
+		{ name: "UpperCase",  storageClassKey: "X-AMZ-STORAGE-CLASS" },
+		{ name: "LowerCase",  storageClassKey: "x-amz-storage-class" },
+		{ name: "MixedCase",  storageClassKey: "X-Amz-sToraGe-Class" },
+	}{
+		t.Run(testCase.name, func(t *testing.T) {
+			cfg := DefaultConfig
+			cfg.Endpoint = endpoint
+			storageClass := "STANDARD_IA"
+			cfg.PutUserMetadata[testCase.storageClassKey] = storageClass
+			bkt, err := NewBucketWithConfig(log.NewNopLogger(), cfg, "test")
+			testutil.Ok(t, err)
+			testutil.Equals(t, storageClass, bkt.storageClass)
+		})
+	}
+}
+
+func TestParseConfig_DefaultStorageClassIsZero(t *testing.T) {
+	cfg := DefaultConfig
+	cfg.Endpoint = endpoint
+	bkt, err := NewBucketWithConfig(log.NewNopLogger(), cfg, "test")
+	testutil.Ok(t, err)
+	testutil.Equals(t, "", bkt.storageClass)
+}
