@@ -8,8 +8,9 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.16.0
 	github.com/aws/aws-sdk-go-v2/config v1.15.1
 	github.com/baidubce/bce-sdk-go v0.9.111
-	github.com/efficientgo/e2e v0.12.1
-	github.com/efficientgo/tools/core v0.0.0-20220225185207-fe763185946b
+	github.com/efficientgo/core v1.0.0-rc.0
+	github.com/efficientgo/e2e v0.13.1-0.20220922081603-45de9fc588a8
+	github.com/efficientgo/tools/core v0.0.0-20220817170617-6c25e3b627dd
 	github.com/fatih/structtag v1.2.0
 	github.com/go-kit/log v0.2.1
 	github.com/minio/minio-go/v7 v7.0.23
@@ -18,8 +19,7 @@ require (
 	github.com/oracle/oci-go-sdk/v65 v65.13.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.12.2
-	github.com/prometheus/common v0.35.0
-	github.com/prometheus/prometheus v0.36.2
+	github.com/prometheus/common v0.36.0
 	github.com/tencentyun/cos-go-sdk-v5 v0.7.34
 	go.uber.org/atomic v1.9.0
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5
@@ -60,6 +60,7 @@ require (
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/uuid v1.2.0 // indirect
 	github.com/googleapis/gax-go/v2 v2.3.0 // indirect
+	github.com/jpillora/backoff v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/jtolds/gls v4.20.0+incompatible // indirect
 	github.com/klauspost/compress v1.13.6 // indirect
@@ -73,6 +74,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/mozillazg/go-httpheader v0.2.1 // indirect
+	github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f // indirect
 	github.com/pkg/browser v0.0.0-20210115035449-ce105d075bb4 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
@@ -80,18 +82,22 @@ require (
 	github.com/rs/xid v1.2.1 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/sony/gobreaker v0.5.0 // indirect
+	github.com/stretchr/objx v0.2.0 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	go.uber.org/goleak v1.1.12 // indirect
 	golang.org/x/net v0.0.0-20220520000938-2e3eb7b945c2 // indirect
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20220224211638-0e9765cccd65 // indirect
+	golang.org/x/tools v0.1.10 // indirect
 	golang.org/x/xerrors v0.0.0-20220411194840-2f41105eb62f // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20220524023933-508584e28198 // indirect
 	google.golang.org/grpc v1.46.2 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
+	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/ini.v1 v1.62.0 // indirect
+	gopkg.in/yaml.v3 v3.0.0 // indirect
 )
 
 require (
