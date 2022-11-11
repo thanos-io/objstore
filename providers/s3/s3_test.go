@@ -8,7 +8,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -416,19 +415,19 @@ func TestBucket_Get_ShouldReturnErrorIfServerTruncateResponse(t *testing.T) {
 	testutil.Ok(t, err)
 
 	// We expect an error when reading back.
-	_, err = ioutil.ReadAll(reader)
+	_, err = io.ReadAll(reader)
 	testutil.Equals(t, io.ErrUnexpectedEOF, err)
 }
 
 func TestParseConfig_CustomStorageClass(t *testing.T) {
-	for _, testCase := range []struct{
+	for _, testCase := range []struct {
 		name, storageClassKey string
 	}{
-		{ name: "ProperCase", storageClassKey: "X-Amz-Storage-Class" },
-		{ name: "UpperCase",  storageClassKey: "X-AMZ-STORAGE-CLASS" },
-		{ name: "LowerCase",  storageClassKey: "x-amz-storage-class" },
-		{ name: "MixedCase",  storageClassKey: "X-Amz-sToraGe-Class" },
-	}{
+		{name: "ProperCase", storageClassKey: "X-Amz-Storage-Class"},
+		{name: "UpperCase", storageClassKey: "X-AMZ-STORAGE-CLASS"},
+		{name: "LowerCase", storageClassKey: "x-amz-storage-class"},
+		{name: "MixedCase", storageClassKey: "X-Amz-sToraGe-Class"},
+	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			cfg := DefaultConfig
 			cfg.Endpoint = endpoint

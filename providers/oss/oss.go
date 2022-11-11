@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math"
 	"math/rand"
 	"net/http"
@@ -78,7 +77,7 @@ func (b *Bucket) Upload(_ context.Context, name string, r io.Reader) error {
 
 	chunksnum, lastslice := int(math.Floor(float64(size)/PartSize)), size%PartSize
 
-	ncloser := ioutil.NopCloser(r)
+	ncloser := io.NopCloser(r)
 	switch chunksnum {
 	case 0:
 		if err := b.bucket.PutObject(name, ncloser); err != nil {
