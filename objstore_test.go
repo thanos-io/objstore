@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -116,7 +115,7 @@ func TestDownloadUploadDirConcurrency(t *testing.T) {
 		`), `thanos_objstore_bucket_operations_total`))
 
 	testutil.Ok(t, DownloadDir(context.Background(), log.NewNopLogger(), m, "dir/", "dir/", tempDir, WithFetchConcurrency(10)))
-	i, err := ioutil.ReadDir(tempDir)
+	i, err := os.ReadDir(tempDir)
 	testutil.Ok(t, err)
 	testutil.Assert(t, len(i) == 3)
 	testutil.Ok(t, promtest.GatherAndCompare(r, strings.NewReader(`

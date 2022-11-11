@@ -4,7 +4,6 @@
 package objtesting
 
 import (
-	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -58,7 +57,7 @@ func ForeachStore(t *testing.T, testFn func(t *testing.T, bkt objstore.Bucket)) 
 	t.Run("filesystem", func(t *testing.T) {
 		t.Parallel()
 
-		dir, err := ioutil.TempDir("", "filesystem-foreach-store-test")
+		dir, err := os.MkdirTemp("", "filesystem-foreach-store-test")
 		testutil.Ok(t, err)
 		defer testutil.Ok(t, os.RemoveAll(dir))
 
