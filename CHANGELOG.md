@@ -19,5 +19,6 @@ We use *breaking :warning:* to mark changes that are not backward compatible (re
 - [#25](https://github.com/thanos-io/objstore/pull/25) S3: Support specifying S3 storage class.
 
 ### Changed
+- [#38](https://github.com/thanos-io/objstore/pull/38) *: Upgrade minio-go version to `v7.0.45`.
 
 ### Removed
