@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efficientgo/tools/core/pkg/testutil"
+	"github.com/efficientgo/core/testutil"
 
 	"github.com/thanos-io/objstore"
 	"github.com/thanos-io/objstore/client"

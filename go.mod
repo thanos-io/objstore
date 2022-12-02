@@ -8,9 +8,8 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.16.0
 	github.com/aws/aws-sdk-go-v2/config v1.15.1
 	github.com/baidubce/bce-sdk-go v0.9.111
-	github.com/efficientgo/core v1.0.0-rc.0
+	github.com/efficientgo/core v1.0.0-rc.0.0.20221201130417-ba593f67d2a4
 	github.com/efficientgo/e2e v0.13.1-0.20220922081603-45de9fc588a8
-	github.com/efficientgo/tools/core v0.0.0-20220817170617-6c25e3b627dd
 	github.com/fatih/structtag v1.2.0
 	github.com/go-kit/log v0.2.1
 	github.com/minio/minio-go/v7 v7.0.23
@@ -76,7 +75,6 @@ require (
 	github.com/mozillazg/go-httpheader v0.2.1 // indirect
 	github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f // indirect
 	github.com/pkg/browser v0.0.0-20210115035449-ce105d075bb4 // indirect
-	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/rs/xid v1.2.1 // indirect
@@ -84,12 +82,10 @@ require (
 	github.com/sony/gobreaker v0.5.0 // indirect
 	github.com/stretchr/objx v0.2.0 // indirect
 	go.opencensus.io v0.23.0 // indirect
-	go.uber.org/goleak v1.1.12 // indirect
 	golang.org/x/net v0.0.0-20220520000938-2e3eb7b945c2 // indirect
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20220224211638-0e9765cccd65 // indirect
-	golang.org/x/tools v0.1.10 // indirect
 	golang.org/x/xerrors v0.0.0-20220411194840-2f41105eb62f // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20220524023933-508584e28198 // indirect

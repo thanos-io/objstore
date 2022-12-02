@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/efficientgo/tools/core/pkg/errcapture"
+	"github.com/efficientgo/core/errcapture"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/ncw/swift"
