@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efficientgo/tools/core/pkg/testutil"
+	"github.com/efficientgo/core/testutil"
 )
 
 func TestPrefixedBucket_Acceptance(t *testing.T) {
