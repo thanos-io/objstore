@@ -8,12 +8,11 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.16.0
 	github.com/aws/aws-sdk-go-v2/config v1.15.1
 	github.com/baidubce/bce-sdk-go v0.9.111
-	github.com/efficientgo/core v1.0.0-rc.0
+	github.com/efficientgo/core v1.0.0-rc.0.0.20221201130417-ba593f67d2a4
 	github.com/efficientgo/e2e v0.13.1-0.20220922081603-45de9fc588a8
-	github.com/efficientgo/tools/core v0.0.0-20220817170617-6c25e3b627dd
 	github.com/fatih/structtag v1.2.0
 	github.com/go-kit/log v0.2.1
-	github.com/minio/minio-go/v7 v7.0.23
+	github.com/minio/minio-go/v7 v7.0.45
 	github.com/ncw/swift v1.0.53
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/oracle/oci-go-sdk/v65 v65.13.0
@@ -58,45 +57,40 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
-	github.com/google/uuid v1.2.0 // indirect
+	github.com/google/uuid v1.3.0 // indirect
 	github.com/googleapis/gax-go/v2 v2.3.0 // indirect
 	github.com/jpillora/backoff v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/jtolds/gls v4.20.0+incompatible // indirect
-	github.com/klauspost/compress v1.13.6 // indirect
-	github.com/klauspost/cpuid v1.3.1 // indirect
+	github.com/klauspost/compress v1.15.9 // indirect
+	github.com/klauspost/cpuid/v2 v2.1.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
-	github.com/minio/md5-simd v1.1.0 // indirect
-	github.com/minio/sha256-simd v0.1.1 // indirect
-	github.com/mitchellh/go-homedir v1.1.0 // indirect
+	github.com/minio/md5-simd v1.1.2 // indirect
+	github.com/minio/sha256-simd v1.0.0 // indirect
 	github.com/mitchellh/mapstructure v1.4.3 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/mozillazg/go-httpheader v0.2.1 // indirect
 	github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f // indirect
 	github.com/pkg/browser v0.0.0-20210115035449-ce105d075bb4 // indirect
-	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
-	github.com/rs/xid v1.2.1 // indirect
-	github.com/sirupsen/logrus v1.8.1 // indirect
+	github.com/rs/xid v1.4.0 // indirect
+	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/sony/gobreaker v0.5.0 // indirect
 	github.com/stretchr/objx v0.2.0 // indirect
 	go.opencensus.io v0.23.0 // indirect
-	go.uber.org/goleak v1.1.12 // indirect
-	golang.org/x/net v0.0.0-20220520000938-2e3eb7b945c2 // indirect
-	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
+	golang.org/x/net v0.0.0-20220722155237-a158d28d115b // indirect
+	golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20220224211638-0e9765cccd65 // indirect
-	golang.org/x/tools v0.1.10 // indirect
 	golang.org/x/xerrors v0.0.0-20220411194840-2f41105eb62f // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20220524023933-508584e28198 // indirect
 	google.golang.org/grpc v1.46.2 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
-	gopkg.in/ini.v1 v1.62.0 // indirect
+	gopkg.in/ini.v1 v1.66.6 // indirect
 	gopkg.in/yaml.v3 v3.0.0 // indirect
 )
 
@@ -104,9 +98,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.1.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.1.0
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v0.4.1
-	github.com/gopherjs/gopherjs v0.0.0-20220221023154-0b2280d3ff96 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/satori/go.uuid v1.2.1-0.20181028125025-b2ce2384e17b // indirect
-	github.com/smartystreets/assertions v1.2.1 // indirect
-	golang.org/x/crypto v0.0.0-20220511200225-c6db032c6c88 // indirect
+	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa // indirect
 )

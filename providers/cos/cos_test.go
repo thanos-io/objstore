@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/efficientgo/tools/core/pkg/testutil"
+	"github.com/efficientgo/core/testutil"
 	"github.com/prometheus/common/model"
 
 	"github.com/thanos-io/objstore/exthttp"

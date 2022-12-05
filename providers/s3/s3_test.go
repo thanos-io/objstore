@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/efficientgo/tools/core/pkg/testutil"
+	"github.com/efficientgo/core/testutil"
 	"github.com/go-kit/log"
 	"github.com/minio/minio-go/v7/pkg/encrypt"
 

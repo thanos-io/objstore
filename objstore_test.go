@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/efficientgo/tools/core/pkg/testutil"
+	"github.com/efficientgo/core/testutil"
 	"github.com/go-kit/log"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"

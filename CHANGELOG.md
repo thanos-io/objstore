@@ -20,5 +20,6 @@ We use *breaking :warning:* to mark changes that are not backward compatible (re
 - [#32](https://github.com/thanos-io/objstore/pull/32) Swift: Support authentication using application credentials.
 
 ### Changed
+- [#38](https://github.com/thanos-io/objstore/pull/38) *: Upgrade minio-go version to `v7.0.45`.
 
 ### Removed
