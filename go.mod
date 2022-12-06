@@ -19,7 +19,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.12.2
 	github.com/prometheus/common v0.36.0
-	github.com/tencentyun/cos-go-sdk-v5 v0.7.34
+	github.com/tencentyun/cos-go-sdk-v5 v0.7.40
 	go.uber.org/atomic v1.9.0
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5
 	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
