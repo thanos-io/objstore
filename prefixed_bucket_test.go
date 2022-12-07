@@ -5,12 +5,12 @@ package objstore
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"sort"
 	"strings"
 	"testing"
 
-	"github.com/efficientgo/tools/core/pkg/testutil"
+	"github.com/efficientgo/core/testutil"
 )
 
 func TestPrefixedBucket_Acceptance(t *testing.T) {
@@ -37,7 +37,7 @@ func UsesPrefixTest(t *testing.T, bkt Bucket, prefix string) {
 
 	testutil.Ok(t, err)
 	defer func() { testutil.Ok(t, rc1.Close()) }()
-	content, err := ioutil.ReadAll(rc1)
+	content, err := io.ReadAll(rc1)
 	testutil.Ok(t, err)
 	testutil.Equals(t, "test-data1", string(content))
 
@@ -45,7 +45,7 @@ func UsesPrefixTest(t *testing.T, bkt Bucket, prefix string) {
 	rc2, err := bkt.Get(context.Background(), strings.Trim(prefix, "/")+"/file2.jpg")
 	testutil.Ok(t, err)
 	defer func() { testutil.Ok(t, rc2.Close()) }()
-	contentUpload, err := ioutil.ReadAll(rc2)
+	contentUpload, err := io.ReadAll(rc2)
 	testutil.Ok(t, err)
 	testutil.Equals(t, "test-data2", string(contentUpload))
 
@@ -57,7 +57,7 @@ func UsesPrefixTest(t *testing.T, bkt Bucket, prefix string) {
 	rc3, err := pBkt.GetRange(context.Background(), "file1.jpg", 1, 3)
 	testutil.Ok(t, err)
 	defer func() { testutil.Ok(t, rc3.Close()) }()
-	content, err = ioutil.ReadAll(rc3)
+	content, err = io.ReadAll(rc3)
 	testutil.Ok(t, err)
 	testutil.Equals(t, "est", string(content))
 
