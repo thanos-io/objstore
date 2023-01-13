@@ -233,6 +233,21 @@ http_config:
 	testutil.Ok(t, validate(cfg2))
 
 	testutil.Equals(t, "bucket-owner-full-control", cfg2.PutUserMetadata["X-Amz-Acl"])
+
+	input3 := []byte(`bucket: "bucket-name"
+endpoint: "s3-endpoint"
+access_key: "access_key"
+insecure: false
+signature_version2: false
+secret_key: "secret_key"
+session_token: "session_token"
+http_config:
+  idle_conn_timeout: 0s`)
+	cfg3, err := parseConfig(input3)
+	testutil.Ok(t, err)
+	testutil.Ok(t, validate(cfg3))
+
+	testutil.Equals(t, "session_token", cfg3.SessionToken)
 }
 
 func TestParseConfig_PartSize(t *testing.T) {
