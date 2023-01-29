@@ -53,10 +53,8 @@ func NewBucket(rootDir string) (*Bucket, error) {
 // Iter calls f for each entry in the given directory. The argument to f is the full
 // object name including the prefix of the inspected directory.
 func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, options ...objstore.IterOption) error {
-	select {
-	case <-ctx.Done():
+	if ctx.Err() != nil {
 		return ctx.Err()
-	default:
 	}
 
 	params := objstore.ApplyIterOptions(options...)
@@ -126,10 +124,8 @@ func (r *rangeReaderCloser) Close() error {
 
 // Attributes returns information about the specified object.
 func (b *Bucket) Attributes(ctx context.Context, name string) (objstore.ObjectAttributes, error) {
-	select {
-	case <-ctx.Done():
+	if ctx.Err() != nil {
 		return objstore.ObjectAttributes{}, ctx.Err()
-	default:
 	}
 
 	file := filepath.Join(b.rootDir, name)
@@ -146,10 +142,8 @@ func (b *Bucket) Attributes(ctx context.Context, name string) (objstore.ObjectAt
 
 // GetRange returns a new range reader for the given object name and range.
 func (b *Bucket) GetRange(ctx context.Context, name string, off, length int64) (io.ReadCloser, error) {
-	select {
-	case <-ctx.Done():
+	if ctx.Err() != nil {
 		return nil, ctx.Err()
-	default:
 	}
 
 	if name == "" {
@@ -182,10 +176,8 @@ func (b *Bucket) GetRange(ctx context.Context, name string, off, length int64) (
 
 // Exists checks if the given directory exists in memory.
 func (b *Bucket) Exists(ctx context.Context, name string) (bool, error) {
-	select {
-	case <-ctx.Done():
+	if ctx.Err() != nil {
 		return false, ctx.Err()
-	default:
 	}
 
 	info, err := os.Stat(filepath.Join(b.rootDir, name))
@@ -200,10 +192,8 @@ func (b *Bucket) Exists(ctx context.Context, name string) (bool, error) {
 
 // Upload writes the file specified in src to into the memory.
 func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) (err error) {
-	select {
-	case <-ctx.Done():
+	if ctx.Err() != nil {
 		return ctx.Err()
-	default:
 	}
 
 	file := filepath.Join(b.rootDir, name)
@@ -242,10 +232,8 @@ func isDirEmpty(name string) (ok bool, err error) {
 
 // Delete removes all data prefixed with the dir.
 func (b *Bucket) Delete(ctx context.Context, name string) error {
-	select {
-	case <-ctx.Done():
+	if ctx.Err() != nil {
 		return ctx.Err()
-	default:
 	}
 
 	file := filepath.Join(b.rootDir, name)
