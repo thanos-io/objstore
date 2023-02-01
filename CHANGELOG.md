@@ -19,6 +19,7 @@ We use *breaking :warning:* to mark changes that are not backward compatible (re
 - [#25](https://github.com/thanos-io/objstore/pull/25) S3: Support specifying S3 storage class.
 - [#32](https://github.com/thanos-io/objstore/pull/32) Swift: Support authentication using application credentials.
 - [#41](https://github.com/thanos-io/objstore/pull/41) S3: Support S3 session token.
+- [#43](https://github.com/thanos-io/objstore/pull/43) filesystem: abort filesystem bucket operations if the context has been cancelled
 
 ### Changed
 - [#38](https://github.com/thanos-io/objstore/pull/38) *: Upgrade minio-go version to `v7.0.45`.
