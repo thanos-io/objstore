@@ -6,6 +6,7 @@ package objstore
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"io"
 	"os"
 	"strings"
@@ -215,4 +216,81 @@ func (b unreliableBucket) Get(ctx context.Context, name string) (io.ReadCloser, 
 		return nil, errors.Errorf("some error message")
 	}
 	return b.Bucket.Get(ctx, name)
+}
+
+func TestEncryptedBucket(t *testing.T) {
+	key := make([]byte, 32)
+	_, err := io.ReadFull(rand.Reader, key)
+	testutil.Ok(t, err)
+
+	name := "dir/obj1"
+	payload := []byte("foo bar baz")
+
+	eb := BucketWithEncryption(NewInMemBucket(), key)
+	testutil.Ok(t, eb.Upload(context.Background(), name, bytes.NewReader(payload)))
+
+	attr, err := eb.Attributes(context.Background(), name)
+	testutil.Ok(t, err)
+	testutil.Equals(t, attr.Size, int64(len(payload)))
+
+	r, err := eb.Get(context.Background(), name)
+	testutil.Ok(t, err)
+
+	content, err := io.ReadAll(r)
+	testutil.Ok(t, err)
+	testutil.Equals(t, string(content), "foo bar baz")
+
+	r, err = eb.GetRange(context.Background(), name, 4, 3)
+	testutil.Ok(t, err)
+
+	content, err = io.ReadAll(r)
+	testutil.Ok(t, err)
+	testutil.Equals(t, string(content), "bar")
+
+	r, err = eb.GetRange(context.Background(), name, 8, 3)
+	testutil.Ok(t, err)
+
+	content, err = io.ReadAll(r)
+	testutil.Ok(t, err)
+	testutil.Equals(t, string(content), "baz")
+
+	_, err = eb.GetRange(context.Background(), "dir/nonexistent", 0, -1)
+	testutil.Equals(t, eb.IsObjNotFoundErr(err), true)
+}
+
+func TestEncryptedBucket_NoKeyReuse(t *testing.T) {
+	key := make([]byte, 32)
+	_, err := io.ReadFull(rand.Reader, key)
+	testutil.Ok(t, err)
+
+	name := "dir/obj1"
+	payload := []byte("foo bar baz")
+
+	b := NewInMemBucket()
+	eb := BucketWithEncryption(b, key)
+
+	testutil.Ok(t, eb.Upload(context.Background(), name, bytes.NewReader(payload)))
+	r1, err := b.Get(context.Background(), name)
+	testutil.Ok(t, err)
+
+	testutil.Ok(t, eb.Upload(context.Background(), name, bytes.NewReader(payload)))
+	r2, err := b.Get(context.Background(), name)
+	testutil.Ok(t, err)
+
+	b1, err := io.ReadAll(r1)
+	testutil.Ok(t, err)
+	b2, err := io.ReadAll(r2)
+	testutil.Ok(t, err)
+
+	testutil.Assert(t, !bytes.Equal(b1, b2))
+
+}
+
+func TestEncryptedBucket_Acceptance(t *testing.T) {
+	key := make([]byte, 32)
+	_, err := io.ReadFull(rand.Reader, key)
+	testutil.Ok(t, err)
+
+	eb := BucketWithEncryption(NewInMemBucket(), key)
+	AcceptanceTest(t, eb)
 }

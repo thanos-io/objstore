@@ -13,6 +13,7 @@ require (
 	github.com/fatih/structtag v1.2.0
 	github.com/go-kit/log v0.2.1
 	github.com/minio/minio-go/v7 v7.0.45
+	github.com/minio/sio v0.3.0
 	github.com/ncw/swift v1.0.53
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/oracle/oci-go-sdk/v65 v65.13.0
@@ -100,5 +101,5 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v0.5.1
 	github.com/kr/text v0.2.0 // indirect
 	github.com/satori/go.uuid v1.2.1-0.20181028125025-b2ce2384e17b // indirect
-	golang.org/x/crypto v0.3.0 // indirect
+	golang.org/x/crypto v0.6.0 // indirect
 )

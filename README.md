@@ -49,6 +49,10 @@ See [MAINTAINERS.md](https://github.com/thanos-io/thanos/blob/main/MAINTAINERS.m
 The core this module is the [`Bucket` interface](objstore.go):
 
 ```go mdox-exec="sed -n '37,50p' objstore.go"
+	OpDelete     = "delete"
+	OpAttributes = "attributes"
+)
+
 // Bucket provides read and write access to an object storage bucket.
 // NOTE: We assume strong consistency for write-read flow.
 type Bucket interface {
@@ -59,15 +63,15 @@ type Bucket interface {
 	// Upload should be idempotent.
 	Upload(ctx context.Context, name string, r io.Reader) error
 
-	// Delete removes the object with the given name.
-	// If object does not exists in the moment of deletion, Delete should throw error.
-	Delete(ctx context.Context, name string) error
-
 ```
 
 All [provider implementations](providers) have to implement `Bucket` interface that allows common read and write operations that all supported by all object providers. If you want to limit the code that will do bucket operation to only read access (smart idea, allowing to limit access permissions), you can use the [`BucketReader` interface](objstore.go):
 
 ```go mdox-exec="sed -n '68,88p' objstore.go"
+	// thanos_objstore_bucket_operation_failures_total metric.
+	// TODO(bwplotka): Remove this when moved to Go 1.14 and replace with InstrumentedBucketReader.
+	ReaderWithExpectedErrs(IsOpFailureExpectedFunc) BucketReader
+}
 
 // BucketReader provides read access to an object storage bucket.
 type BucketReader interface {
@@ -85,10 +89,6 @@ type BucketReader interface {
 	// Exists checks if the given object exists in the bucket.
 	Exists(ctx context.Context, name string) (bool, error)
 
-	// IsObjNotFoundErr returns true if error means that object is not found. Relevant to Get operations.
-	IsObjNotFoundErr(err error) bool
-
-	// Attributes returns information about the specified object.
 ```
 
 Those interfaces represent the object storage operations your code can use from `objstore` clients.
@@ -152,6 +152,7 @@ config:
   insecure: false
   signature_version2: false
   secret_key: ""
+  session_token: ""
   put_user_metadata: {}
   http_config:
     idle_conn_timeout: 1m30s
@@ -181,6 +182,9 @@ config:
     encryption_key: ""
   sts_endpoint: ""
 prefix: ""
+client_side_encryption:
+  enabled: false
+  key_base64: ""
 ```
 
 At a minimum, you will need to provide a value for the `bucket`, `endpoint`, `access_key`, and `secret_key` keys. The rest of the keys are optional.
@@ -345,6 +349,9 @@ config:
   bucket: ""
   service_account: ""
 prefix: ""
+client_side_encryption:
+  enabled: false
+  key_base64: ""
 ```
 
 ###### Using GOOGLE_APPLICATION_CREDENTIALS
@@ -445,6 +452,9 @@ config:
     disable_compression: false
   msi_resource: ""
 prefix: ""
+client_side_encryption:
+  enabled: false
+  key_base64: ""
 ```
 
 If `msi_resource` is used, authentication is done via system-assigned managed identity. The value for Azure should be `https://<storage-account-name>.blob.core.windows.net`.
@@ -489,6 +499,9 @@ config:
   timeout: 5m
   use_dynamic_large_objects: false
 prefix: ""
+client_side_encryption:
+  enabled: false
+  key_base64: ""
 ```
 
 ##### Tencent COS
@@ -523,6 +536,9 @@ config:
       insecure_skip_verify: false
     disable_compression: false
 prefix: ""
+client_side_encryption:
+  enabled: false
+  key_base64: ""
 ```
 
 The `secret_key` and `secret_id` field is required. The `http_config` field is optional for optimize HTTP transport settings. There are two ways to configure the required bucket information:
@@ -543,6 +559,9 @@ config:
   access_key_id: ""
   access_key_secret: ""
 prefix: ""
+client_side_encryption:
+  enabled: false
+  key_base64: ""
 ```
 
 ##### Baidu BOS
@@ -557,6 +576,9 @@ config:
   access_key: ""
   secret_key: ""
 prefix: ""
+client_side_encryption:
+  enabled: false
+  key_base64: ""
 ```
 
 ##### Filesystem
@@ -572,6 +594,9 @@ type: FILESYSTEM
 config:
   directory: ""
 prefix: ""
+client_side_encryption:
+  enabled: false
+  key_base64: ""
 ```
 
 ### Oracle Cloud Infrastructure Object Storage

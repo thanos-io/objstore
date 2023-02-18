@@ -5,6 +5,7 @@ package client
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"strings"
 
@@ -41,9 +42,15 @@ const (
 )
 
 type BucketConfig struct {
-	Type   ObjProvider `yaml:"type"`
-	Config interface{} `yaml:"config"`
-	Prefix string      `yaml:"prefix" default:""`
+	Type                 ObjProvider                `yaml:"type"`
+	Config               interface{}                `yaml:"config"`
+	Prefix               string                     `yaml:"prefix" default:""`
+	ClientSideEncryption ClientSideEncryptionConfig `yaml:"client_side_encryption"`
+}
+
+type ClientSideEncryptionConfig struct {
+	Enabled   bool   `yaml:"enabled"`
+	KeyBase64 string `yaml:"key_base64"`
 }
 
 // NewBucket initializes and returns new object storage clients.
@@ -85,6 +92,17 @@ func NewBucket(logger log.Logger, confContentYaml []byte, reg prometheus.Registe
 	}
 	if err != nil {
 		return nil, errors.Wrap(err, fmt.Sprintf("create %s client", bucketConf.Type))
+	}
+
+	if bucketConf.ClientSideEncryption.Enabled {
+		key, err := base64.RawStdEncoding.DecodeString(bucketConf.ClientSideEncryption.KeyBase64)
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to read base64 key")
+		}
+		if len(key) != 32 {
+			return nil, errors.New("decoded key must have size 32")
+		}
+		bucket = objstore.BucketWithEncryption(bucket, key)
 	}
 
 	return objstore.NewTracingBucket(objstore.BucketWithMetrics(bucket.Name(), objstore.NewPrefixedBucket(bucket, bucketConf.Prefix), reg)), nil
