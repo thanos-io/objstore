@@ -107,9 +107,14 @@ func WithRecursiveIter(params *IterParams) {
 	params.Recursive = true
 }
 
+func WithoutApendingDirDelim(params *IterParams) {
+	params.WithoutAppendDirDelim = true
+}
+
 // IterParams holds the Iter() parameters and is used by objstore clients implementations.
 type IterParams struct {
-	Recursive bool
+	Recursive             bool
+	WithoutAppendDirDelim bool
 }
 
 func ApplyIterOptions(options ...IterOption) IterParams {

@@ -183,12 +183,15 @@ func NewBucketWithConfig(logger log.Logger, conf Config, component string) (*Buc
 // Iter calls f for each entry in the given directory. The argument to f is the full
 // object name including the prefix of the inspected directory.
 func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, options ...objstore.IterOption) error {
+	params := objstore.ApplyIterOptions(options...)
+
+	// Ensure the object name actually ends with a dir suffix, as long as this
+	// is not explicitly disabled by the WithoutAppendDirDelim.
 	prefix := dir
-	if prefix != "" && !strings.HasSuffix(prefix, DirDelim) {
+	if prefix != "" && !strings.HasSuffix(prefix, DirDelim) && !params.WithoutAppendDirDelim {
 		prefix += DirDelim
 	}
 
-	params := objstore.ApplyIterOptions(options...)
 	if params.Recursive {
 		opt := &container.ListBlobsFlatOptions{Prefix: &prefix}
 		pager := b.containerClient.NewListBlobsFlatPager(opt)
