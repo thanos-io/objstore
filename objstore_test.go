@@ -130,6 +130,18 @@ func TestDownloadUploadDirConcurrency(t *testing.T) {
         thanos_objstore_bucket_operations_total{bucket="",operation="upload"} 3
 		`), `thanos_objstore_bucket_operations_total`))
 
+	testutil.Ok(t, promtest.GatherAndCompare(r, strings.NewReader(`
+		# HELP thanos_objstore_bucket_operation_fetched_bytes_total Total number of bytes fetched from bucket, per operation.
+        # TYPE thanos_objstore_bucket_operation_fetched_bytes_total counter
+        thanos_objstore_bucket_operation_fetched_bytes_total{bucket="",operation="attributes"} 0
+        thanos_objstore_bucket_operation_fetched_bytes_total{bucket="",operation="delete"} 0
+        thanos_objstore_bucket_operation_fetched_bytes_total{bucket="",operation="exists"} 0
+        thanos_objstore_bucket_operation_fetched_bytes_total{bucket="",operation="get"} 3
+        thanos_objstore_bucket_operation_fetched_bytes_total{bucket="",operation="get_range"} 0
+        thanos_objstore_bucket_operation_fetched_bytes_total{bucket="",operation="iter"} 0
+        thanos_objstore_bucket_operation_fetched_bytes_total{bucket="",operation="upload"} 0
+		`), `thanos_objstore_bucket_operation_fetched_bytes_total`))
+
 	testutil.Ok(t, UploadDir(context.Background(), log.NewNopLogger(), m, tempDir, "/dir-copy", WithUploadConcurrency(10)))
 
 	testutil.Ok(t, promtest.GatherAndCompare(r, strings.NewReader(`
@@ -152,7 +164,7 @@ func TestTimingTracingReader(t *testing.T) {
 	tr := NopCloserWithSize(r)
 	tr = newTimingReadCloser(tr, "", m.opsDuration, m.opsFailures, func(err error) bool {
 		return false
-	})
+	}, m.opsFetchedBytes)
 	tr = newTracingReadCloser(tr, nil)
 
 	size, err := TryToGetSize(tr)
