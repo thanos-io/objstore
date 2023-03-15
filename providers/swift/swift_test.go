@@ -6,7 +6,7 @@ package swift
 import (
 	"testing"
 
-	"github.com/efficientgo/tools/core/pkg/testutil"
+	"github.com/efficientgo/core/testutil"
 )
 
 func TestParseConfig(t *testing.T) {

@@ -121,11 +121,11 @@ Current object storage client implementations:
 |-------------------------------------------------------------------------------------------|--------------------|-----------------------|-------------------|----------------------------------|
 | [Google Cloud Storage](#gcs)                                                              | Stable             | Production Usage      | yes               | @bwplotka                        |
 | [AWS/S3](#s3) (and all S3-compatible storages e.g disk-based [Minio](https://min.io/))    | Stable             | Production Usage      | yes               | @bwplotka                        |
-| [Azure Storage Account](#azure)                                                           | Stable             | Production Usage      | no                | @vglafirov                       |
+| [Azure Storage Account](#azure)                                                           | Stable             | Production Usage      | no                | @vglafirov,@phillebaba           |
 | [OpenStack Swift](#openstack-swift)                                                       | Beta (working PoC) | Production Usage      | yes               | @FUSAKLA                         |
 | [Tencent COS](#tencent-cos)                                                               | Beta               | Production Usage      | no                | @jojohappy,@hanjm                |
 | [AliYun OSS](#aliyun-oss)                                                                 | Beta               | Production Usage      | no                | @shaulboozhiao,@wujinhu          |
-| [Baidu BOS](#baidu-bos)                                                                   | Beta               | Production Usage      | no                | ??                               |
+| [Baidu BOS](#baidu-bos)                                                                   | Beta               | Production Usage      | no                | @yahaa                           |
 | [Local Filesystem](#filesystem)                                                           | Stable             | Testing and Demo only | yes               | @bwplotka                        |
 | [Oracle Cloud Infrastructure Object Storage](#oracle-cloud-infrastructure-object-storage) | Beta               | Production Usage      | yes               | @aarontams,@gaurav-05,@ericrrath |
 | [Storj DCS](#storj-dcs)                                                                   | Beta               | Production Usage      | yes               | @stefanbenten                    |
@@ -419,16 +419,15 @@ config:
   storage_account_key: ""
   container: ""
   endpoint: ""
-  max_retries: 0
-  msi_resource: ""
   user_assigned_id: ""
+  max_retries: 0
+  reader_config:
+    max_retry_requests: 0
   pipeline_config:
     max_tries: 0
     try_timeout: 0s
     retry_delay: 0s
     max_retry_delay: 0s
-  reader_config:
-    max_retry_requests: 0
   http_config:
     idle_conn_timeout: 0s
     response_header_timeout: 0s
@@ -445,6 +444,7 @@ config:
       server_name: ""
       insecure_skip_verify: false
     disable_compression: false
+  msi_resource: ""
 prefix: ""
 ```
 
@@ -474,6 +474,9 @@ config:
   password: ""
   domain_id: ""
   domain_name: ""
+  application_credential_id: ""
+  application_credential_name: ""
+  application_credential_secret: ""
   project_id: ""
   project_name: ""
   project_domain_id: ""

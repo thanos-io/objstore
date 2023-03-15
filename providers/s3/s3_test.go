@@ -8,13 +8,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
-	"github.com/efficientgo/tools/core/pkg/testutil"
+	"github.com/efficientgo/core/testutil"
 	"github.com/go-kit/log"
 	"github.com/minio/minio-go/v7/pkg/encrypt"
 
@@ -234,6 +233,21 @@ http_config:
 	testutil.Ok(t, validate(cfg2))
 
 	testutil.Equals(t, "bucket-owner-full-control", cfg2.PutUserMetadata["X-Amz-Acl"])
+
+	input3 := []byte(`bucket: "bucket-name"
+endpoint: "s3-endpoint"
+access_key: "access_key"
+insecure: false
+signature_version2: false
+secret_key: "secret_key"
+session_token: "session_token"
+http_config:
+  idle_conn_timeout: 0s`)
+	cfg3, err := parseConfig(input3)
+	testutil.Ok(t, err)
+	testutil.Ok(t, validate(cfg3))
+
+	testutil.Equals(t, "session_token", cfg3.SessionToken)
 }
 
 func TestParseConfig_PartSize(t *testing.T) {
@@ -416,6 +430,35 @@ func TestBucket_Get_ShouldReturnErrorIfServerTruncateResponse(t *testing.T) {
 	testutil.Ok(t, err)
 
 	// We expect an error when reading back.
-	_, err = ioutil.ReadAll(reader)
+	_, err = io.ReadAll(reader)
 	testutil.Equals(t, io.ErrUnexpectedEOF, err)
+}
+
+func TestParseConfig_CustomStorageClass(t *testing.T) {
+	for _, testCase := range []struct {
+		name, storageClassKey string
+	}{
+		{name: "ProperCase", storageClassKey: "X-Amz-Storage-Class"},
+		{name: "UpperCase", storageClassKey: "X-AMZ-STORAGE-CLASS"},
+		{name: "LowerCase", storageClassKey: "x-amz-storage-class"},
+		{name: "MixedCase", storageClassKey: "X-Amz-sToraGe-Class"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			cfg := DefaultConfig
+			cfg.Endpoint = endpoint
+			storageClass := "STANDARD_IA"
+			cfg.PutUserMetadata[testCase.storageClassKey] = storageClass
+			bkt, err := NewBucketWithConfig(log.NewNopLogger(), cfg, "test")
+			testutil.Ok(t, err)
+			testutil.Equals(t, storageClass, bkt.storageClass)
+		})
+	}
+}
+
+func TestParseConfig_DefaultStorageClassIsZero(t *testing.T) {
+	cfg := DefaultConfig
+	cfg.Endpoint = endpoint
+	bkt, err := NewBucketWithConfig(log.NewNopLogger(), cfg, "test")
+	testutil.Ok(t, err)
+	testutil.Equals(t, "", bkt.storageClass)
 }

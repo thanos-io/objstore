@@ -4,12 +4,13 @@
 package filesystem
 
 import (
+	"bytes"
 	"context"
 	"strings"
 	"sync"
 	"testing"
 
-	"github.com/efficientgo/tools/core/pkg/testutil"
+	"github.com/efficientgo/core/testutil"
 )
 
 func TestDelete_EmptyDirDeletionRaceCondition(t *testing.T) {
@@ -43,4 +44,91 @@ func TestDelete_EmptyDirDeletionRaceCondition(t *testing.T) {
 		close(start)
 		group.Wait()
 	}
+}
+
+func TestIter_CancelledContext(t *testing.T) {
+	b, err := NewBucket(t.TempDir())
+	testutil.Ok(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err = b.Iter(ctx, "", func(s string) error {
+		return nil
+	})
+
+	testutil.NotOk(t, err)
+	testutil.Equals(t, context.Canceled, err)
+}
+
+func TestGet_CancelledContext(t *testing.T) {
+	b, err := NewBucket(t.TempDir())
+	testutil.Ok(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err = b.Get(ctx, "some-file")
+	testutil.NotOk(t, err)
+	testutil.Equals(t, context.Canceled, err)
+}
+
+func TestAttributes_CancelledContext(t *testing.T) {
+	b, err := NewBucket(t.TempDir())
+	testutil.Ok(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err = b.Attributes(ctx, "some-file")
+	testutil.NotOk(t, err)
+	testutil.Equals(t, context.Canceled, err)
+}
+
+func TestGetRange_CancelledContext(t *testing.T) {
+	b, err := NewBucket(t.TempDir())
+	testutil.Ok(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err = b.GetRange(ctx, "some-file", 0, 100)
+	testutil.NotOk(t, err)
+	testutil.Equals(t, context.Canceled, err)
+}
+
+func TestExists_CancelledContext(t *testing.T) {
+	b, err := NewBucket(t.TempDir())
+	testutil.Ok(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err = b.Exists(ctx, "some-file")
+	testutil.NotOk(t, err)
+	testutil.Equals(t, context.Canceled, err)
+}
+
+func TestUpload_CancelledContext(t *testing.T) {
+	b, err := NewBucket(t.TempDir())
+	testutil.Ok(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err = b.Upload(ctx, "some-file", bytes.NewReader([]byte("file content")))
+	testutil.NotOk(t, err)
+	testutil.Equals(t, context.Canceled, err)
+}
+
+func TestDelete_CancelledContext(t *testing.T) {
+	b, err := NewBucket(t.TempDir())
+	testutil.Ok(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err = b.Delete(ctx, "some-file")
+	testutil.NotOk(t, err)
+	testutil.Equals(t, context.Canceled, err)
 }

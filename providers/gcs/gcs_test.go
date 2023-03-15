@@ -6,13 +6,12 @@ package gcs
 import (
 	"context"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
 
-	"github.com/efficientgo/tools/core/pkg/testutil"
+	"github.com/efficientgo/core/testutil"
 	"github.com/go-kit/log"
 )
 
@@ -41,6 +40,6 @@ func TestBucket_Get_ShouldReturnErrorIfServerTruncateResponse(t *testing.T) {
 	testutil.Ok(t, err)
 
 	// We expect an error when reading back.
-	_, err = ioutil.ReadAll(reader)
+	_, err = io.ReadAll(reader)
 	testutil.Equals(t, io.ErrUnexpectedEOF, err)
 }
