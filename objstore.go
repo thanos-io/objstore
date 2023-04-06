@@ -416,7 +416,7 @@ func BucketWithMetrics(name string, b Bucket, reg prometheus.Registerer) *metric
 		}, []string{"operation"}),
 
 		opsFetchedBytes: promauto.With(reg).NewCounterVec(prometheus.CounterOpts{
-			Name:        "thanos_objstore_bucket_operation_fetched_bytes_total",
+			Name:        "objstore_bucket_operation_fetched_bytes_total",
 			Help:        "Total number of bytes fetched from bucket, per operation.",
 			ConstLabels: prometheus.Labels{"bucket": name},
 		}, []string{"operation"}),
