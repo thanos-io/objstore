@@ -131,16 +131,16 @@ func TestDownloadUploadDirConcurrency(t *testing.T) {
 		`), `objstore_bucket_operations_total`))
 
 	testutil.Ok(t, promtest.GatherAndCompare(r, strings.NewReader(`
-		# HELP thanos_objstore_bucket_operation_fetched_bytes_total Total number of bytes fetched from bucket, per operation.
-        # TYPE thanos_objstore_bucket_operation_fetched_bytes_total counter
-        thanos_objstore_bucket_operation_fetched_bytes_total{bucket="",operation="attributes"} 0
-        thanos_objstore_bucket_operation_fetched_bytes_total{bucket="",operation="delete"} 0
-        thanos_objstore_bucket_operation_fetched_bytes_total{bucket="",operation="exists"} 0
-        thanos_objstore_bucket_operation_fetched_bytes_total{bucket="",operation="get"} 3
-        thanos_objstore_bucket_operation_fetched_bytes_total{bucket="",operation="get_range"} 0
-        thanos_objstore_bucket_operation_fetched_bytes_total{bucket="",operation="iter"} 0
-        thanos_objstore_bucket_operation_fetched_bytes_total{bucket="",operation="upload"} 0
-		`), `thanos_objstore_bucket_operation_fetched_bytes_total`))
+		# HELP objstore_bucket_operation_fetched_bytes_total Total number of bytes fetched from bucket, per operation.
+        # TYPE objstore_bucket_operation_fetched_bytes_total counter
+        objstore_bucket_operation_fetched_bytes_total{bucket="",operation="attributes"} 0
+        objstore_bucket_operation_fetched_bytes_total{bucket="",operation="delete"} 0
+        objstore_bucket_operation_fetched_bytes_total{bucket="",operation="exists"} 0
+        objstore_bucket_operation_fetched_bytes_total{bucket="",operation="get"} 3
+        objstore_bucket_operation_fetched_bytes_total{bucket="",operation="get_range"} 0
+        objstore_bucket_operation_fetched_bytes_total{bucket="",operation="iter"} 0
+        objstore_bucket_operation_fetched_bytes_total{bucket="",operation="upload"} 0
+		`), `objstore_bucket_operation_fetched_bytes_total`))
 
 	testutil.Ok(t, UploadDir(context.Background(), log.NewNopLogger(), m, tempDir, "/dir-copy", WithUploadConcurrency(10)))
 
