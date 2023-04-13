@@ -88,7 +88,6 @@ func (b *Bucket) Close() error {
 // Iter calls f for each entry in the given directory (not recursive). The argument to f is the full
 // object name including the prefix of the inspected directory.
 func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, options ...objstore.IterOption) error {
-	_ = level.Debug(b.logger).Log("Listing %s from Storj Bucket", dir)
 
 	if dir != "" {
 		dir = strings.TrimSuffix(dir, objstore.DirDelim) + objstore.DirDelim
