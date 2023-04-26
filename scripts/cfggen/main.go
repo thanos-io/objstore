@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/thanos-io/objstore/providers/obs"
 	"io"
 	"os"
 	"path/filepath"
@@ -44,6 +45,7 @@ var (
 		client.FILESYSTEM: filesystem.Config{},
 		client.BOS:        bos.Config{},
 		client.OCI:        oci.Config{},
+		client.OBS:        obs.DefaultConfig,
 	}
 )
 
