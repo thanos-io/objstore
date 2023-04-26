@@ -4,6 +4,7 @@
 package objtesting
 
 import (
+	"github.com/thanos-io/objstore/providers/obs"
 	"os"
 	"strings"
 	"testing"
@@ -181,6 +182,20 @@ func ForeachStore(t *testing.T, testFn func(t *testing.T, bkt objstore.Bucket)) 
 			defer closeFn()
 
 			testFn(t, bkt)
+		})
+	}
+
+	// Optional OBS.
+	if !IsObjStoreSkipped(t, client.OBS) {
+		t.Run("obs", func(t *testing.T) {
+			bkt, closeFn, err := obs.NewTestBucket(t, "cn-south-1")
+			testutil.Ok(t, err)
+
+			t.Parallel()
+			defer closeFn()
+
+			testFn(t, bkt)
+			testFn(t, objstore.NewPrefixedBucket(bkt, "some_prefix"))
 		})
 	}
 }
