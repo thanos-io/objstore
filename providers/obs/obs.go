@@ -128,6 +128,7 @@ func (b *Bucket) Delete(ctx context.Context, name string) error {
 // Upload the contents of the reader as an object into the bucket.
 func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) error {
 	size, err := objstore.TryToGetSize(r)
+
 	if err != nil {
 		return errors.Wrapf(err, "failed to get size apriori to upload %s", name)
 	}
@@ -145,50 +146,31 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) error {
 		if err != nil {
 			return err
 		}
-		uploadId := initOutput.UploadId
 
-		partSum := int(math.Floor(float64(size) / float64(PartSize)))
-		lastPart := size % PartSize
-		parts := make([]obs.Part, 0, partSum)
-		for i := 0; i < partSum; i++ {
-			inputPart := &obs.UploadPartInput{
-				Bucket:     b.name,
-				Key:        name,
-				UploadId:   uploadId,
-				Body:       r,
-				PartNumber: i + 1,
-				PartSize:   PartSize,
-				Offset:     int64(i) * PartSize,
-			}
-			output, err := b.client.UploadPart(inputPart)
+		uploadId := initOutput.UploadId
+		defer func() {
 			if err != nil {
-				return errors.Wrap(err, "fail to multipart upload")
+				if _, err := b.client.AbortMultipartUpload(&obs.AbortMultipartUploadInput{
+					UploadId: uploadId,
+					Bucket:   b.name,
+					Key:      name,
+				}); err != nil {
+					err = errors.Wrap(err, "failed to abort multipart upload")
+					return
+				}
 			}
-			parts = append(parts, obs.Part{PartNumber: output.PartNumber, ETag: output.ETag})
+		}()
+		parts, err := b.multipartUpload(size, name, uploadId, r)
+		if err != nil {
+			return err
 		}
-		if lastPart != 0 {
-			inputPart := &obs.UploadPartInput{
-				Bucket:     b.name,
-				Key:        name,
-				UploadId:   uploadId,
-				Body:       r,
-				PartNumber: partSum + 1,
-				PartSize:   lastPart,
-				Offset:     int64(partSum) * PartSize,
-			}
-			output, err := b.client.UploadPart(inputPart)
-			if err != nil {
-				return errors.Wrap(err, "fail to upload lastPart")
-			}
-			parts = append(parts, obs.Part{PartNumber: output.PartNumber, ETag: output.ETag})
-		}
-		inputComplete := &obs.CompleteMultipartUploadInput{
+
+		_, err = b.client.CompleteMultipartUpload(&obs.CompleteMultipartUploadInput{
 			Bucket:   b.name,
 			Key:      name,
 			UploadId: uploadId,
 			Parts:    parts,
-		}
-		_, err = b.client.CompleteMultipartUpload(inputComplete)
+		})
 		if err != nil {
 			return errors.Wrap(err, "fail to complete multipart upload")
 		}
@@ -213,66 +195,30 @@ func (b *Bucket) initiateMultipartUpload(key string) (output *obs.InitiateMultip
 	return initOutput, errors.Wrap(err, "fail to init multipart upload job")
 }
 
-func (b *Bucket) multipartUpload(numThreads int, size int64, key, uploadId string, body io.Reader, parts *[]obs.Part) error {
+func (b *Bucket) multipartUpload(size int64, key, uploadId string, body io.Reader) ([]obs.Part, error) {
 	partSum := int(math.Ceil(float64(size) / float64(PartSize)))
 	lastPart := size % PartSize
-
-	uploadPartCh := make(chan obs.Part)
-	uploadCh := make(chan int)
-	ctx, cancel := context.WithCancel(context.Background())
-	var gerr error
-
-	go func() {
-		defer close(uploadCh)
-		for partNum := 0; partNum < partSum; partNum++ {
-			uploadCh <- partNum
+	parts := make([]obs.Part, 0, partSum)
+	for i := 1; i <= partSum; i++ {
+		partSize := PartSize
+		if i == partSum {
+			partSize = lastPart
 		}
-	}()
-	for i := 0; i < numThreads; i++ {
-		go func() {
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case partNum, ok := <-uploadCh:
-					if !ok {
-						return
-					}
-					offset := int64(partNum) * PartSize
-					partSize := PartSize
-					if partNum == partSum {
-						offset = int64(partSum) * PartSize
-						partSize = lastPart
-					}
-					inputPart := &obs.UploadPartInput{
-						Bucket:     b.name,
-						Key:        key,
-						UploadId:   uploadId,
-						Body:       body,
-						PartNumber: partNum + 1,
-						PartSize:   partSize,
-						Offset:     offset,
-					}
-					output, err := b.client.UploadPart(inputPart)
-					if err != nil {
-						cancel()
-						gerr = err
-						return
-					}
-					uploadPartCh <- obs.Part{PartNumber: output.PartNumber, ETag: output.ETag}
-				}
-			}
-		}()
-	}
-	for i := 0; i < partSum; i++ {
-		select {
-		case <-ctx.Done():
-			return errors.Wrap(gerr, "fail to multipart upload")
-		case part := <-uploadPartCh:
-			*parts = append(*parts, part)
+		output, err := b.client.UploadPart(&obs.UploadPartInput{
+			Bucket:     b.name,
+			Key:        key,
+			UploadId:   uploadId,
+			Body:       body,
+			PartNumber: i,
+			PartSize:   partSize,
+			Offset:     int64(i-1) * PartSize,
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "fail to multipart upload")
 		}
+		parts = append(parts, obs.Part{PartNumber: output.PartNumber, ETag: output.ETag})
 	}
-	return nil
+	return parts, nil
 }
 
 func (b *Bucket) Close() error { return nil }
@@ -350,11 +296,10 @@ func (b *Bucket) getRange(ctx context.Context, name string, off, length int64) (
 
 // Exists checks if the given object exists in the bucket.
 func (b *Bucket) Exists(ctx context.Context, name string) (bool, error) {
-	input := &obs.GetObjectMetadataInput{
+	_, err := b.client.GetObjectMetadata(&obs.GetObjectMetadataInput{
 		Bucket: b.name,
 		Key:    name,
-	}
-	_, err := b.client.GetObjectMetadata(input)
+	})
 	if err != nil {
 		if b.IsObjNotFoundErr(err) {
 			return false, nil
@@ -371,27 +316,23 @@ func (b *Bucket) IsObjNotFoundErr(err error) bool {
 		if oriErr.Status == "404 Not Found" {
 			return true
 		}
-	default:
-		return false
 	}
 	return false
 }
 
 // Attributes returns information about the specified object.
 func (b *Bucket) Attributes(ctx context.Context, name string) (objstore.ObjectAttributes, error) {
-	input := &obs.GetObjectMetadataInput{
+	output, err := b.client.GetObjectMetadata(&obs.GetObjectMetadataInput{
 		Bucket: b.name,
 		Key:    name,
-	}
-	output, err := b.client.GetObjectMetadata(input)
+	})
 	if err != nil {
 		return objstore.ObjectAttributes{}, errors.Wrap(err, "fail to get object metadata")
 	}
-	attr := objstore.ObjectAttributes{
+	return objstore.ObjectAttributes{
 		Size:         output.ContentLength,
 		LastModified: output.LastModified,
-	}
-	return attr, nil
+	}, nil
 }
 
 // NewTestBucket creates test bkt client that before returning creates temporary bucket.
@@ -437,11 +378,10 @@ func NewTestBucketFromConfig(t testing.TB, c Config, reuseBucket bool, location 
 		bktToCreate = objstore.CreateTemporaryTestBucketName(t)
 	}
 
-	input := &obs.CreateBucketInput{
+	_, err = b.client.CreateBucket(&obs.CreateBucketInput{
 		Bucket:         bktToCreate,
 		BucketLocation: obs.BucketLocation{Location: location},
-	}
-	_, err = b.client.CreateBucket(input)
+	})
 	if err != nil {
 		return nil, nil, err
 	}
