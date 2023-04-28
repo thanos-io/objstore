@@ -4,12 +4,9 @@
 package objtesting
 
 import (
-	"github.com/thanos-io/objstore/providers/obs"
 	"os"
 	"strings"
 	"testing"
-
-	"github.com/efficientgo/core/testutil"
 
 	"github.com/thanos-io/objstore"
 	"github.com/thanos-io/objstore/client"
@@ -18,10 +15,13 @@ import (
 	"github.com/thanos-io/objstore/providers/cos"
 	"github.com/thanos-io/objstore/providers/filesystem"
 	"github.com/thanos-io/objstore/providers/gcs"
+	"github.com/thanos-io/objstore/providers/obs"
 	"github.com/thanos-io/objstore/providers/oci"
 	"github.com/thanos-io/objstore/providers/oss"
 	"github.com/thanos-io/objstore/providers/s3"
 	"github.com/thanos-io/objstore/providers/swift"
+
+	"github.com/efficientgo/core/testutil"
 )
 
 // IsObjStoreSkipped returns true if given provider ID is found in THANOS_TEST_OBJSTORE_SKIP array delimited by comma e.g:

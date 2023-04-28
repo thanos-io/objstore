@@ -5,19 +5,21 @@ package obs
 
 import (
 	"context"
-	"github.com/go-kit/log"
-	"github.com/huaweicloud/huaweicloud-sdk-go-obs/obs"
-	"github.com/pkg/errors"
-	"github.com/prometheus/common/model"
-	"github.com/thanos-io/objstore"
-	"github.com/thanos-io/objstore/exthttp"
-	"gopkg.in/yaml.v2"
 	"io"
 	"math"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/thanos-io/objstore"
+	"github.com/thanos-io/objstore/exthttp"
+
+	"github.com/go-kit/log"
+	"github.com/huaweicloud/huaweicloud-sdk-go-obs/obs"
+	"github.com/pkg/errors"
+	"github.com/prometheus/common/model"
+	"gopkg.in/yaml.v2"
 )
 
 const DirDelim = "/"
