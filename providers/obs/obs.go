@@ -120,7 +120,7 @@ func (b *Bucket) Name() string {
 	return b.name
 }
 
-// Delete removes the object with the given name
+// Delete removes the object with the given name.
 func (b *Bucket) Delete(ctx context.Context, name string) error {
 	input := &obs.DeleteObjectInput{Bucket: b.name, Key: name}
 	_, err := b.client.DeleteObject(input)
@@ -139,12 +139,13 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) error {
 		return errors.New("object size must be provided")
 	}
 	if size <= MinMultipartUploadSize {
-		err := b.putObjectSingle(name, r)
+		err = b.putObjectSingle(name, r)
 		if err != nil {
 			return err
 		}
 	} else {
-		initOutput, err := b.initiateMultipartUpload(name)
+		var initOutput *obs.InitiateMultipartUploadOutput
+		initOutput, err = b.initiateMultipartUpload(name)
 		if err != nil {
 			return err
 		}
@@ -152,7 +153,7 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) error {
 		uploadId := initOutput.UploadId
 		defer func() {
 			if err != nil {
-				if _, err := b.client.AbortMultipartUpload(&obs.AbortMultipartUploadInput{
+				if _, err = b.client.AbortMultipartUpload(&obs.AbortMultipartUploadInput{
 					UploadId: uploadId,
 					Bucket:   b.name,
 					Key:      name,
@@ -186,7 +187,10 @@ func (b *Bucket) putObjectSingle(key string, body io.Reader) error {
 	input.Key = key
 	input.Body = body
 	_, err := b.client.PutObject(input)
-	return errors.Wrap(err, "fail to upload object")
+	if err != nil {
+		return errors.Wrap(err, "fail to upload object")
+	}
+	return nil
 }
 
 func (b *Bucket) initiateMultipartUpload(key string) (output *obs.InitiateMultipartUploadOutput, err error) {
@@ -194,7 +198,10 @@ func (b *Bucket) initiateMultipartUpload(key string) (output *obs.InitiateMultip
 	initInput.Bucket = b.name
 	initInput.Key = key
 	initOutput, err := b.client.InitiateMultipartUpload(initInput)
-	return initOutput, errors.Wrap(err, "fail to init multipart upload job")
+	if err != nil {
+		return nil, errors.Wrap(err, "fail to init multipart upload job")
+	}
+	return initOutput, nil
 }
 
 func (b *Bucket) multipartUpload(size int64, key, uploadId string, body io.Reader) ([]obs.Part, error) {
