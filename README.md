@@ -643,10 +643,10 @@ You can also include any of the optional configuration just like the example in 
 
 ##### HuaweiCloud OBS
 
-To use HuaweiCloud OBS as storage store, you should apply a HuaweiCloud Account to create an object storage bucket at first.
-Note that detailed from [HuaweiCloud OBS](https://support.huaweicloud.com/obs/index.html)
+To use HuaweiCloud OBS as an object store, you should apply for a HuaweiCloud Account to create an object storage bucket at first.
+More details: [HuaweiCloud OBS](https://support.huaweicloud.com/obs/index.html)
 
-To configure HuaweiCloud   Account to use OBS as storage store you need to set these parameters in yaml format stored in a file:
+To configure HuaweiCloud Account to use OBS as storage store you need to set these parameters in YAML format stored in a file:
 
 ```yaml mdox-exec="go run scripts/cfggen/main.go --name=cos.Config"
 type: OBS                    

@@ -175,7 +175,7 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) error {
 			Parts:    parts,
 		})
 		if err != nil {
-			return errors.Wrap(err, "fail to complete multipart upload")
+			return errors.Wrap(err, "failed to complete multipart upload")
 		}
 	}
 	return nil
@@ -188,7 +188,7 @@ func (b *Bucket) putObjectSingle(key string, body io.Reader) error {
 	input.Body = body
 	_, err := b.client.PutObject(input)
 	if err != nil {
-		return errors.Wrap(err, "fail to upload object")
+		return errors.Wrap(err, "failed to upload object")
 	}
 	return nil
 }
@@ -199,7 +199,7 @@ func (b *Bucket) initiateMultipartUpload(key string) (output *obs.InitiateMultip
 	initInput.Key = key
 	initOutput, err := b.client.InitiateMultipartUpload(initInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "fail to init multipart upload job")
+		return nil, errors.Wrap(err, "failed to init multipart upload job")
 	}
 	return initOutput, nil
 }
@@ -223,7 +223,7 @@ func (b *Bucket) multipartUpload(size int64, key, uploadId string, body io.Reade
 			Offset:     int64(i-1) * PartSize,
 		})
 		if err != nil {
-			return nil, errors.Wrap(err, "fail to multipart upload")
+			return nil, errors.Wrap(err, "failed to multipart upload")
 		}
 		parts = append(parts, obs.Part{PartNumber: output.PartNumber, ETag: output.ETag})
 	}
@@ -248,16 +248,16 @@ func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, opt
 	for {
 		output, err := b.client.ListObjects(input)
 		if err != nil {
-			return errors.Wrap(err, "fail to list object")
+			return errors.Wrap(err, "failed to list object")
 		}
 		for _, content := range output.Contents {
 			if err := f(content.Key); err != nil {
-				return errors.Wrap(err, "fail to call f for object")
+				return errors.Wrap(err, "failed to call iter function for object X")
 			}
 		}
 		for _, topDir := range output.CommonPrefixes {
 			if err := f(topDir); err != nil {
-				return errors.Wrap(err, "fail to call f for top dir object")
+				return errors.Wrap(err, "failed to call f for top dir object")
 			}
 		}
 
@@ -291,14 +291,13 @@ func (b *Bucket) getRange(ctx context.Context, name string, off, length int64) (
 		return nil, errors.New("incorrect offset")
 	}
 	input.RangeStart = off
+	input.RangeEnd = math.MaxInt64
 	if length != -1 {
 		input.RangeEnd = off + length - 1
-	} else {
-		input.RangeEnd = math.MaxInt64
 	}
 	output, err := b.client.GetObject(input)
 	if err != nil {
-		return nil, errors.Wrap(err, "fail to get object")
+		return nil, errors.Wrap(err, "failed to get object")
 	}
 	return output.Body, nil
 }
@@ -313,15 +312,14 @@ func (b *Bucket) Exists(ctx context.Context, name string) (bool, error) {
 		if b.IsObjNotFoundErr(err) {
 			return false, nil
 		}
-		return false, errors.Wrap(err, "fail to get object metadata")
+		return false, errors.Wrap(err, "failed to get object metadata")
 	}
 	return true, nil
 }
 
 // IsObjNotFoundErr returns true if error means that object is not found. Relevant to Get operations.
 func (b *Bucket) IsObjNotFoundErr(err error) bool {
-	switch oriErr := errors.Cause(err).(type) {
-	case obs.ObsError:
+	if oriErr, ok := errors.Cause(err).(obs.ObsError); ok {
 		if oriErr.Status == "404 Not Found" {
 			return true
 		}
@@ -336,7 +334,7 @@ func (b *Bucket) Attributes(ctx context.Context, name string) (objstore.ObjectAt
 		Key:    name,
 	})
 	if err != nil {
-		return objstore.ObjectAttributes{}, errors.Wrap(err, "fail to get object metadata")
+		return objstore.ObjectAttributes{}, errors.Wrap(err, "failed to get object metadata")
 	}
 	return objstore.ObjectAttributes{
 		Size:         output.ContentLength,
