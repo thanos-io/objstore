@@ -252,12 +252,12 @@ func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, opt
 		}
 		for _, content := range output.Contents {
 			if err := f(content.Key); err != nil {
-				return errors.Wrap(err, "failed to call iter function for object X")
+				return errors.Wrapf(err, "failed to call iter function for object %s", content.Key)
 			}
 		}
 		for _, topDir := range output.CommonPrefixes {
 			if err := f(topDir); err != nil {
-				return errors.Wrap(err, "failed to call f for top dir object")
+				return errors.Wrapf(err, "failed to call iter function for top dir object %s", topDir)
 			}
 		}
 
