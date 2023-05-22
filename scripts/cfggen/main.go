@@ -11,21 +11,22 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/thanos-io/objstore/providers/oci"
-
-	"github.com/fatih/structtag"
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
-	"github.com/pkg/errors"
 	"github.com/thanos-io/objstore/client"
 	"github.com/thanos-io/objstore/providers/azure"
 	"github.com/thanos-io/objstore/providers/bos"
 	"github.com/thanos-io/objstore/providers/cos"
 	"github.com/thanos-io/objstore/providers/filesystem"
 	"github.com/thanos-io/objstore/providers/gcs"
+	"github.com/thanos-io/objstore/providers/obs"
+	"github.com/thanos-io/objstore/providers/oci"
 	"github.com/thanos-io/objstore/providers/oss"
 	"github.com/thanos-io/objstore/providers/s3"
 	"github.com/thanos-io/objstore/providers/swift"
+
+	"github.com/fatih/structtag"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
+	"github.com/pkg/errors"
 	"gopkg.in/alecthomas/kingpin.v2"
 	"gopkg.in/yaml.v2"
 )
@@ -44,6 +45,7 @@ var (
 		client.FILESYSTEM: filesystem.Config{},
 		client.BOS:        bos.Config{},
 		client.OCI:        oci.Config{},
+		client.OBS:        obs.DefaultConfig,
 	}
 )
 
