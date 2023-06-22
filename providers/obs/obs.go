@@ -327,6 +327,11 @@ func (b *Bucket) IsObjNotFoundErr(err error) bool {
 	return false
 }
 
+// IsCustomerManagedKeyError returns true if the permissions for key used to encrypt the object was revoked.
+func (b *Bucket) IsCustomerManagedKeyError(_ error) bool {
+	return false
+}
+
 // Attributes returns information about the specified object.
 func (b *Bucket) Attributes(ctx context.Context, name string) (objstore.ObjectAttributes, error) {
 	output, err := b.client.GetObjectMetadata(&obs.GetObjectMetadataInput{

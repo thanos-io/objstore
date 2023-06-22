@@ -287,6 +287,11 @@ func (b *Bucket) IsObjNotFoundErr(err error) bool {
 	return false
 }
 
+// IsCustomerManagedKeyError returns true if the permissions for key used to encrypt the object was revoked.
+func (b *Bucket) IsCustomerManagedKeyError(_ error) bool {
+	return false
+}
+
 func (b *Bucket) getRange(_ context.Context, bucketName, objectKey string, off, length int64) (io.ReadCloser, error) {
 	if len(objectKey) == 0 {
 		return nil, errors.Errorf("given object name should not empty")

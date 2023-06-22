@@ -538,6 +538,12 @@ func (b *Bucket) IsObjNotFoundErr(err error) bool {
 	return minio.ToErrorResponse(errors.Cause(err)).Code == "NoSuchKey"
 }
 
+// IsCustomerManagedKeyError returns true if the permissions for key used to encrypt the object was revoked.
+func (b *Bucket) IsCustomerManagedKeyError(err error) bool {
+	errResponse := minio.ToErrorResponse(errors.Cause(err))
+	return errResponse.Code == "AccessDenied" && errResponse.Message == "The ciphertext refers to a customer master key that does not exist, does not exist in this region, or you are not allowed to access."
+}
+
 func (b *Bucket) Close() error { return nil }
 
 // getServerSideEncryption returns the SSE to use.
