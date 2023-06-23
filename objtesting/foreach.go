@@ -190,12 +190,12 @@ func ForeachStore(t *testing.T, testFn func(t *testing.T, bkt objstore.Bucket)) 
 	if !IsObjStoreSkipped(t, client.STORJ) {
 		t.Run("oci", func(t *testing.T) {
 			bkt, closeFn, err := storj.NewTestBucket(t)
-      testutil.Ok(t, err)
+      			testutil.Ok(t, err)
 
 			t.Parallel()
 			defer closeFn()
-
-      testFn(t, bkt)   
+	
+			testFn(t, bkt)   
 		})
 	}
 
@@ -209,7 +209,6 @@ func ForeachStore(t *testing.T, testFn func(t *testing.T, bkt objstore.Bucket)) 
 			defer closeFn()
 
 			testFn(t, bkt)
-
 			testFn(t, objstore.NewPrefixedBucket(bkt, "some_prefix"))
 		})
 	}
