@@ -6,8 +6,11 @@ package objstore
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
 	"io"
 	"io/fs"
+	"math"
 	"os"
 	"path"
 	"path/filepath"
@@ -18,6 +21,7 @@ import (
 	"github.com/efficientgo/core/logerrcapture"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
+	"github.com/minio/sio"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -397,6 +401,115 @@ func DownloadDir(ctx context.Context, logger log.Logger, bkt BucketReader, origi
 
 // IsOpFailureExpectedFunc allows to mark certain errors as expected, so they will not increment objstore_bucket_operation_failures_total metric.
 type IsOpFailureExpectedFunc func(error) bool
+
+// BucketWithEncryption takes a bucket and transparently encrypts and decrypts its payloads.
+func BucketWithEncryption(b Bucket, key []byte) *encryptedBucket {
+	return &encryptedBucket{Bucket: b, masterKey: key}
+}
+
+type encryptedBucket struct {
+	Bucket
+
+	masterKey []byte
+}
+
+const (
+	// the version byte is reserved but currently unused
+	v1VersionByte = 1
+	saltSizeBytes = 32
+	metaSizeBytes = saltSizeBytes + 1
+)
+
+// As per https://github.com/minio/sio/blob/master/DARE.md#appendices we need a unique key data stream.
+// We derive a unique key from the configuration provided master key by fetching 32 random bits salt and
+// using KDF(master key ++ salt) as our derived encryption key. The salt is prepended to the encrypted
+// object. This is okay since the salt does not need to be kept a secret.
+func (eb *encryptedBucket) deriveKey(salt []byte) []byte {
+	dk := sha256.Sum256(append(eb.masterKey, salt...))
+	return dk[:]
+}
+
+func (eb *encryptedBucket) encryptionConfig(salt []byte) sio.Config {
+	return sio.Config{Key: eb.deriveKey(salt), MinVersion: sio.Version20, CipherSuites: []byte{sio.AES_256_GCM}}
+}
+
+func (eb *encryptedBucket) Attributes(ctx context.Context, name string) (ObjectAttributes, error) {
+	attrs, err := eb.Bucket.Attributes(ctx, name)
+	if err != nil {
+		return attrs, err
+	}
+
+	decSize, err := sio.DecryptedSize(uint64(attrs.Size) - metaSizeBytes)
+	if err != nil {
+		return ObjectAttributes{}, errors.Wrap(err, "unable to determine unecrypted size")
+	}
+
+	if decSize > math.MaxInt64 {
+		return ObjectAttributes{}, errors.New("size of decrypted blob too large")
+	}
+
+	return ObjectAttributes{Size: int64(decSize), LastModified: attrs.LastModified}, nil
+}
+
+func (eb *encryptedBucket) Upload(ctx context.Context, name string, r io.Reader) error {
+	meta := make([]byte, metaSizeBytes)
+	meta[0] = v1VersionByte
+	salt := meta[1:]
+	if _, err := rand.Read(salt); err != nil {
+		return errors.Wrap(err, "unable to derive encryption key for stream")
+	}
+
+	er, err := sio.EncryptReader(r, eb.encryptionConfig(salt))
+	if err != nil {
+		return errors.Wrap(err, "unable to create encryption stream")
+	}
+
+	tr := io.MultiReader(bytes.NewReader(meta), er)
+	return eb.Bucket.Upload(ctx, name, tr)
+}
+
+func (eb *encryptedBucket) Get(ctx context.Context, name string) (io.ReadCloser, error) {
+	return eb.GetRange(ctx, name, 0, -1)
+}
+
+func (eb *encryptedBucket) GetRange(ctx context.Context, name string, off, length int64) (io.ReadCloser, error) {
+	metaReader, err := eb.Bucket.GetRange(ctx, name, 0, metaSizeBytes)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to fetch salt")
+	}
+	defer metaReader.Close()
+	defer func() { io.Copy(io.Discard, metaReader) }()
+
+	meta, err := io.ReadAll(metaReader)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to read salt")
+	}
+	salt := meta[1:]
+
+	br := &bucketReaderAt{ctx: ctx, name: name, b: eb.Bucket}
+	dr, err := sio.DecryptReaderAt(br, eb.encryptionConfig(salt))
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to create decryption stream")
+	}
+	return io.NopCloser(io.NewSectionReader(dr, off, length)), nil
+}
+
+type bucketReaderAt struct {
+	ctx  context.Context
+	name string
+	b    BucketReader
+}
+
+func (br *bucketReaderAt) ReadAt(p []byte, off int64) (n int, err error) {
+	readCloser, err := br.b.GetRange(br.ctx, br.name, off+metaSizeBytes, int64(len(p)))
+	if err != nil {
+		return 0, err
+	}
+	defer readCloser.Close()
+	defer func() { io.Copy(io.Discard, readCloser) }()
+
+	return readCloser.Read(p)
+}
 
 var _ InstrumentedBucket = &metricBucket{}
 

@@ -9,6 +9,7 @@ NOTE: As semantic versioning states all 0.y.z releases can contain breaking chan
 We use *breaking :warning:* to mark changes that are not backward compatible (relates only to v0.y.z releases.)
 
 ## Unreleased
+- [#46](https://github.com/thanos-io/objstore/pull/46) Objstore: Add experimental encryption wrapper
 
 ### Fixed
 - [#33](https://github.com/thanos-io/objstore/pull/33) Tracing: Add `ContextWithTracer()` to inject the tracer into the context.
