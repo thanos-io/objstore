@@ -24,6 +24,8 @@ We use *breaking :warning:* to mark changes that are not backward compatible (re
 - [#50](https://github.com/thanos-io/objstore/pull/50) Add Huawei Cloud OBS Object Storage Support
 - [#59](https://github.com/thanos-io/objstore/pull/59) Adding method `IsCustomerManagedKeyError` on the bucket interface.
 - [#61](https://github.com/thanos-io/objstore/pull/61) Add OpenTelemetry TracingBucket.
+    > This also changes the behaviour of `client.NewBucket`. Now it returns, uninstrumented and untraced bucket.
+    You can combine `client.InstrumentedBucket` and `tracing/{opentelemetry,opentracing}.TracedBucket` to have old behavior.
 
 ### Changed
 - [#38](https://github.com/thanos-io/objstore/pull/38) *: Upgrade minio-go version to `v7.0.45`.
