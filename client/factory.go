@@ -50,7 +50,7 @@ type BucketConfig struct {
 
 // NewBucket initializes and returns new object storage clients.
 // NOTE: confContentYaml can contain secrets.
-func NewBucket(logger log.Logger, confContentYaml []byte, reg prometheus.Registerer, component string) (objstore.InstrumentedBucket, error) {
+func NewBucket(logger log.Logger, confContentYaml []byte, component string) (objstore.Bucket, error) {
 	level.Info(logger).Log("msg", "loading bucket configuration")
 	bucketConf := &BucketConfig{}
 	if err := yaml.UnmarshalStrict(confContentYaml, bucketConf); err != nil {
@@ -91,5 +91,10 @@ func NewBucket(logger log.Logger, confContentYaml []byte, reg prometheus.Registe
 		return nil, errors.Wrap(err, fmt.Sprintf("create %s client", bucketConf.Type))
 	}
 
-	return objstore.NewTracingBucket(objstore.BucketWithMetrics(bucket.Name(), objstore.NewPrefixedBucket(bucket, bucketConf.Prefix), reg)), nil
+	return objstore.NewPrefixedBucket(bucket, bucketConf.Prefix), nil
+}
+
+// InstrumentedBucket wraps the given bucket with metrics.
+func InstrumentedBucket(bkt objstore.Bucket, reg prometheus.Registerer) objstore.InstrumentedBucket {
+	return objstore.WrapWithMetrics(bkt, reg, bkt.Name())
 }

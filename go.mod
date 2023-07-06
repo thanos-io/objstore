@@ -21,6 +21,8 @@ require (
 	github.com/prometheus/client_golang v1.12.2
 	github.com/prometheus/common v0.36.0
 	github.com/tencentyun/cos-go-sdk-v5 v0.7.40
+	go.opentelemetry.io/otel v1.16.0
+	go.opentelemetry.io/otel/trace v1.16.0
 	go.uber.org/atomic v1.9.0
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
@@ -92,7 +94,6 @@ require (
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/ini.v1 v1.66.6 // indirect
-	gopkg.in/yaml.v3 v3.0.0 // indirect
 )
 
 require (

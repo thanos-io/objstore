@@ -20,7 +20,7 @@ import (
 )
 
 func TestMetricBucket_Close(t *testing.T) {
-	bkt := BucketWithMetrics("abc", NewInMemBucket(), nil)
+	bkt := WrapWithMetrics(NewInMemBucket(), nil, "abc")
 	// Expected initialized metrics.
 	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.ops))
 	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.opsFailures))
@@ -72,30 +72,9 @@ func TestMetricBucket_Close(t *testing.T) {
 	testutil.Assert(t, promtest.ToFloat64(bkt.lastSuccessfulUploadTime) > lastUpload)
 }
 
-func TestTracingReader(t *testing.T) {
-	r := bytes.NewReader([]byte("hello world"))
-	tr := newTracingReadCloser(NopCloserWithSize(r), nil)
-
-	size, err := TryToGetSize(tr)
-
-	testutil.Ok(t, err)
-	testutil.Equals(t, int64(11), size)
-
-	smallBuf := make([]byte, 4)
-	n, err := io.ReadFull(tr, smallBuf)
-	testutil.Ok(t, err)
-	testutil.Equals(t, 4, n)
-
-	// Verify that size is still the same, after reading 4 bytes.
-	size, err = TryToGetSize(tr)
-
-	testutil.Ok(t, err)
-	testutil.Equals(t, int64(11), size)
-}
-
 func TestDownloadUploadDirConcurrency(t *testing.T) {
 	r := prometheus.NewRegistry()
-	m := BucketWithMetrics("", NewInMemBucket(), r)
+	m := WrapWithMetrics(NewInMemBucket(), r, "")
 	tempDir := t.TempDir()
 
 	testutil.Ok(t, m.Upload(context.Background(), "dir/obj1", bytes.NewReader([]byte("1"))))
@@ -158,14 +137,13 @@ func TestDownloadUploadDirConcurrency(t *testing.T) {
 }
 
 func TestTimingTracingReader(t *testing.T) {
-	m := BucketWithMetrics("", NewInMemBucket(), nil)
+	m := WrapWithMetrics(NewInMemBucket(), nil, "")
 	r := bytes.NewReader([]byte("hello world"))
 
 	tr := NopCloserWithSize(r)
 	tr = newTimingReadCloser(tr, "", m.opsDuration, m.opsFailures, func(err error) bool {
 		return false
 	}, m.opsFetchedBytes)
-	tr = newTracingReadCloser(tr, nil)
 
 	size, err := TryToGetSize(tr)
 
