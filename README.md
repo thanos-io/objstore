@@ -128,7 +128,8 @@ Current object storage client implementations:
 | [Baidu BOS](#baidu-bos)                                                                   | Beta               | Production Usage      | no                | @yahaa                           |
 | [Local Filesystem](#filesystem)                                                           | Stable             | Testing and Demo only | yes               | @bwplotka                        |
 | [Oracle Cloud Infrastructure Object Storage](#oracle-cloud-infrastructure-object-storage) | Beta               | Production Usage      | yes               | @aarontams,@gaurav-05,@ericrrath |
-| [HuaweiCloud OBS](#huaweicloud-obs)                                                       | Beta               | Production Usage      | no               | @setoru                          |
+| [Storj DCS](#storj-dcs)                                                                   | Beta               | Production Usage      | yes               | @stefanbenten                    |
+| [HuaweiCloud OBS](#huaweicloud-obs)                                                       | Beta               | Production Usage      | no                | @setoru                          |
 
 **Missing support to some object storage?** Check out [how to add your client section](#how-to-add-a-new-client-to-thanos)
 
@@ -138,7 +139,7 @@ NOTE: Currently Thanos requires strong consistency (write-read) for object store
 
 Thanos uses the [minio client](https://github.com/minio/minio-go) library to upload Prometheus data into AWS S3.
 
-> NOTE: S3 client was designed for AWS S3, but it can be configured against other S3-compatible object storages e.g Ceph
+> NOTE: S3 client was designed for AWS S3, but it can be configured against other S3-compatible object storages e.g. Ceph.
 
 The S# object storage yaml configuration definition:
 
@@ -186,13 +187,13 @@ prefix: ""
 
 At a minimum, you will need to provide a value for the `bucket`, `endpoint`, `access_key`, and `secret_key` keys. The rest of the keys are optional.
 
-However if you set `aws_sdk_auth: true` Thanos will use the default authentication methods of the AWS SDK for go based on [known environment variables](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html) (`AWS_PROFILE`, `AWS_WEB_IDENTITY_TOKEN_FILE` ... etc) and known AWS config files (~/.aws/config). If you turn this on, then the `bucket` and `endpoint` are the required config keys.
+However, if you set `aws_sdk_auth: true` Thanos will use the default authentication methods of the AWS SDK for go based on [known environment variables](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html) (`AWS_PROFILE`, `AWS_WEB_IDENTITY_TOKEN_FILE` ... etc) and known AWS config files (~/.aws/config). If you turn this on, then the `bucket` and `endpoint` are the required config keys.
 
 The field `prefix` can be used to transparently use prefixes in your S3 bucket. This allows you to separate blocks coming from different sources into paths with different prefixes, making it easier to understand what's going on (i.e. you don't have to use Thanos tooling to know from where which blocks came).
 
 The AWS region to endpoint mapping can be found in this [link](https://docs.aws.amazon.com/general/latest/gr/s3.html).
 
-Make sure you use a correct signature version. Currently AWS requires signature v4, so it needs `signature_version2: false`. If you don't specify it, you will get an `Access Denied` error. On the other hand, several S3 compatible APIs use `signature_version2: true`.
+Make sure you use a correct signature version. Currently, AWS requires signature v4, so it needs `signature_version2: false`. If you don't specify it, you will get an `Access Denied` error. On the other hand, several S3 compatible APIs use `signature_version2: true`.
 
 You can configure the timeout settings for the HTTP client by setting the `http_config.idle_conn_timeout` and `http_config.response_header_timeout` keys. As a rule of thumb, if you are seeing errors like `timeout awaiting response headers` in your logs, you may want to increase the value of `http_config.response_header_timeout`.
 
@@ -248,7 +249,7 @@ You will also need to apply the following AWS IAM policy for the user to access 
 
 ###### Credentials
 
-By default Thanos will try to retrieve credentials from the following sources:
+By default, Thanos will try to retrieve credentials from the following sources:
 
 1. From config file if BOTH `access_key` and `secret_key` are present.
 2. From the standard AWS environment variable - `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
@@ -330,7 +331,7 @@ Details about AWS policies: https://docs.aws.amazon.com/AmazonS3/latest/dev/usin
 
 ###### STS Endpoint
 
-If you want to use IAM credential retrieved from an instance profile, Thanos needs to authenticate through AWS STS. For this purposes you can specify your own STS Endpoint.
+If you want to use IAM credential retrieved from an instance profile, Thanos needs to authenticate through AWS STS. For this purpose you can specify your own STS Endpoint.
 
 By default Thanos will use endpoint: https://sts.amazonaws.com and AWS region corresponding endpoints.
 
@@ -640,6 +641,21 @@ config:
 ```
 
 You can also include any of the optional configuration just like the example in `Default Provider`.
+
+### Storj DCS
+
+In order to be able to configure [Storj DCS](https://storj.io/signup) as Thanos Object Store Backend you will need to 
+provide an access grant and a bucket name to be used to hold the objects. 
+You can choose an already existing bucket or a new name and the bucket will be created for you.
+
+The following snippet shows how to add these information to the configuration yaml.
+
+```yaml
+type: STORJ
+config:
+  access: ""
+  bucket: ""
+```
 
 ##### HuaweiCloud OBS
 

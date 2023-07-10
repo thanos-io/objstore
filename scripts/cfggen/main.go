@@ -11,6 +11,13 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/fatih/structtag"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
+	"github.com/pkg/errors"
+	"gopkg.in/alecthomas/kingpin.v2"
+	"gopkg.in/yaml.v2"
+
 	"github.com/thanos-io/objstore/client"
 	"github.com/thanos-io/objstore/providers/azure"
 	"github.com/thanos-io/objstore/providers/bos"
@@ -21,14 +28,8 @@ import (
 	"github.com/thanos-io/objstore/providers/oci"
 	"github.com/thanos-io/objstore/providers/oss"
 	"github.com/thanos-io/objstore/providers/s3"
+	"github.com/thanos-io/objstore/providers/storj"
 	"github.com/thanos-io/objstore/providers/swift"
-
-	"github.com/fatih/structtag"
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
-	"github.com/pkg/errors"
-	"gopkg.in/alecthomas/kingpin.v2"
-	"gopkg.in/yaml.v2"
 )
 
 var (
@@ -45,6 +46,7 @@ var (
 		client.FILESYSTEM: filesystem.Config{},
 		client.BOS:        bos.Config{},
 		client.OCI:        oci.Config{},
+		client.STORJ:      storj.Config{},
 		client.OBS:        obs.DefaultConfig,
 	}
 )
@@ -72,19 +74,19 @@ func main() {
 
 	errLogger := level.Error(log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr)))
 	if _, err := app.Parse(os.Args[1:]); err != nil {
-		errLogger.Log("err", err)
+		_ = errLogger.Log("err", err)
 		os.Exit(1)
 	}
 
 	if c, ok := configs[*structName]; ok {
 		if err := generate(c, os.Stdout); err != nil {
-			errLogger.Log("err", err)
+			_ = errLogger.Log("err", err)
 			os.Exit(1)
 		}
 		return
 	}
 
-	errLogger.Log("err", errors.Errorf("%v struct not found. Possible values %v", *structName, strings.Join(possibleValues, ",")))
+	_ = errLogger.Log("err", errors.Errorf("%v struct not found. Possible values %v", *structName, strings.Join(possibleValues, ",")))
 	os.Exit(1)
 }
 

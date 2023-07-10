@@ -19,18 +19,19 @@ import (
 	"github.com/thanos-io/objstore/providers/oci"
 	"github.com/thanos-io/objstore/providers/oss"
 	"github.com/thanos-io/objstore/providers/s3"
+	"github.com/thanos-io/objstore/providers/storj"
 	"github.com/thanos-io/objstore/providers/swift"
 
 	"github.com/efficientgo/core/testutil"
 )
 
 // IsObjStoreSkipped returns true if given provider ID is found in THANOS_TEST_OBJSTORE_SKIP array delimited by comma e.g:
-// THANOS_TEST_OBJSTORE_SKIP=GCS,S3,AZURE,SWIFT,COS,ALIYUNOSS,BOS,OCI.
+// THANOS_TEST_OBJSTORE_SKIP=GCS,S3,AZURE,SWIFT,COS,ALIYUNOSS,BOS,OCI,STORJ.
 func IsObjStoreSkipped(t *testing.T, provider client.ObjProvider) bool {
 	if e, ok := os.LookupEnv("THANOS_TEST_OBJSTORE_SKIP"); ok {
 		obstores := strings.Split(e, ",")
-		for _, objstore := range obstores {
-			if objstore == string(provider) {
+		for _, store := range obstores {
+			if store == string(provider) {
 				t.Logf("%s found in THANOS_TEST_OBJSTORE_SKIP array. Skipping.", provider)
 				return true
 			}
@@ -182,6 +183,19 @@ func ForeachStore(t *testing.T, testFn func(t *testing.T, bkt objstore.Bucket)) 
 			defer closeFn()
 
 			testFn(t, bkt)
+		})
+	}
+
+	// Optional STORJ.
+	if !IsObjStoreSkipped(t, client.STORJ) {
+		t.Run("oci", func(t *testing.T) {
+			bkt, closeFn, err := storj.NewTestBucket(t)
+      			testutil.Ok(t, err)
+
+			t.Parallel()
+			defer closeFn()
+	
+			testFn(t, bkt)   
 		})
 	}
 

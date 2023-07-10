@@ -16,6 +16,7 @@ We use *breaking :warning:* to mark changes that are not backward compatible (re
 - [#62](https://github.com/thanos-io/objstore/pull/62) S3: Fix ignored context cancellation in `Iter` method. 
 
 ### Added
+- [#18](https://github.com/thanos-io/objstore/pull/18) Add Storj DCS Object Storage Bucket support.
 - [#15](https://github.com/thanos-io/objstore/pull/15) Add Oracle Cloud Infrastructure Object Storage Bucket support.
 - [#25](https://github.com/thanos-io/objstore/pull/25) S3: Support specifying S3 storage class.
 - [#32](https://github.com/thanos-io/objstore/pull/32) Swift: Support authentication using application credentials.
