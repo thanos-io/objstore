@@ -23,7 +23,6 @@ import (
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/yaml.v2"
 )
 
@@ -92,9 +91,4 @@ func NewBucket(logger log.Logger, confContentYaml []byte, component string) (obj
 	}
 
 	return objstore.NewPrefixedBucket(bucket, bucketConf.Prefix), nil
-}
-
-// InstrumentedBucket wraps the given bucket with metrics.
-func InstrumentedBucket(bkt objstore.Bucket, reg prometheus.Registerer) objstore.InstrumentedBucket {
-	return objstore.WrapWithMetrics(bkt, reg, bkt.Name())
 }

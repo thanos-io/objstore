@@ -40,7 +40,7 @@ type TracingBucket struct {
 	bkt objstore.Bucket
 }
 
-func TracedBucket(bkt objstore.Bucket) objstore.InstrumentedBucket {
+func WrapWithTraces(bkt objstore.Bucket) objstore.InstrumentedBucket {
 	return TracingBucket{bkt: bkt}
 }
 
