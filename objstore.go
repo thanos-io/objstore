@@ -497,6 +497,7 @@ func (b *metricBucket) WithExpectedErrs(fn IsOpFailureExpectedFunc) Bucket {
 		opsFailures:              b.opsFailures,
 		opsFetchedBytes:          b.opsFetchedBytes,
 		opsTransferredBytes:      b.opsTransferredBytes,
+		opsUploadedBytes:         b.opsUploadedBytes,
 		isOpFailureExpected:      fn,
 		opsDuration:              b.opsDuration,
 		lastSuccessfulUploadTime: b.lastSuccessfulUploadTime,
@@ -555,6 +556,7 @@ func (b *metricBucket) Get(ctx context.Context, name string) (io.ReadCloser, err
 		b.isOpFailureExpected,
 		b.opsFetchedBytes,
 		b.opsTransferredBytes,
+		b.opsUploadedBytes,
 	), nil
 }
 
@@ -577,6 +579,7 @@ func (b *metricBucket) GetRange(ctx context.Context, name string, off, length in
 		b.isOpFailureExpected,
 		b.opsFetchedBytes,
 		b.opsTransferredBytes,
+		b.opsUploadedBytes,
 	), nil
 }
 
@@ -659,9 +662,10 @@ type timingReadCloser struct {
 	isFailureExpected IsOpFailureExpectedFunc
 	fetchedBytes      *prometheus.CounterVec
 	transferredBytes  *prometheus.HistogramVec
+	uploadedBytes     *prometheus.CounterVec
 }
 
-func newTimingReadCloser(rc io.ReadCloser, op string, dur *prometheus.HistogramVec, failed *prometheus.CounterVec, isFailureExpected IsOpFailureExpectedFunc, fetchedBytes *prometheus.CounterVec, transferredBytes *prometheus.HistogramVec) *timingReadCloser {
+func newTimingReadCloser(rc io.ReadCloser, op string, dur *prometheus.HistogramVec, failed *prometheus.CounterVec, isFailureExpected IsOpFailureExpectedFunc, fetchedBytes *prometheus.CounterVec, uploadedBytes *prometheus.CounterVec, transferredBytes *prometheus.HistogramVec) *timingReadCloser {
 	// Initialize the metrics with 0.
 	dur.WithLabelValues(op)
 	failed.WithLabelValues(op)
@@ -678,6 +682,7 @@ func newTimingReadCloser(rc io.ReadCloser, op string, dur *prometheus.HistogramV
 		fetchedBytes:      fetchedBytes,
 		transferredBytes:  transferredBytes,
 		readBytes:         0,
+		uploadedBytes:     uploadedBytes,
 	}
 }
 
