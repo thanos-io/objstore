@@ -443,6 +443,12 @@ func WrapWithMetrics(b Bucket, reg prometheus.Registerer, name string) *metricBu
 			Help:        "Second timestamp of the last successful upload to the bucket.",
 			ConstLabels: prometheus.Labels{"bucket": name},
 		}),
+
+		opsUploadedBytes: promauto.With(reg).NewCounterVec(prometheus.CounterOpts{
+			Name:        "objstore_bucket_operation_uploaded_bytes_total",
+			Help:        "Total number of bytes uploaded from TSDB block, per operation.",
+			ConstLabels: prometheus.Labels{"bucket": name},
+		}, []string{"operation"}),
 	}
 	for _, op := range []string{
 		OpIter,
@@ -457,6 +463,7 @@ func WrapWithMetrics(b Bucket, reg prometheus.Registerer, name string) *metricBu
 		bkt.opsFailures.WithLabelValues(op)
 		bkt.opsDuration.WithLabelValues(op)
 		bkt.opsFetchedBytes.WithLabelValues(op)
+		bkt.opsUploadedBytes.WithLabelValues(op)
 	}
 	// fetched bytes only relevant for get and getrange
 	for _, op := range []string{
@@ -478,6 +485,7 @@ type metricBucket struct {
 
 	opsFetchedBytes          *prometheus.CounterVec
 	opsTransferredBytes      *prometheus.HistogramVec
+	opsUploadedBytes         *prometheus.CounterVec
 	opsDuration              *prometheus.HistogramVec
 	lastSuccessfulUploadTime prometheus.Gauge
 }
