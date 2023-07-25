@@ -128,26 +128,26 @@ func (b *Bucket) Delete(ctx context.Context, name string) error {
 }
 
 // Upload the contents of the reader as an object into the bucket.
-func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) error {
+func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) (int64, error) {
 	size, err := objstore.TryToGetSize(r)
 
 	if err != nil {
-		return errors.Wrapf(err, "failed to get size apriori to upload %s", name)
+		return 0, errors.Wrapf(err, "failed to get size apriori to upload %s", name)
 	}
 
 	if size <= 0 {
-		return errors.New("object size must be provided")
+		return 0, errors.New("object size must be provided")
 	}
 	if size <= MinMultipartUploadSize {
 		err = b.putObjectSingle(name, r)
 		if err != nil {
-			return err
+			return 0, err
 		}
 	} else {
 		var initOutput *obs.InitiateMultipartUploadOutput
 		initOutput, err = b.initiateMultipartUpload(name)
 		if err != nil {
-			return err
+			return 0, err
 		}
 
 		uploadId := initOutput.UploadId
@@ -165,7 +165,7 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) error {
 		}()
 		parts, err := b.multipartUpload(size, name, uploadId, r)
 		if err != nil {
-			return err
+			return 0, err
 		}
 
 		_, err = b.client.CompleteMultipartUpload(&obs.CompleteMultipartUploadInput{
@@ -175,10 +175,10 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) error {
 			Parts:    parts,
 		})
 		if err != nil {
-			return errors.Wrap(err, "failed to complete multipart upload")
+			return 0, errors.Wrap(err, "failed to complete multipart upload")
 		}
 	}
-	return nil
+	return size, nil
 }
 
 func (b *Bucket) putObjectSingle(key string, body io.Reader) error {

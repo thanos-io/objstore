@@ -68,11 +68,11 @@ func NewTestBucket(t testing.TB) (objstore.Bucket, func(), error) {
 }
 
 // Upload the contents of the reader as an object into the bucket.
-func (b *Bucket) Upload(_ context.Context, name string, r io.Reader) error {
+func (b *Bucket) Upload(_ context.Context, name string, r io.Reader) (int64, error) {
 	// TODO(https://github.com/thanos-io/thanos/issues/678): Remove guessing length when minio provider will support multipart upload without this.
 	size, err := objstore.TryToGetSize(r)
 	if err != nil {
-		return errors.Wrapf(err, "failed to get size apriori to upload %s", name)
+		return 0, errors.Wrapf(err, "failed to get size apriori to upload %s", name)
 	}
 
 	chunksnum, lastslice := int(math.Floor(float64(size)/PartSize)), size%PartSize
@@ -81,13 +81,13 @@ func (b *Bucket) Upload(_ context.Context, name string, r io.Reader) error {
 	switch chunksnum {
 	case 0:
 		if err := b.bucket.PutObject(name, ncloser); err != nil {
-			return errors.Wrap(err, "failed to upload oss object")
+			return 0, errors.Wrap(err, "failed to upload oss object")
 		}
 	default:
 		{
 			init, err := b.bucket.InitiateMultipartUpload(name)
 			if err != nil {
-				return errors.Wrap(err, "failed to initiate multi-part upload")
+				return 0, errors.Wrap(err, "failed to initiate multi-part upload")
 			}
 			chunk := 0
 			uploadEveryPart := func(everypartsize int64, cnk int) (alioss.UploadPart, error) {
@@ -105,23 +105,23 @@ func (b *Bucket) Upload(_ context.Context, name string, r io.Reader) error {
 			for ; chunk < chunksnum; chunk++ {
 				part, err := uploadEveryPart(PartSize, chunk+1)
 				if err != nil {
-					return errors.Wrap(err, "failed to upload every part")
+					return 0, errors.Wrap(err, "failed to upload every part")
 				}
 				parts = append(parts, part)
 			}
 			if lastslice != 0 {
 				part, err := uploadEveryPart(lastslice, chunksnum+1)
 				if err != nil {
-					return errors.Wrap(err, "failed to upload the last chunk")
+					return 0, errors.Wrap(err, "failed to upload the last chunk")
 				}
 				parts = append(parts, part)
 			}
 			if _, err := b.bucket.CompleteMultipartUpload(init, parts); err != nil {
-				return errors.Wrap(err, "failed to set multi-part upload completive")
+				return 0, errors.Wrap(err, "failed to set multi-part upload completive")
 			}
 		}
 	}
-	return nil
+	return size, nil
 }
 
 // Delete removes the object with the given name.

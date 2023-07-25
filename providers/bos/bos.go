@@ -110,29 +110,29 @@ func (b *Bucket) Delete(_ context.Context, name string) error {
 }
 
 // Upload the contents of the reader as an object into the bucket.
-func (b *Bucket) Upload(_ context.Context, name string, r io.Reader) error {
+func (b *Bucket) Upload(_ context.Context, name string, r io.Reader) (int64, error) {
 	size, err := objstore.TryToGetSize(r)
 	if err != nil {
-		return errors.Wrapf(err, "getting size of %s", name)
+		return 0, errors.Wrapf(err, "getting size of %s", name)
 	}
 
 	partNums, lastSlice := int(math.Floor(float64(size)/partSize)), size%partSize
 	if partNums == 0 {
 		body, err := bce.NewBodyFromSizedReader(r, lastSlice)
 		if err != nil {
-			return errors.Wrapf(err, "failed to create SizedReader for %s", name)
+			return 0, errors.Wrapf(err, "failed to create SizedReader for %s", name)
 		}
 
 		if _, err := b.client.PutObject(b.name, name, body, nil); err != nil {
-			return errors.Wrapf(err, "failed to upload %s", name)
+			return 0, errors.Wrapf(err, "failed to upload %s", name)
 		}
 
-		return nil
+		return 0, nil
 	}
 
 	result, err := b.client.BasicInitiateMultipartUpload(b.name, name)
 	if err != nil {
-		return errors.Wrapf(err, "failed to initiate MultipartUpload for %s", name)
+		return 0, errors.Wrapf(err, "failed to initiate MultipartUpload for %s", name)
 	}
 
 	uploadEveryPart := func(partSize int64, part int, uploadId string) (string, error) {
@@ -156,7 +156,7 @@ func (b *Bucket) Upload(_ context.Context, name string, r io.Reader) error {
 	for part := 1; part <= partNums; part++ {
 		etag, err := uploadEveryPart(partSize, part, result.UploadId)
 		if err != nil {
-			return errors.Wrapf(err, "failed to upload part %d for %s", part, name)
+			return 0, errors.Wrapf(err, "failed to upload part %d for %s", part, name)
 		}
 		parts = append(parts, api.UploadInfoType{PartNumber: part, ETag: etag})
 	}
@@ -164,15 +164,15 @@ func (b *Bucket) Upload(_ context.Context, name string, r io.Reader) error {
 	if lastSlice != 0 {
 		etag, err := uploadEveryPart(lastSlice, partNums+1, result.UploadId)
 		if err != nil {
-			return errors.Wrapf(err, "failed to upload the last part for %s", name)
+			return 0, errors.Wrapf(err, "failed to upload the last part for %s", name)
 		}
 		parts = append(parts, api.UploadInfoType{PartNumber: partNums + 1, ETag: etag})
 	}
 
 	if _, err := b.client.CompleteMultipartUploadFromStruct(b.name, name, result.UploadId, &api.CompleteMultipartUploadArgs{Parts: parts}); err != nil {
-		return errors.Wrapf(err, "failed to set %s upload completed", name)
+		return 0, errors.Wrapf(err, "failed to set %s upload completed", name)
 	}
-	return nil
+	return size, nil
 }
 
 // Iter calls f for each entry in the given directory (not recursive). The argument to f is the full

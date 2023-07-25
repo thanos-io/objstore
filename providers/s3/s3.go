@@ -475,10 +475,10 @@ func (b *Bucket) Exists(ctx context.Context, name string) (bool, error) {
 }
 
 // Upload the contents of the reader as an object into the bucket.
-func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) error {
+func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) (int64, error) {
 	sse, err := b.getServerSideEncryption(ctx)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	// TODO(https://github.com/thanos-io/thanos/issues/678): Remove guessing length when minio provider will support multipart upload without this.
@@ -509,10 +509,10 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) error {
 			NumThreads: 4,
 		},
 	); err != nil {
-		return errors.Wrap(err, "upload s3 object")
+		return 0, errors.Wrap(err, "upload s3 object")
 	}
 
-	return nil
+	return size, nil
 }
 
 // Attributes returns information about the specified object.

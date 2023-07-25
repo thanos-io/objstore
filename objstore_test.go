@@ -85,9 +85,12 @@ func TestDownloadUploadDirConcurrency(t *testing.T) {
 	m := WrapWithMetrics(NewInMemBucket(), r, "")
 	tempDir := t.TempDir()
 
-	testutil.Ok(t, m.Upload(context.Background(), "dir/obj1", bytes.NewReader([]byte("1"))))
-	testutil.Ok(t, m.Upload(context.Background(), "dir/obj2", bytes.NewReader([]byte("2"))))
-	testutil.Ok(t, m.Upload(context.Background(), "dir/obj3", bytes.NewReader(bytes.Repeat([]byte("3"), 1024*1024))))
+	_, err := m.Upload(context.Background(), "dir/obj1", bytes.NewReader([]byte("1")))
+	testutil.Ok(t, err)
+	_, err = m.Upload(context.Background(), "dir/obj2", bytes.NewReader([]byte("2")))
+	testutil.Ok(t, err)
+	_, err = m.Upload(context.Background(), "dir/obj3", bytes.NewReader(bytes.Repeat([]byte("3"), 1024*1024)))
+	testutil.Ok(t, err)
 
 	testutil.Ok(t, promtest.GatherAndCompare(r, strings.NewReader(`
 		# HELP objstore_bucket_operations_total Total number of all attempted operations against a bucket.
@@ -194,7 +197,7 @@ func TestTimingTracingReader(t *testing.T) {
 	tr := NopCloserWithSize(r)
 	tr = newTimingReadCloser(tr, "", m.opsDuration, m.opsFailures, func(err error) bool {
 		return false
-	}, m.opsFetchedBytes, m.opsTransferredBytes, m.opsUploadedBytes)
+	}, m.opsFetchedBytes, m.opsTransferredBytes, m.opsWrittenBytes)
 
 	size, err := TryToGetSize(tr)
 
@@ -221,13 +224,16 @@ func TestDownloadDir_CleanUp(t *testing.T) {
 	}
 	tempDir := t.TempDir()
 
-	testutil.Ok(t, b.Upload(context.Background(), "dir/obj1", bytes.NewReader([]byte("1"))))
-	testutil.Ok(t, b.Upload(context.Background(), "dir/obj2", bytes.NewReader([]byte("2"))))
-	testutil.Ok(t, b.Upload(context.Background(), "dir/obj3", bytes.NewReader([]byte("3"))))
+	_, err := b.Upload(context.Background(), "dir/obj1", bytes.NewReader([]byte("1")))
+	testutil.Ok(t, err)
+	_, err = b.Upload(context.Background(), "dir/obj2", bytes.NewReader([]byte("2")))
+	testutil.Ok(t, err)
+	_, err = b.Upload(context.Background(), "dir/obj3", bytes.NewReader([]byte("3")))
+	testutil.Ok(t, err)
 
 	// We exapect the third Get to fail
 	testutil.NotOk(t, DownloadDir(context.Background(), log.NewNopLogger(), b, "dir/", "dir/", tempDir))
-	_, err := os.Stat(tempDir)
+	_, err = os.Stat(tempDir)
 	testutil.Assert(t, os.IsNotExist(err))
 }
 

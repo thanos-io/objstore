@@ -50,6 +50,7 @@ func BenchmarkUpload(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		testutil.Ok(b, bkt.Upload(ctx, "test", strings.NewReader(str)))
+		_, err = bkt.Upload(ctx, "test", strings.NewReader(str))
+		testutil.Ok(b, err)
 	}
 }

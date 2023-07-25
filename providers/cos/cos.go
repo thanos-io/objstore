@@ -197,24 +197,24 @@ func (r fixedLengthReader) Size() int64 {
 }
 
 // Upload the contents of the reader as an object into the bucket.
-func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) error {
+func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) (int64, error) {
 	size, err := objstore.TryToGetSize(r)
 	if err != nil {
-		return errors.Wrapf(err, "getting size of %s", name)
+		return 0, errors.Wrapf(err, "getting size of %s", name)
 	}
 	// partSize 128MB.
 	const partSize = 1024 * 1024 * 128
 	partNums, lastSlice := int(math.Floor(float64(size)/partSize)), size%partSize
 	if partNums == 0 {
 		if _, err := b.client.Object.Put(ctx, name, r, nil); err != nil {
-			return errors.Wrapf(err, "Put object: %s", name)
+			return 0, errors.Wrapf(err, "Put object: %s", name)
 		}
-		return nil
+		return 0, nil
 	}
 	// 1. init.
 	result, _, err := b.client.Object.InitiateMultipartUpload(ctx, name, nil)
 	if err != nil {
-		return errors.Wrapf(err, "InitiateMultipartUpload %s", name)
+		return 0, errors.Wrapf(err, "InitiateMultipartUpload %s", name)
 	}
 	uploadEveryPart := func(partSize int64, part int, uploadID string) (string, error) {
 		r := newFixedLengthReader(r, partSize)
@@ -235,7 +235,7 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) error {
 	for part := 1; part <= partNums; part++ {
 		etag, err := uploadEveryPart(partSize, part, result.UploadID)
 		if err != nil {
-			return errors.Wrapf(err, "uploadPart %d, %s", part, name)
+			return 0, errors.Wrapf(err, "uploadPart %d, %s", part, name)
 		}
 		optcom.Parts = append(optcom.Parts, cos.Object{
 			PartNumber: part, ETag: etag},
@@ -246,7 +246,7 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) error {
 		part := partNums + 1
 		etag, err := uploadEveryPart(lastSlice, part, result.UploadID)
 		if err != nil {
-			return errors.Wrapf(err, "uploadPart %d, %s", part, name)
+			return 0, errors.Wrapf(err, "uploadPart %d, %s", part, name)
 		}
 		optcom.Parts = append(optcom.Parts, cos.Object{
 			PartNumber: part, ETag: etag},
@@ -254,9 +254,9 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) error {
 	}
 	// 4. complete.
 	if _, _, err := b.client.Object.CompleteMultipartUpload(ctx, name, result.UploadID, optcom); err != nil {
-		return errors.Wrapf(err, "CompleteMultipartUpload %s", name)
+		return 0, errors.Wrapf(err, "CompleteMultipartUpload %s", name)
 	}
-	return nil
+	return size, nil
 }
 
 // Delete removes the object with the given name.

@@ -90,7 +90,7 @@ func (t TracingBucket) Attributes(ctx context.Context, name string) (_ objstore.
 	return t.bkt.Attributes(ctx, name)
 }
 
-func (t TracingBucket) Upload(ctx context.Context, name string, r io.Reader) (err error) {
+func (t TracingBucket) Upload(ctx context.Context, name string, r io.Reader) (writtenBytes int64, err error) {
 	ctx, span := t.tracer.Start(ctx, "bucket_upload")
 	defer span.End()
 	span.SetAttributes(attribute.String("name", name))

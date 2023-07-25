@@ -100,7 +100,8 @@ func AcceptanceTest(t *testing.T, bkt Bucket) {
 	testutil.Assert(t, bkt.IsObjNotFoundErr(err), "expected not found error but got %s", err)
 
 	// Upload first object.
-	testutil.Ok(t, bkt.Upload(ctx, "id1/obj_1.some", strings.NewReader("@test-data@")))
+	_, err = bkt.Upload(ctx, "id1/obj_1.some", strings.NewReader("@test-data@"))
+	testutil.Ok(t, err)
 
 	// Double check we can immediately read it.
 	rc1, err := bkt.Get(ctx, "id1/obj_1.some")
@@ -150,14 +151,21 @@ func AcceptanceTest(t *testing.T, bkt Bucket) {
 	testutil.Assert(t, ok, "expected exits")
 
 	// Upload other objects.
-	testutil.Ok(t, bkt.Upload(ctx, "id1/obj_2.some", strings.NewReader("@test-data2@")))
+	_, err = bkt.Upload(ctx, "id1/obj_2.some", strings.NewReader("@test-data2@"))
+	testutil.Ok(t, err)
 	// Upload should be idempotent.
-	testutil.Ok(t, bkt.Upload(ctx, "id1/obj_2.some", strings.NewReader("@test-data2@")))
-	testutil.Ok(t, bkt.Upload(ctx, "id1/obj_3.some", strings.NewReader("@test-data3@")))
-	testutil.Ok(t, bkt.Upload(ctx, "id1/sub/subobj_1.some", strings.NewReader("@test-data4@")))
-	testutil.Ok(t, bkt.Upload(ctx, "id1/sub/subobj_2.some", strings.NewReader("@test-data5@")))
-	testutil.Ok(t, bkt.Upload(ctx, "id2/obj_4.some", strings.NewReader("@test-data6@")))
-	testutil.Ok(t, bkt.Upload(ctx, "obj_5.some", strings.NewReader("@test-data7@")))
+	_, err = bkt.Upload(ctx, "id1/obj_2.some", strings.NewReader("@test-data2@"))
+	testutil.Ok(t, err)
+	_, err = bkt.Upload(ctx, "id1/obj_3.some", strings.NewReader("@test-data3@"))
+	testutil.Ok(t, err)
+	_, err = bkt.Upload(ctx, "id1/sub/subobj_1.some", strings.NewReader("@test-data4@"))
+	testutil.Ok(t, err)
+	_, err = bkt.Upload(ctx, "id1/sub/subobj_2.some", strings.NewReader("@test-data5@"))
+	testutil.Ok(t, err)
+	_, err = bkt.Upload(ctx, "id2/obj_4.some", strings.NewReader("@test-data6@"))
+	testutil.Ok(t, err)
+	_, err = bkt.Upload(ctx, "obj_5.some", strings.NewReader("@test-data7@"))
+	testutil.Ok(t, err)
 
 	// Can we iter over items from top dir?
 	var seen []string
@@ -247,7 +255,8 @@ func AcceptanceTest(t *testing.T, bkt Bucket) {
 	sort.Strings(seen)
 	testutil.Equals(t, expected, seen)
 
-	testutil.Ok(t, bkt.Upload(ctx, "obj_6.som", bytes.NewReader(make([]byte, 1024*1024*200))))
+	_, err = bkt.Upload(ctx, "obj_6.som", bytes.NewReader(make([]byte, 1024*1024*200)))
+	testutil.Ok(t, err)
 	testutil.Ok(t, bkt.Delete(ctx, "obj_6.som"))
 }
 
@@ -285,7 +294,7 @@ func (d *delayingBucket) Exists(ctx context.Context, name string) (bool, error) 
 	return d.bkt.Exists(ctx, name)
 }
 
-func (d *delayingBucket) Upload(ctx context.Context, name string, r io.Reader) error {
+func (d *delayingBucket) Upload(ctx context.Context, name string, r io.Reader) (int64, error) {
 	time.Sleep(d.delay)
 	return d.bkt.Upload(ctx, name, r)
 }
