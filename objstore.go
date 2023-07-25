@@ -445,7 +445,7 @@ func WrapWithMetrics(b Bucket, reg prometheus.Registerer, name string) *metricBu
 		}),
 
 		opsUploadedBytes: promauto.With(reg).NewCounterVec(prometheus.CounterOpts{
-			Name:        "objstore_bucket_operation_uploaded_bytes_total",
+			Name:        "objstore_bucket_operation_written_bytes_total",
 			Help:        "Total number of bytes uploaded from TSDB block, per operation.",
 			ConstLabels: prometheus.Labels{"bucket": name},
 		}, []string{"operation"}),
