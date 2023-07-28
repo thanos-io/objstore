@@ -57,7 +57,7 @@ type Bucket interface {
 
 	// Upload the contents of the reader as an object into the bucket.
 	// Upload should be idempotent.
-	Upload(ctx context.Context, name string, r io.Reader) error
+	Upload(ctx context.Context, name string, r io.Reader) (int64, error)
 
 	// Delete removes the object with the given name.
 	// If object does not exist in the moment of deletion, Delete should throw error.
