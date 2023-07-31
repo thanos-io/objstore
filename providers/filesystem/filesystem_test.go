@@ -116,7 +116,8 @@ func TestUpload_CancelledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	testutil.NotOk(t, b.Upload(ctx, "some-file", bytes.NewReader([]byte("file content"))))
+	err = b.Upload(ctx, "some-file", bytes.NewReader([]byte("file content")))
+	testutil.NotOk(t, err)
 	testutil.Equals(t, context.Canceled, err)
 }
 
