@@ -227,7 +227,7 @@ func TestDownloadDir_CleanUp(t *testing.T) {
 
 	// We exapect the third Get to fail
 	testutil.NotOk(t, DownloadDir(context.Background(), log.NewNopLogger(), b, "dir/", "dir/", tempDir))
-	_, err = os.Stat(tempDir)
+	_, err := os.Stat(tempDir)
 	testutil.Assert(t, os.IsNotExist(err))
 }
 
