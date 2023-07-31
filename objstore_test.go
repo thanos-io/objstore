@@ -85,12 +85,9 @@ func TestDownloadUploadDirConcurrency(t *testing.T) {
 	m := WrapWithMetrics(NewInMemBucket(), r, "")
 	tempDir := t.TempDir()
 
-	_, err := m.Upload(context.Background(), "dir/obj1", bytes.NewReader([]byte("1")))
-	testutil.Ok(t, err)
-	_, err = m.Upload(context.Background(), "dir/obj2", bytes.NewReader([]byte("2")))
-	testutil.Ok(t, err)
-	_, err = m.Upload(context.Background(), "dir/obj3", bytes.NewReader(bytes.Repeat([]byte("3"), 1024*1024)))
-	testutil.Ok(t, err)
+	testutil.Ok(t, m.Upload(context.Background(), "dir/obj1", bytes.NewReader([]byte("1"))))
+	testutil.Ok(t, m.Upload(context.Background(), "dir/obj2", bytes.NewReader([]byte("2"))))
+	testutil.Ok(t, m.Upload(context.Background(), "dir/obj3", bytes.NewReader(bytes.Repeat([]byte("3"), 1024*1024))))
 
 	testutil.Ok(t, promtest.GatherAndCompare(r, strings.NewReader(`
 		# HELP objstore_bucket_operations_total Total number of all attempted operations against a bucket.
@@ -224,12 +221,9 @@ func TestDownloadDir_CleanUp(t *testing.T) {
 	}
 	tempDir := t.TempDir()
 
-	_, err := b.Upload(context.Background(), "dir/obj1", bytes.NewReader([]byte("1")))
-	testutil.Ok(t, err)
-	_, err = b.Upload(context.Background(), "dir/obj2", bytes.NewReader([]byte("2")))
-	testutil.Ok(t, err)
-	_, err = b.Upload(context.Background(), "dir/obj3", bytes.NewReader([]byte("3")))
-	testutil.Ok(t, err)
+	testutil.Ok(t, b.Upload(context.Background(), "dir/obj1", bytes.NewReader([]byte("1"))))
+	testutil.Ok(t, b.Upload(context.Background(), "dir/obj2", bytes.NewReader([]byte("2"))))
+	testutil.Ok(t, b.Upload(context.Background(), "dir/obj3", bytes.NewReader([]byte("3"))))
 
 	// We exapect the third Get to fail
 	testutil.NotOk(t, DownloadDir(context.Background(), log.NewNopLogger(), b, "dir/", "dir/", tempDir))

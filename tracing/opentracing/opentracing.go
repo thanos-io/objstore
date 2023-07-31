@@ -96,10 +96,10 @@ func (t TracingBucket) Attributes(ctx context.Context, name string) (attrs objst
 	return
 }
 
-func (t TracingBucket) Upload(ctx context.Context, name string, r io.Reader) (writtenBytes int64, err error) {
+func (t TracingBucket) Upload(ctx context.Context, name string, r io.Reader) (err error) {
 	doWithSpan(ctx, "bucket_upload", func(spanCtx context.Context, span opentracing.Span) {
 		span.LogKV("name", name)
-		writtenBytes, err = t.bkt.Upload(spanCtx, name, r)
+		err = t.bkt.Upload(spanCtx, name, r)
 	})
 	return
 }

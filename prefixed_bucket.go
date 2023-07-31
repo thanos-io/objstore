@@ -86,7 +86,7 @@ func (p PrefixedBucket) Attributes(ctx context.Context, name string) (ObjectAttr
 
 // Upload the contents of the reader as an object into the bucket.
 // Upload should be idempotent.
-func (p *PrefixedBucket) Upload(ctx context.Context, name string, r io.Reader) (int64, error) {
+func (p *PrefixedBucket) Upload(ctx context.Context, name string, r io.Reader) error {
 	return p.bkt.Upload(ctx, conditionalPrefix(p.prefix, name), r)
 }
 

@@ -42,7 +42,7 @@ type Bucket interface {
 
 	// Upload the contents of the reader as an object into the bucket.
 	// Upload should be idempotent.
-	Upload(ctx context.Context, name string, r io.Reader) (int64, error)
+	Upload(ctx context.Context, name string, r io.Reader) error
 
 	// Delete removes the object with the given name.
 	// If object does not exist in the moment of deletion, Delete should throw error.
@@ -285,7 +285,7 @@ func UploadFile(ctx context.Context, logger log.Logger, bkt Bucket, src, dst str
 	}
 	defer logerrcapture.Do(logger, r.Close, "close file %s", src)
 
-	if _, err := bkt.Upload(ctx, dst, r); err != nil {
+	if err := bkt.Upload(ctx, dst, r); err != nil {
 		return errors.Wrapf(err, "upload file %s as %s", src, dst)
 	}
 	level.Debug(logger).Log("msg", "uploaded file", "from", src, "dst", dst, "bucket", bkt.Name())
@@ -599,21 +599,21 @@ func (b *metricBucket) Exists(ctx context.Context, name string) (bool, error) {
 	return ok, nil
 }
 
-func (b *metricBucket) Upload(ctx context.Context, name string, r io.Reader) (int64, error) {
+func (b *metricBucket) Upload(ctx context.Context, name string, r io.Reader) error {
 	const op = OpUpload
 	b.ops.WithLabelValues(op).Inc()
 
 	start := time.Now()
-	writtenBytes, err := b.bkt.Upload(ctx, name, r)
+	err := b.bkt.Upload(ctx, name, r)
 	if err != nil {
 		if !b.isOpFailureExpected(err) && ctx.Err() != context.Canceled {
 			b.opsFailures.WithLabelValues(op).Inc()
 		}
-		return 0, err
+		return err
 	}
 	b.lastSuccessfulUploadTime.SetToCurrentTime()
 	b.opsDuration.WithLabelValues(op).Observe(time.Since(start).Seconds())
-	return writtenBytes, nil
+	return nil
 }
 
 func (b *metricBucket) Delete(ctx context.Context, name string) error {

@@ -168,7 +168,7 @@ func (b *Bucket) GetRange(ctx context.Context, name string, offset, length int64
 
 // Upload the contents of the reader as an object into the bucket.
 // Upload should be idempotent.
-func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) (written int64, err error) {
+func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) (err error) {
 	req := transfer.UploadStreamRequest{
 		UploadRequest: transfer.UploadRequest{
 			NamespaceName:                       common.String(b.namespace),
@@ -185,9 +185,9 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) (written 
 	}
 
 	uploadManager := transfer.NewUploadManager()
-	response, err := uploadManager.UploadStream(ctx, req)
+	_, err = uploadManager.UploadStream(ctx, req)
 
-	return response.PutObjectResponse.RawResponse.ContentLength, err
+	return err
 }
 
 // Exists checks if the given object exists in the bucket.

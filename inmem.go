@@ -175,12 +175,12 @@ func (b *InMemBucket) Attributes(_ context.Context, name string) (ObjectAttribut
 }
 
 // Upload writes the file specified in src to into the memory.
-func (b *InMemBucket) Upload(_ context.Context, name string, r io.Reader) (int64, error) {
+func (b *InMemBucket) Upload(_ context.Context, name string, r io.Reader) error {
 	b.mtx.Lock()
 	defer b.mtx.Unlock()
 	body, err := io.ReadAll(r)
 	if err != nil {
-		return 0, err
+		return err
 	}
 	b.objects[name] = body
 	size := int64(len(body))
@@ -188,7 +188,7 @@ func (b *InMemBucket) Upload(_ context.Context, name string, r io.Reader) (int64
 		Size:         size,
 		LastModified: time.Now(),
 	}
-	return size, nil
+	return nil
 }
 
 // Delete removes all data prefixed with the dir.

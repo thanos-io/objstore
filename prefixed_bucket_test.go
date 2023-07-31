@@ -29,8 +29,7 @@ func TestPrefixedBucket_Acceptance(t *testing.T) {
 }
 
 func UsesPrefixTest(t *testing.T, bkt Bucket, prefix string) {
-	_, err := bkt.Upload(context.Background(), strings.Trim(prefix, "/")+"/file1.jpg", strings.NewReader("test-data1"))
-	testutil.Ok(t, err)
+	testutil.Ok(t, bkt.Upload(context.Background(), strings.Trim(prefix, "/")+"/file1.jpg", strings.NewReader("test-data1")))
 
 	pBkt := NewPrefixedBucket(bkt, prefix)
 	rc1, err := pBkt.Get(context.Background(), "file1.jpg")
@@ -42,8 +41,7 @@ func UsesPrefixTest(t *testing.T, bkt Bucket, prefix string) {
 	testutil.Ok(t, err)
 	testutil.Equals(t, "test-data1", string(content))
 
-	_, err = pBkt.Upload(context.Background(), "file2.jpg", strings.NewReader("test-data2"))
-	testutil.Ok(t, err)
+	testutil.Ok(t, pBkt.Upload(context.Background(), "file2.jpg", strings.NewReader("test-data2")))
 	rc2, err := bkt.Get(context.Background(), strings.Trim(prefix, "/")+"/file2.jpg")
 	testutil.Ok(t, err)
 	defer func() { testutil.Ok(t, rc2.Close()) }()
@@ -71,8 +69,7 @@ func UsesPrefixTest(t *testing.T, bkt Bucket, prefix string) {
 	testutil.Ok(t, err)
 	testutil.Assert(t, attrs.Size == 10, "expected size to be equal to 10")
 
-	_, err = bkt.Upload(context.Background(), strings.Trim(prefix, "/")+"/dir/file1.jpg", strings.NewReader("test-data1"))
-	testutil.Ok(t, err)
+	testutil.Ok(t, bkt.Upload(context.Background(), strings.Trim(prefix, "/")+"/dir/file1.jpg", strings.NewReader("test-data1")))
 	seen := []string{}
 	testutil.Ok(t, pBkt.Iter(context.Background(), "", func(fn string) error {
 		seen = append(seen, fn)

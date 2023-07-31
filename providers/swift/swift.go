@@ -296,7 +296,7 @@ func (c *Container) IsAccessDeniedErr(err error) bool {
 }
 
 // Upload writes the contents of the reader as an object into the container.
-func (c *Container) Upload(_ context.Context, name string, r io.Reader) (written int64, err error) {
+func (c *Container) Upload(_ context.Context, name string, r io.Reader) (err error) {
 	size, err := objstore.TryToGetSize(r)
 	if err != nil {
 		level.Warn(c.logger).Log("msg", "could not guess file size, using large object to avoid issues if the file is larger than limit", "name", name, "err", err)
@@ -314,24 +314,24 @@ func (c *Container) Upload(_ context.Context, name string, r io.Reader) (written
 		}
 		if c.useDynamicLargeObjects {
 			if file, err = c.connection.DynamicLargeObjectCreateFile(&opts); err != nil {
-				return 0, errors.Wrap(err, "create DLO file")
+				return errors.Wrap(err, "create DLO file")
 			}
 		} else {
 			if file, err = c.connection.StaticLargeObjectCreateFile(&opts); err != nil {
-				return 0, errors.Wrap(err, "create SLO file")
+				return errors.Wrap(err, "create SLO file")
 			}
 		}
 	} else {
 		if file, err = c.connection.ObjectCreate(c.name, name, true, "", "", swift.Headers{}); err != nil {
-			return 0, errors.Wrap(err, "create file")
+			return errors.Wrap(err, "create file")
 		}
 	}
 	defer errcapture.Do(&err, file.Close, "upload object close")
-	written, err = io.Copy(file, r)
+	_, err = io.Copy(file, r)
 	if err != nil {
-		return 0, errors.Wrap(err, "uploading object")
+		return errors.Wrap(err, "uploading object")
 	}
-	return written, nil
+	return nil
 }
 
 // Delete removes the object with the given name.

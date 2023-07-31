@@ -307,11 +307,11 @@ func (b *Bucket) Exists(ctx context.Context, name string) (bool, error) {
 }
 
 // Upload the contents of the reader as an object into the bucket.
-func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) (int64, error) {
+func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) error {
 	level.Debug(b.logger).Log("msg", "uploading blob", "blob", name)
-	size, err := objstore.TryToGetSize(r)
+	_, err := objstore.TryToGetSize(r)
 	if err != nil {
-		return 0, errors.Wrapf(err, "failed to get size apriori to upload %s", name)
+		return errors.Wrapf(err, "failed to get size apriori to upload %s", name)
 	}
 
 	blobClient := b.containerClient.NewBlockBlobClient(name)
@@ -321,9 +321,9 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) (int64, e
 	}
 
 	if _, err := blobClient.UploadStream(ctx, r, opts); err != nil {
-		return 0, errors.Wrapf(err, "cannot upload Azure blob, address: %s", name)
+		return errors.Wrapf(err, "cannot upload Azure blob, address: %s", name)
 	}
-	return size, nil
+	return nil
 }
 
 // Delete removes the object with the given name.

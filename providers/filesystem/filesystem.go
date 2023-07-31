@@ -191,27 +191,27 @@ func (b *Bucket) Exists(ctx context.Context, name string) (bool, error) {
 }
 
 // Upload writes the file specified in src to into the memory.
-func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) (writtenBytes int64, err error) {
+func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) (err error) {
 	if ctx.Err() != nil {
-		return 0, ctx.Err()
+		return ctx.Err()
 	}
 
 	file := filepath.Join(b.rootDir, name)
 	if err := os.MkdirAll(filepath.Dir(file), os.ModePerm); err != nil {
-		return 0, err
+		return err
 	}
 
 	f, err := os.Create(file)
 	if err != nil {
-		return 0, err
+		return err
 	}
 	defer errcapture.Do(&err, f.Close, "close")
 
-	written, err := io.Copy(f, r)
+	_, err = io.Copy(f, r)
 	if err != nil {
-		return 0, errors.Wrapf(err, "copy to %s", file)
+		return errors.Wrapf(err, "copy to %s", file)
 	}
-	return written, nil
+	return nil
 }
 
 func isDirEmpty(name string) (ok bool, err error) {

@@ -171,14 +171,13 @@ func (b *Bucket) Exists(ctx context.Context, name string) (bool, error) {
 }
 
 // Upload writes the file specified in src to remote GCS location specified as target.
-func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) (int64, error) {
+func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) error {
 	w := b.bkt.Object(name).NewWriter(ctx)
-
-	written, err := io.Copy(w, r)
+	_, err := io.Copy(w, r)
 	if err != nil {
-		return 0, err
+		return err
 	}
-	return written, w.Close()
+	return w.Close()
 }
 
 // Delete removes the object with the given name.
