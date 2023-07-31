@@ -327,8 +327,7 @@ func (c *Container) Upload(_ context.Context, name string, r io.Reader) (err err
 		}
 	}
 	defer errcapture.Do(&err, file.Close, "upload object close")
-	_, err = io.Copy(file, r)
-	if err != nil {
+	if _, err = io.Copy(file, r); err != nil {
 		return errors.Wrap(err, "uploading object")
 	}
 	return nil

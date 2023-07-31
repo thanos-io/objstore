@@ -492,7 +492,7 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) error {
 	if size < int64(partSize) {
 		partSize = 0
 	}
-	_, err = b.client.PutObject(
+	if _, err := b.client.PutObject(
 		ctx,
 		b.name,
 		name,
@@ -508,8 +508,7 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) error {
 			// TODO(bwplotka): Consider adjusting this number to GOMAXPROCS or to expose this in config if it becomes bottleneck.
 			NumThreads: 4,
 		},
-	)
-	if err != nil {
+	); err != nil {
 		return errors.Wrap(err, "upload s3 object")
 	}
 

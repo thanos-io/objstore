@@ -23,10 +23,8 @@ func TestDelete_EmptyDirDeletionRaceCondition(t *testing.T) {
 		testutil.Ok(t, err)
 
 		// Upload 2 objects in a subfolder.
-		_, err = b.Upload(ctx, "subfolder/first", strings.NewReader("first"))
-		testutil.Ok(t, err)
-		_, err = b.Upload(ctx, "subfolder/second", strings.NewReader("second"))
-		testutil.Ok(t, err)
+		testutil.Ok(t, b.Upload(ctx, "subfolder/first", strings.NewReader("first")))
+		testutil.Ok(t, b.Upload(ctx, "subfolder/second", strings.NewReader("second")))
 
 		// Prepare goroutines to concurrently delete the 2 objects (each one deletes a different object)
 		start := make(chan struct{})
@@ -118,8 +116,7 @@ func TestUpload_CancelledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	_, err = b.Upload(ctx, "some-file", bytes.NewReader([]byte("file content")))
-	testutil.NotOk(t, err)
+	testutil.NotOk(t, b.Upload(ctx, "some-file", bytes.NewReader([]byte("file content"))))
 	testutil.Equals(t, context.Canceled, err)
 }
 

@@ -309,11 +309,6 @@ func (b *Bucket) Exists(ctx context.Context, name string) (bool, error) {
 // Upload the contents of the reader as an object into the bucket.
 func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) error {
 	level.Debug(b.logger).Log("msg", "uploading blob", "blob", name)
-	_, err := objstore.TryToGetSize(r)
-	if err != nil {
-		return errors.Wrapf(err, "failed to get size apriori to upload %s", name)
-	}
-
 	blobClient := b.containerClient.NewBlockBlobClient(name)
 	opts := &blockblob.UploadStreamOptions{
 		BlockSize:   3 * 1024 * 1024,

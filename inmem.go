@@ -183,9 +183,8 @@ func (b *InMemBucket) Upload(_ context.Context, name string, r io.Reader) error 
 		return err
 	}
 	b.objects[name] = body
-	size := int64(len(body))
 	b.attrs[name] = ObjectAttributes{
-		Size:         size,
+		Size:         int64(len(body)),
 		LastModified: time.Now(),
 	}
 	return nil

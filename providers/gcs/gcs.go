@@ -173,8 +173,7 @@ func (b *Bucket) Exists(ctx context.Context, name string) (bool, error) {
 // Upload writes the file specified in src to remote GCS location specified as target.
 func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) error {
 	w := b.bkt.Object(name).NewWriter(ctx)
-	_, err := io.Copy(w, r)
-	if err != nil {
+	if _, err := io.Copy(w, r); err != nil {
 		return err
 	}
 	return w.Close()
