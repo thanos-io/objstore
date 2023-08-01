@@ -207,7 +207,7 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) (err erro
 	}
 	defer errcapture.Do(&err, f.Close, "close")
 
-	if _, err = io.Copy(f, r); err != nil {
+	if _, err := io.Copy(f, r); err != nil {
 		return errors.Wrapf(err, "copy to %s", file)
 	}
 	return nil
