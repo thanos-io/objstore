@@ -194,7 +194,7 @@ func TestTimingTracingReader(t *testing.T) {
 	tr := NopCloserWithSize(r)
 	tr = newTimingReadCloser(tr, "", m.opsDuration, m.opsFailures, func(err error) bool {
 		return false
-	}, m.opsFetchedBytes, m.opsTransferredBytes, m.opsWrittenBytes)
+	}, m.opsFetchedBytes, m.opsTransferredBytes)
 
 	size, err := TryToGetSize(tr)
 

@@ -444,10 +444,11 @@ func WrapWithMetrics(b Bucket, reg prometheus.Registerer, name string) *metricBu
 			ConstLabels: prometheus.Labels{"bucket": name},
 		}),
 
-		opsWrittenBytes: promauto.With(reg).NewCounterVec(prometheus.CounterOpts{
-			Name:        "objstore_bucket_operation_written_bytes_total",
-			Help:        "Total number of bytes uploaded from TSDB block, per operation.",
+		opsWrittenBytes: promauto.With(reg).NewHistogramVec(prometheus.HistogramOpts{
+			Name:        "objstore_bucket_operation_written_bytes",
+			Help:        "Number of bytes uploaded from TSDB block, per operation.",
 			ConstLabels: prometheus.Labels{"bucket": name},
+			Buckets:     prometheus.ExponentialBuckets(50<<100, 2, 10),
 		}, []string{"operation"}),
 	}
 	for _, op := range []string{
@@ -485,7 +486,7 @@ type metricBucket struct {
 
 	opsFetchedBytes          *prometheus.CounterVec
 	opsTransferredBytes      *prometheus.HistogramVec
-	opsWrittenBytes          *prometheus.CounterVec
+	opsWrittenBytes          *prometheus.HistogramVec
 	opsDuration              *prometheus.HistogramVec
 	lastSuccessfulUploadTime prometheus.Gauge
 }
@@ -556,7 +557,6 @@ func (b *metricBucket) Get(ctx context.Context, name string) (io.ReadCloser, err
 		b.isOpFailureExpected,
 		b.opsFetchedBytes,
 		b.opsTransferredBytes,
-		b.opsWrittenBytes,
 	), nil
 }
 
@@ -579,7 +579,6 @@ func (b *metricBucket) GetRange(ctx context.Context, name string, off, length in
 		b.isOpFailureExpected,
 		b.opsFetchedBytes,
 		b.opsTransferredBytes,
-		b.opsWrittenBytes,
 	), nil
 }
 
@@ -663,10 +662,9 @@ type timingReadCloser struct {
 	isFailureExpected IsOpFailureExpectedFunc
 	fetchedBytes      *prometheus.CounterVec
 	transferredBytes  *prometheus.HistogramVec
-	writtenBytes      *prometheus.CounterVec
 }
 
-func newTimingReadCloser(rc io.ReadCloser, op string, dur *prometheus.HistogramVec, failed *prometheus.CounterVec, isFailureExpected IsOpFailureExpectedFunc, fetchedBytes *prometheus.CounterVec, transferredBytes *prometheus.HistogramVec, writtenBytes *prometheus.CounterVec) *timingReadCloser {
+func newTimingReadCloser(rc io.ReadCloser, op string, dur *prometheus.HistogramVec, failed *prometheus.CounterVec, isFailureExpected IsOpFailureExpectedFunc, fetchedBytes *prometheus.CounterVec, transferredBytes *prometheus.HistogramVec) *timingReadCloser {
 	// Initialize the metrics with 0.
 	dur.WithLabelValues(op)
 	failed.WithLabelValues(op)
@@ -683,7 +681,6 @@ func newTimingReadCloser(rc io.ReadCloser, op string, dur *prometheus.HistogramV
 		fetchedBytes:      fetchedBytes,
 		transferredBytes:  transferredBytes,
 		readBytes:         0,
-		writtenBytes:      writtenBytes,
 	}
 }
 
