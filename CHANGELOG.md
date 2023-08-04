@@ -27,6 +27,7 @@ We use *breaking :warning:* to mark changes that are not backward compatible (re
 - [#61](https://github.com/thanos-io/objstore/pull/61) Add OpenTelemetry TracingBucket.
     > This also changes the behaviour of `client.NewBucket`. Now it returns, uninstrumented and untraced bucket.
     You can combine `objstore.WrapWithMetrics` and `tracing/{opentelemetry,opentracing}.WrapWithTraces` to have old behavior.
+- [#64](https://github.com/thanos-io/objstore/pull/64) OCI: OKE Workload Identity support.
 
 ### Changed
 - [#38](https://github.com/thanos-io/objstore/pull/38) *: Upgrade minio-go version to `v7.0.45`.
