@@ -72,6 +72,14 @@ func TestMetricBucket_Close(t *testing.T) {
 	testutil.Assert(t, promtest.ToFloat64(bkt.lastSuccessfulUploadTime) > lastUpload)
 }
 
+// TestMetricBucket_MultipleClients tests that the metrics from two different buckets clients are not conflicting with each other.
+func TestMetricBucket_Multiple_Clients(t *testing.T) {
+	reg := prometheus.NewPedanticRegistry()
+
+	WrapWithMetrics(NewInMemBucket(), reg, "abc")
+	WrapWithMetrics(NewInMemBucket(), reg, "def")
+}
+
 func TestDownloadUploadDirConcurrency(t *testing.T) {
 	r := prometheus.NewRegistry()
 	m := WrapWithMetrics(NewInMemBucket(), r, "")
