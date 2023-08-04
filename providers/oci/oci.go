@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -30,9 +31,10 @@ const DirDelim = "/"
 type Provider string
 
 const (
-	DefaultConfigProvider           = Provider("default")
-	InstancePrincipalConfigProvider = Provider("instance-principal")
-	RawConfigProvider               = Provider("raw")
+	defaultConfigProvider             = Provider("default")
+	instancePrincipalConfigProvider   = Provider("instance-principal")
+	rawConfigProvider                 = Provider("raw")
+	okeWorkloadIdentityConfigProvider = Provider("oke-workload-identity")
 )
 
 var DefaultConfig = Config{
@@ -295,19 +297,31 @@ func NewBucket(logger log.Logger, ociConfig []byte) (*Bucket, error) {
 	provider := Provider(strings.ToLower(config.Provider))
 	level.Info(logger).Log("msg", "creating OCI client", "provider", provider)
 	switch provider {
-	case DefaultConfigProvider:
+	case defaultConfigProvider:
 		configurationProvider = common.DefaultConfigProvider()
-	case InstancePrincipalConfigProvider:
+	case instancePrincipalConfigProvider:
 		configurationProvider, err = auth.InstancePrincipalConfigurationProvider()
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to create OCI instance principal config provider")
 		}
-	case RawConfigProvider:
+	case rawConfigProvider:
 		if err := config.validateConfig(); err != nil {
 			return nil, errors.Wrapf(err, "invalid oci configurations")
 		}
 		configurationProvider = common.NewRawConfigurationProvider(config.Tenancy, config.User, config.Region,
 			config.Fingerprint, config.PrivateKey, &config.Passphrase)
+	case okeWorkloadIdentityConfigProvider:
+		if err := os.Setenv(auth.ResourcePrincipalVersionEnvVar, auth.ResourcePrincipalVersion2_2); err != nil {
+			return nil, errors.Wrapf(err, "unable to set environment variable: %s", auth.ResourcePrincipalVersionEnvVar)
+		}
+		if err := os.Setenv(auth.ResourcePrincipalRegionEnvVar, config.Region); err != nil {
+			return nil, errors.Wrapf(err, "unable to set environment variable: %s", auth.ResourcePrincipalRegionEnvVar)
+		}
+
+		configurationProvider, err = auth.OkeWorkloadIdentityConfigurationProvider()
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to create OKE workload identity config provider")
+		}
 	default:
 		return nil, errors.Wrapf(err, fmt.Sprintf("unsupported OCI provider: %s", provider))
 	}

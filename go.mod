@@ -16,7 +16,7 @@ require (
 	github.com/minio/minio-go/v7 v7.0.61
 	github.com/ncw/swift v1.0.53
 	github.com/opentracing/opentracing-go v1.2.0
-	github.com/oracle/oci-go-sdk/v65 v65.13.0
+	github.com/oracle/oci-go-sdk/v65 v65.41.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.12.2
 	github.com/prometheus/common v0.36.0
