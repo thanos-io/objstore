@@ -41,5 +41,6 @@ func TestBucket_Get_ShouldReturnErrorIfServerTruncateResponse(t *testing.T) {
 
 	// We expect an error when reading back.
 	_, err = io.ReadAll(reader)
-	testutil.Equals(t, io.ErrUnexpectedEOF, err)
+	testutil.NotOk(t, err)
+	testutil.Equals(t, "storage: partial request not satisfied", err.Error())
 }
