@@ -46,11 +46,11 @@ func (p *PrefixedBucket) Close() error {
 // Iter calls f for each entry in the given directory (not recursive.). The argument to f is the full
 // object name including the prefix of the inspected directory.
 // Entries are passed to function in sorted order.
-func (p *PrefixedBucket) Iter(ctx context.Context, dir string, f func(string) error, options ...IterOption) error {
+func (p *PrefixedBucket) Iter(ctx context.Context, dir string, f func(name string, attrs ObjectAttributes) error, options ...IterOption) error {
 	pdir := withPrefix(p.prefix, dir)
 
-	return p.bkt.Iter(ctx, pdir, func(s string) error {
-		return f(strings.TrimPrefix(s, p.prefix+DirDelim))
+	return p.bkt.Iter(ctx, pdir, func(s string, _ ObjectAttributes) error {
+		return f(strings.TrimPrefix(s, p.prefix+DirDelim), EmptyObjectAttributes)
 	}, options...)
 }
 

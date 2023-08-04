@@ -40,7 +40,7 @@ func EmptyBucket(t testing.TB, ctx context.Context, bkt Bucket) {
 		elem := queue[0]
 		queue = queue[1:]
 
-		err := bkt.Iter(ctx, elem, func(p string) error {
+		err := bkt.Iter(ctx, elem, func(p string, _ ObjectAttributes) error {
 			if strings.HasSuffix(p, DirDelim) {
 				queue = append(queue, p)
 				return nil
@@ -161,7 +161,7 @@ func AcceptanceTest(t *testing.T, bkt Bucket) {
 
 	// Can we iter over items from top dir?
 	var seen []string
-	testutil.Ok(t, bkt.Iter(ctx, "", func(fn string) error {
+	testutil.Ok(t, bkt.Iter(ctx, "", func(fn string, _ ObjectAttributes) error {
 		seen = append(seen, fn)
 		return nil
 	}))
@@ -172,7 +172,7 @@ func AcceptanceTest(t *testing.T, bkt Bucket) {
 
 	// Can we iter over items from top dir recursively?
 	seen = []string{}
-	testutil.Ok(t, bkt.Iter(ctx, "", func(fn string) error {
+	testutil.Ok(t, bkt.Iter(ctx, "", func(fn string, _ ObjectAttributes) error {
 		seen = append(seen, fn)
 		return nil
 	}, WithRecursiveIter))
@@ -183,7 +183,7 @@ func AcceptanceTest(t *testing.T, bkt Bucket) {
 
 	// Can we iter over items from id1/ dir?
 	seen = []string{}
-	testutil.Ok(t, bkt.Iter(ctx, "id1/", func(fn string) error {
+	testutil.Ok(t, bkt.Iter(ctx, "id1/", func(fn string, _ ObjectAttributes) error {
 		seen = append(seen, fn)
 		return nil
 	}))
@@ -191,7 +191,7 @@ func AcceptanceTest(t *testing.T, bkt Bucket) {
 
 	// Can we iter over items from id1/ dir recursively?
 	seen = []string{}
-	testutil.Ok(t, bkt.Iter(ctx, "id1/", func(fn string) error {
+	testutil.Ok(t, bkt.Iter(ctx, "id1/", func(fn string, _ ObjectAttributes) error {
 		seen = append(seen, fn)
 		return nil
 	}, WithRecursiveIter))
@@ -199,7 +199,7 @@ func AcceptanceTest(t *testing.T, bkt Bucket) {
 
 	// Can we iter over items from id1 dir?
 	seen = []string{}
-	testutil.Ok(t, bkt.Iter(ctx, "id1", func(fn string) error {
+	testutil.Ok(t, bkt.Iter(ctx, "id1", func(fn string, _ ObjectAttributes) error {
 		seen = append(seen, fn)
 		return nil
 	}))
@@ -207,14 +207,14 @@ func AcceptanceTest(t *testing.T, bkt Bucket) {
 
 	// Can we iter over items from id1 dir recursively?
 	seen = []string{}
-	testutil.Ok(t, bkt.Iter(ctx, "id1", func(fn string) error {
+	testutil.Ok(t, bkt.Iter(ctx, "id1", func(fn string, _ ObjectAttributes) error {
 		seen = append(seen, fn)
 		return nil
 	}, WithRecursiveIter))
 	testutil.Equals(t, []string{"id1/obj_1.some", "id1/obj_2.some", "id1/obj_3.some", "id1/sub/subobj_1.some", "id1/sub/subobj_2.some"}, seen)
 
 	// Can we iter over items from not existing dir?
-	testutil.Ok(t, bkt.Iter(ctx, "id0", func(fn string) error {
+	testutil.Ok(t, bkt.Iter(ctx, "id0", func(fn string, _ ObjectAttributes) error {
 		t.Error("Not expected to loop through not existing directory")
 		t.FailNow()
 
@@ -229,7 +229,7 @@ func AcceptanceTest(t *testing.T, bkt Bucket) {
 
 	// Can we iter over items from id1/ dir and see obj2 being deleted?
 	seen = []string{}
-	testutil.Ok(t, bkt.Iter(ctx, "id1/", func(fn string) error {
+	testutil.Ok(t, bkt.Iter(ctx, "id1/", func(fn string, _ ObjectAttributes) error {
 		seen = append(seen, fn)
 		return nil
 	}))
@@ -238,7 +238,7 @@ func AcceptanceTest(t *testing.T, bkt Bucket) {
 	testutil.Ok(t, bkt.Delete(ctx, "id2/obj_4.some"))
 
 	seen = []string{}
-	testutil.Ok(t, bkt.Iter(ctx, "", func(fn string) error {
+	testutil.Ok(t, bkt.Iter(ctx, "", func(fn string, _ ObjectAttributes) error {
 		seen = append(seen, fn)
 		return nil
 	}))
@@ -270,7 +270,7 @@ func (d *delayingBucket) Attributes(ctx context.Context, name string) (ObjectAtt
 	return d.bkt.Attributes(ctx, name)
 }
 
-func (d *delayingBucket) Iter(ctx context.Context, dir string, f func(string) error, options ...IterOption) error {
+func (d *delayingBucket) Iter(ctx context.Context, dir string, f func(name string, attrs ObjectAttributes) error, options ...IterOption) error {
 	time.Sleep(d.delay)
 	return d.bkt.Iter(ctx, dir, f, options...)
 }

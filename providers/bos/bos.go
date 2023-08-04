@@ -177,7 +177,7 @@ func (b *Bucket) Upload(_ context.Context, name string, r io.Reader) error {
 
 // Iter calls f for each entry in the given directory (not recursive). The argument to f is the full
 // object name including the prefix of the inspected directory.
-func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, opt ...objstore.IterOption) error {
+func (b *Bucket) Iter(ctx context.Context, dir string, f func(name string, _ objstore.ObjectAttributes) error, opt ...objstore.IterOption) error {
 	if dir != "" {
 		dir = strings.TrimSuffix(dir, objstore.DirDelim) + objstore.DirDelim
 	}
@@ -206,13 +206,13 @@ func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, opt
 
 		marker = objects.NextMarker
 		for _, object := range objects.Contents {
-			if err := f(object.Key); err != nil {
+			if err := f(object.Key, objstore.EmptyObjectAttributes); err != nil {
 				return err
 			}
 		}
 
 		for _, object := range objects.CommonPrefixes {
-			if err := f(object.Prefix); err != nil {
+			if err := f(object.Prefix, objstore.EmptyObjectAttributes); err != nil {
 				return err
 			}
 		}
@@ -347,7 +347,7 @@ func NewTestBucket(t testing.TB) (objstore.Bucket, func(), error) {
 			return nil, nil, err
 		}
 
-		if err := b.Iter(context.Background(), "", func(f string) error {
+		if err := b.Iter(context.Background(), "", func(f string, _ objstore.ObjectAttributes) error {
 			return errors.Errorf("bucket %s is not empty", c.Bucket)
 		}); err != nil {
 			return nil, nil, errors.Wrapf(err, "checking bucket %s", c.Bucket)

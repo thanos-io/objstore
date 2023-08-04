@@ -21,8 +21,9 @@ import (
 	"github.com/oracle/oci-go-sdk/v65/objectstorage/transfer"
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
-	"github.com/thanos-io/objstore"
 	"gopkg.in/yaml.v2"
+
+	"github.com/thanos-io/objstore"
 )
 
 // DirDelim is the delimiter used to model a directory structure in an object store bucket.
@@ -101,7 +102,7 @@ func (b *Bucket) Name() string {
 
 // Iter calls f for each entry in the given directory (not recursive). The argument to f is the full
 // object name including the prefix of the inspected directory.
-func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, options ...objstore.IterOption) error {
+func (b *Bucket) Iter(ctx context.Context, dir string, f func(name string, _ objstore.ObjectAttributes) error, options ...objstore.IterOption) error {
 	// Ensure the object name actually ends with a dir suffix. Otherwise we'll just iterate the
 	// object itself as one prefix item.
 	if dir != "" {
@@ -119,7 +120,7 @@ func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, opt
 		if objectName == "" || objectName == dir {
 			continue
 		}
-		if err := f(objectName); err != nil {
+		if err := f(objectName, objstore.EmptyObjectAttributes); err != nil {
 			return err
 		}
 	}

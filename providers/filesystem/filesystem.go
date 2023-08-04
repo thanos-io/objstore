@@ -52,7 +52,7 @@ func NewBucket(rootDir string) (*Bucket, error) {
 
 // Iter calls f for each entry in the given directory. The argument to f is the full
 // object name including the prefix of the inspected directory.
-func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, options ...objstore.IterOption) error {
+func (b *Bucket) Iter(ctx context.Context, dir string, f func(name string, attrs objstore.ObjectAttributes) error, options ...objstore.IterOption) error {
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
@@ -101,7 +101,17 @@ func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, opt
 				continue
 			}
 		}
-		if err := f(name); err != nil {
+
+		attrs := objstore.EmptyObjectAttributes
+		if params.WithUpdatedAt {
+			absPath := filepath.Join(absDir, name)
+			stat, err := os.Stat(absPath)
+			if err != nil {
+				return errors.Wrapf(err, "unable stat %s", name)
+			}
+			attrs.LastModified = stat.ModTime()
+		}
+		if err := f(name, attrs); err != nil {
 			return err
 		}
 	}

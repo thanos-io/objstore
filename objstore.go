@@ -34,6 +34,8 @@ const (
 	OpAttributes = "attributes"
 )
 
+var EmptyObjectAttributes = ObjectAttributes{}
+
 // Bucket provides read and write access to an object storage bucket.
 // NOTE: We assume strong consistency for write-read flow.
 type Bucket interface {
@@ -68,10 +70,12 @@ type InstrumentedBucket interface {
 
 // BucketReader provides read access to an object storage bucket.
 type BucketReader interface {
-	// Iter calls f for each entry in the given directory (not recursive.). The argument to f is the full
-	// object name including the prefix of the inspected directory.
+	// Iter calls f for each entry in the given directory (not recursive.). The first argument to f is the full
+	// object name including the prefix of the inspected directory. The second argument are the object attributes
+	// returned by the underlying provider. Attributes can be requested using various IterOption's.
+	//
 	// Entries are passed to function in sorted order.
-	Iter(ctx context.Context, dir string, f func(string) error, options ...IterOption) error
+	Iter(ctx context.Context, dir string, f func(name string, attrs ObjectAttributes) error, options ...IterOption) error
 
 	// Get returns a reader for the given object name.
 	Get(ctx context.Context, name string) (io.ReadCloser, error)
@@ -110,9 +114,17 @@ func WithRecursiveIter(params *IterParams) {
 	params.Recursive = true
 }
 
+// WithUpdatedAt is an option that can be applied to Iter() to
+// return the updated time attribute of each object.
+// This option is currently supported for the GCS and Filesystem providers.
+func WithUpdatedAt(params *IterParams) {
+	params.WithUpdatedAt = true
+}
+
 // IterParams holds the Iter() parameters and is used by objstore clients implementations.
 type IterParams struct {
-	Recursive bool
+	Recursive     bool
+	WithUpdatedAt bool
 }
 
 func ApplyIterOptions(options ...IterOption) IterParams {
@@ -347,7 +359,7 @@ func DownloadDir(ctx context.Context, logger log.Logger, bkt BucketReader, origi
 	var downloadedFiles []string
 	var m sync.Mutex
 
-	err := bkt.Iter(ctx, src, func(name string) error {
+	err := bkt.Iter(ctx, src, func(name string, _ ObjectAttributes) error {
 		g.Go(func() error {
 			dst := filepath.Join(dst, filepath.Base(name))
 			if strings.HasSuffix(name, DirDelim) {
@@ -499,7 +511,7 @@ func (b *metricBucket) ReaderWithExpectedErrs(fn IsOpFailureExpectedFunc) Bucket
 	return b.WithExpectedErrs(fn)
 }
 
-func (b *metricBucket) Iter(ctx context.Context, dir string, f func(name string) error, options ...IterOption) error {
+func (b *metricBucket) Iter(ctx context.Context, dir string, f func(name string, _ ObjectAttributes) error, options ...IterOption) error {
 	const op = OpIter
 	b.ops.WithLabelValues(op).Inc()
 

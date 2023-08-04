@@ -182,7 +182,7 @@ func NewBucketWithConfig(logger log.Logger, conf Config, component string) (*Buc
 
 // Iter calls f for each entry in the given directory. The argument to f is the full
 // object name including the prefix of the inspected directory.
-func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, options ...objstore.IterOption) error {
+func (b *Bucket) Iter(ctx context.Context, dir string, f func(name string, _ objstore.ObjectAttributes) error, options ...objstore.IterOption) error {
 	prefix := dir
 	if prefix != "" && !strings.HasSuffix(prefix, DirDelim) {
 		prefix += DirDelim
@@ -198,7 +198,7 @@ func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, opt
 				return err
 			}
 			for _, blob := range resp.Segment.BlobItems {
-				if err := f(*blob.Name); err != nil {
+				if err := f(*blob.Name, objstore.EmptyObjectAttributes); err != nil {
 					return err
 				}
 			}
@@ -214,12 +214,12 @@ func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, opt
 			return err
 		}
 		for _, blobItem := range resp.Segment.BlobItems {
-			if err := f(*blobItem.Name); err != nil {
+			if err := f(*blobItem.Name, objstore.EmptyObjectAttributes); err != nil {
 				return err
 			}
 		}
 		for _, blobPrefix := range resp.Segment.BlobPrefixes {
-			if err := f(*blobPrefix.Name); err != nil {
+			if err := f(*blobPrefix.Name, objstore.EmptyObjectAttributes); err != nil {
 				return err
 			}
 		}

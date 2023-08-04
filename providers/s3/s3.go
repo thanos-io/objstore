@@ -387,7 +387,7 @@ func ValidateForTests(conf Config) error {
 
 // Iter calls f for each entry in the given directory. The argument to f is the full
 // object name including the prefix of the inspected directory.
-func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, options ...objstore.IterOption) error {
+func (b *Bucket) Iter(ctx context.Context, dir string, f func(name string, attrs objstore.ObjectAttributes) error, options ...objstore.IterOption) error {
 	// Ensure the object name actually ends with a dir suffix. Otherwise we'll just iterate the
 	// object itself as one prefix item.
 	if dir != "" {
@@ -413,7 +413,7 @@ func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, opt
 		if object.Key == dir {
 			continue
 		}
-		if err := f(object.Key); err != nil {
+		if err := f(object.Key, objstore.EmptyObjectAttributes); err != nil {
 			return err
 		}
 	}
@@ -609,7 +609,7 @@ func NewTestBucketFromConfig(t testing.TB, location string, c Config, reuseBucke
 
 	bktToCreate := c.Bucket
 	if c.Bucket != "" && reuseBucket {
-		if err := b.Iter(ctx, "", func(f string) error {
+		if err := b.Iter(ctx, "", func(f string, _ objstore.ObjectAttributes) error {
 			return errors.Errorf("bucket %s is not empty", c.Bucket)
 		}); err != nil {
 			return nil, nil, errors.Wrapf(err, "s3 check bucket %s", c.Bucket)

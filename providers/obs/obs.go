@@ -233,7 +233,7 @@ func (b *Bucket) multipartUpload(size int64, key, uploadId string, body io.Reade
 func (b *Bucket) Close() error { return nil }
 
 // Iter calls f for each entry in the given directory (not recursive.)
-func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, options ...objstore.IterOption) error {
+func (b *Bucket) Iter(ctx context.Context, dir string, f func(name string, _ objstore.ObjectAttributes) error, options ...objstore.IterOption) error {
 	if dir != "" {
 		dir = strings.TrimSuffix(dir, DirDelim) + DirDelim
 	}
@@ -251,12 +251,12 @@ func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, opt
 			return errors.Wrap(err, "failed to list object")
 		}
 		for _, content := range output.Contents {
-			if err := f(content.Key); err != nil {
+			if err := f(content.Key, objstore.EmptyObjectAttributes); err != nil {
 				return errors.Wrapf(err, "failed to call iter function for object %s", content.Key)
 			}
 		}
 		for _, topDir := range output.CommonPrefixes {
-			if err := f(topDir); err != nil {
+			if err := f(topDir, objstore.EmptyObjectAttributes); err != nil {
 				return errors.Wrapf(err, "failed to call iter function for top dir object %s", topDir)
 			}
 		}
@@ -376,7 +376,7 @@ func NewTestBucketFromConfig(t testing.TB, c Config, reuseBucket bool, location 
 
 	bktToCreate := c.Bucket
 	if c.Bucket != "" && reuseBucket {
-		if err := b.Iter(ctx, "", func(f string) error {
+		if err := b.Iter(ctx, "", func(f string, _ objstore.ObjectAttributes) error {
 			return errors.Errorf("bucket %s is not empty", c.Bucket)
 		}); err != nil {
 			return nil, nil, err

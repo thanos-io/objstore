@@ -20,8 +20,9 @@ import (
 	"github.com/ncw/swift"
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
-	"github.com/thanos-io/objstore"
 	"gopkg.in/yaml.v2"
+
+	"github.com/thanos-io/objstore"
 )
 
 const (
@@ -204,7 +205,7 @@ func (c *Container) Name() string {
 
 // Iter calls f for each entry in the given directory. The argument to f is the full
 // object name including the prefix of the inspected directory.
-func (c *Container) Iter(_ context.Context, dir string, f func(string) error, options ...objstore.IterOption) error {
+func (c *Container) Iter(ctx context.Context, dir string, f func(name string, _ objstore.ObjectAttributes) error, options ...objstore.IterOption) error {
 	if dir != "" {
 		dir = strings.TrimSuffix(dir, string(DirDelim)) + string(DirDelim)
 	}
@@ -226,7 +227,7 @@ func (c *Container) Iter(_ context.Context, dir string, f func(string) error, op
 			if object == SegmentsDir {
 				continue
 			}
-			if err := f(object); err != nil {
+			if err := f(object, objstore.EmptyObjectAttributes); err != nil {
 				return objects, errors.Wrap(err, "iteration over objects")
 			}
 		}
@@ -362,7 +363,7 @@ func NewTestContainer(t testing.TB) (objstore.Bucket, func(), error) {
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "initializing new container")
 		}
-		if err := c.Iter(context.Background(), "", func(f string) error {
+		if err := c.Iter(context.Background(), "", func(f string, _ objstore.ObjectAttributes) error {
 			return errors.Errorf("container %s is not empty", c.Name())
 		}); err != nil {
 			return nil, nil, errors.Wrapf(err, "check container %s", c.Name())

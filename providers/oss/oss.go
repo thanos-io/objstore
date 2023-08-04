@@ -206,7 +206,7 @@ func validate(config Config) error {
 
 // Iter calls f for each entry in the given directory (not recursive). The argument to f is the full
 // object name including the prefix of the inspected directory.
-func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, options ...objstore.IterOption) error {
+func (b *Bucket) Iter(ctx context.Context, dir string, f func(name string, _ objstore.ObjectAttributes) error, options ...objstore.IterOption) error {
 	if dir != "" {
 		dir = strings.TrimSuffix(dir, objstore.DirDelim) + objstore.DirDelim
 	}
@@ -228,13 +228,13 @@ func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, opt
 		marker = alioss.Marker(objects.NextMarker)
 
 		for _, object := range objects.Objects {
-			if err := f(object.Key); err != nil {
+			if err := f(object.Key, objstore.EmptyObjectAttributes); err != nil {
 				return errors.Wrapf(err, "callback func invoke for object %s failed ", object.Key)
 			}
 		}
 
 		for _, object := range objects.CommonPrefixes {
-			if err := f(object); err != nil {
+			if err := f(object, objstore.EmptyObjectAttributes); err != nil {
 				return errors.Wrapf(err, "callback func invoke for directory %s failed", object)
 			}
 		}
@@ -280,7 +280,7 @@ func NewTestBucketFromConfig(t testing.TB, c Config, reuseBucket bool) (objstore
 	}
 
 	if reuseBucket {
-		if err := b.Iter(context.Background(), "", func(f string) error {
+		if err := b.Iter(context.Background(), "", func(f string, _ objstore.ObjectAttributes) error {
 			return errors.Errorf("bucket %s is not empty", c.Bucket)
 		}); err != nil {
 			return nil, nil, errors.Wrapf(err, "oss check bucket %s", c.Bucket)

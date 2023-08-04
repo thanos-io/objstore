@@ -6,11 +6,14 @@ package filesystem
 import (
 	"bytes"
 	"context"
+	"os"
 	"strings"
 	"sync"
 	"testing"
 
 	"github.com/efficientgo/core/testutil"
+
+	"github.com/thanos-io/objstore"
 )
 
 func TestDelete_EmptyDirDeletionRaceCondition(t *testing.T) {
@@ -53,12 +56,62 @@ func TestIter_CancelledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	err = b.Iter(ctx, "", func(s string) error {
+	err = b.Iter(ctx, "", func(s string, _ objstore.ObjectAttributes) error {
 		return nil
 	})
 
 	testutil.NotOk(t, err)
 	testutil.Equals(t, context.Canceled, err)
+}
+
+func TestIter(t *testing.T) {
+	dir := t.TempDir()
+	f, err := os.CreateTemp(dir, "test")
+	testutil.Ok(t, err)
+	defer f.Close()
+
+	stat, err := f.Stat()
+	testutil.Ok(t, err)
+
+	cases := []struct {
+		name          string
+		opts          []objstore.IterOption
+		expectedAttrs objstore.ObjectAttributes
+	}{
+		{
+			name:          "no options",
+			opts:          nil,
+			expectedAttrs: objstore.EmptyObjectAttributes,
+		},
+		{
+			name: "with updated at",
+			opts: []objstore.IterOption{
+				objstore.WithUpdatedAt,
+			},
+			expectedAttrs: objstore.ObjectAttributes{
+				LastModified: stat.ModTime(),
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			b, err := NewBucket(dir)
+			testutil.Ok(t, err)
+
+			var attrs objstore.ObjectAttributes
+
+			ctx := context.Background()
+			err = b.Iter(ctx, "", func(s string, objAttrs objstore.ObjectAttributes) error {
+				attrs = objAttrs
+				return nil
+			}, tc.opts...)
+
+			testutil.Ok(t, err)
+			testutil.Equals(t, tc.expectedAttrs, attrs)
+		})
+
+	}
 }
 
 func TestGet_CancelledContext(t *testing.T) {

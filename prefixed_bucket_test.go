@@ -71,7 +71,7 @@ func UsesPrefixTest(t *testing.T, bkt Bucket, prefix string) {
 
 	testutil.Ok(t, bkt.Upload(context.Background(), strings.Trim(prefix, "/")+"/dir/file1.jpg", strings.NewReader("test-data1")))
 	seen := []string{}
-	testutil.Ok(t, pBkt.Iter(context.Background(), "", func(fn string) error {
+	testutil.Ok(t, pBkt.Iter(context.Background(), "", func(fn string, _ ObjectAttributes) error {
 		seen = append(seen, fn)
 		return nil
 	}, WithRecursiveIter))
@@ -81,7 +81,7 @@ func UsesPrefixTest(t *testing.T, bkt Bucket, prefix string) {
 	testutil.Equals(t, expected, seen)
 
 	seen = []string{}
-	testutil.Ok(t, pBkt.Iter(context.Background(), "", func(fn string) error {
+	testutil.Ok(t, pBkt.Iter(context.Background(), "", func(fn string, _ ObjectAttributes) error {
 		seen = append(seen, fn)
 		return nil
 	}))

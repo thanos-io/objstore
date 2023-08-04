@@ -269,7 +269,7 @@ func (b *Bucket) Delete(ctx context.Context, name string) error {
 
 // Iter calls f for each entry in the given directory (not recursive.). The argument to f is the full
 // object name including the prefix of the inspected directory.
-func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, options ...objstore.IterOption) error {
+func (b *Bucket) Iter(ctx context.Context, dir string, f func(name string, attrs objstore.ObjectAttributes) error, options ...objstore.IterOption) error {
 	if dir != "" {
 		dir = strings.TrimSuffix(dir, dirDelim) + dirDelim
 	}
@@ -281,7 +281,7 @@ func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, opt
 		if object.key == "" {
 			continue
 		}
-		if err := f(object.key); err != nil {
+		if err := f(object.key, objstore.EmptyObjectAttributes); err != nil {
 			return err
 		}
 	}
@@ -490,7 +490,7 @@ func NewTestBucket(t testing.TB) (objstore.Bucket, func(), error) {
 			return nil, nil, err
 		}
 
-		if err := b.Iter(context.Background(), "", func(f string) error {
+		if err := b.Iter(context.Background(), "", func(f string, _ objstore.ObjectAttributes) error {
 			return errors.Errorf("bucket %s is not empty", c.Bucket)
 		}); err != nil {
 			return nil, nil, errors.Wrapf(err, "cos check bucket %s", c.Bucket)

@@ -50,7 +50,7 @@ func (b *InMemBucket) Objects() map[string][]byte {
 
 // Iter calls f for each entry in the given directory. The argument to f is the full
 // object name including the prefix of the inspected directory.
-func (b *InMemBucket) Iter(_ context.Context, dir string, f func(string) error, options ...IterOption) error {
+func (b *InMemBucket) Iter(ctx context.Context, dir string, f func(name string, attrs ObjectAttributes) error, options ...IterOption) error {
 	unique := map[string]struct{}{}
 	params := ApplyIterOptions(options...)
 
@@ -99,7 +99,7 @@ func (b *InMemBucket) Iter(_ context.Context, dir string, f func(string) error, 
 	})
 
 	for _, k := range keys {
-		if err := f(k); err != nil {
+		if err := f(k, EmptyObjectAttributes); err != nil {
 			return err
 		}
 	}
