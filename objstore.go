@@ -603,12 +603,10 @@ func (b *metricBucket) Upload(ctx context.Context, name string, r io.Reader) err
 	b.lastSuccessfulUploadTime.SetToCurrentTime()
 	b.opsDuration.WithLabelValues(op).Observe(time.Since(start).Seconds())
 
-	rc := nopCloserWithObjectSize{
-		Reader: r,
-	}
-
 	trc := newTimingReadCloser(
-		rc,
+		nopCloserWithObjectSize{
+			Reader: r,
+		},
 		op,
 		b.opsDuration,
 		b.opsFailures,
