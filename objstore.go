@@ -443,13 +443,6 @@ func WrapWithMetrics(b Bucket, reg prometheus.Registerer, name string) *metricBu
 			Help:        "Second timestamp of the last successful upload to the bucket.",
 			ConstLabels: prometheus.Labels{"bucket": name},
 		}),
-
-		opsWrittenBytes: promauto.With(reg).NewHistogramVec(prometheus.HistogramOpts{
-			Name:        "objstore_bucket_operation_written_bytes",
-			Help:        "Number of bytes uploaded from TSDB block, per operation.",
-			ConstLabels: prometheus.Labels{"bucket": name},
-			Buckets:     prometheus.ExponentialBuckets(50<<100, 2, 10),
-		}, []string{"operation"}),
 	}
 	for _, op := range []string{
 		OpIter,
