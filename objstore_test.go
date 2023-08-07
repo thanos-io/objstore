@@ -170,6 +170,25 @@ func TestDownloadUploadDirConcurrency(t *testing.T) {
         objstore_bucket_operation_transferred_bytes_bucket{bucket="",operation="get_range",le="+Inf"} 0
         objstore_bucket_operation_transferred_bytes_sum{bucket="",operation="get_range"} 0
         objstore_bucket_operation_transferred_bytes_count{bucket="",operation="get_range"} 0
+		objstore_bucket_operation_transferred_bytes_bucket{bucket="",operation="upload",le="32768"} 3
+        objstore_bucket_operation_transferred_bytes_bucket{bucket="",operation="upload",le="65536"} 3
+        objstore_bucket_operation_transferred_bytes_bucket{bucket="",operation="upload",le="131072"} 3
+        objstore_bucket_operation_transferred_bytes_bucket{bucket="",operation="upload",le="262144"} 3
+        objstore_bucket_operation_transferred_bytes_bucket{bucket="",operation="upload",le="524288"} 3
+        objstore_bucket_operation_transferred_bytes_bucket{bucket="",operation="upload",le="1.048576e+06"} 3
+        objstore_bucket_operation_transferred_bytes_bucket{bucket="",operation="upload",le="2.097152e+06"} 3
+        objstore_bucket_operation_transferred_bytes_bucket{bucket="",operation="upload",le="4.194304e+06"} 3
+        objstore_bucket_operation_transferred_bytes_bucket{bucket="",operation="upload",le="8.388608e+06"} 3
+        objstore_bucket_operation_transferred_bytes_bucket{bucket="",operation="upload",le="1.6777216e+07"} 3
+        objstore_bucket_operation_transferred_bytes_bucket{bucket="",operation="upload",le="3.3554432e+07"} 3
+        objstore_bucket_operation_transferred_bytes_bucket{bucket="",operation="upload",le="6.7108864e+07"} 3
+        objstore_bucket_operation_transferred_bytes_bucket{bucket="",operation="upload",le="1.34217728e+08"} 3
+        objstore_bucket_operation_transferred_bytes_bucket{bucket="",operation="upload",le="2.68435456e+08"} 3
+        objstore_bucket_operation_transferred_bytes_bucket{bucket="",operation="upload",le="5.36870912e+08"} 3
+        objstore_bucket_operation_transferred_bytes_bucket{bucket="",operation="upload",le="1.073741824e+09"} 3
+        objstore_bucket_operation_transferred_bytes_bucket{bucket="",operation="upload",le="+Inf"} 3
+        objstore_bucket_operation_transferred_bytes_sum{bucket="",operation="upload"} 0
+        objstore_bucket_operation_transferred_bytes_count{bucket="",operation="upload"} 3
 		`), `objstore_bucket_operation_transferred_bytes`))
 
 	testutil.Ok(t, UploadDir(context.Background(), log.NewNopLogger(), m, tempDir, "/dir-copy", WithUploadConcurrency(10)))

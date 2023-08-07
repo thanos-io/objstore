@@ -465,11 +465,11 @@ func WrapWithMetrics(b Bucket, reg prometheus.Registerer, name string) *metricBu
 		bkt.opsDuration.WithLabelValues(op)
 		bkt.opsFetchedBytes.WithLabelValues(op)
 	}
-	// fetched bytes only relevant for get and getrange
+	// fetched bytes only relevant for get, getrange and upload
 	for _, op := range []string{
 		OpGet,
 		OpGetRange,
-		// TODO: Add uploads
+		OpUpload,
 	} {
 		bkt.opsTransferredBytes.WithLabelValues(op)
 	}
@@ -611,6 +611,23 @@ func (b *metricBucket) Upload(ctx context.Context, name string, r io.Reader) err
 	}
 	b.lastSuccessfulUploadTime.SetToCurrentTime()
 	b.opsDuration.WithLabelValues(op).Observe(time.Since(start).Seconds())
+
+	rc := nopCloserWithObjectSize{
+		Reader: r,
+	}
+
+	trc := newTimingReadCloser(
+		rc,
+		op,
+		b.opsDuration,
+		b.opsFailures,
+		b.isOpFailureExpected,
+		b.opsFetchedBytes,
+		b.opsTransferredBytes,
+	)
+
+	trc.Close()
+
 	return nil
 }
 
