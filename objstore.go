@@ -478,7 +478,6 @@ type metricBucket struct {
 
 	opsFetchedBytes          *prometheus.CounterVec
 	opsTransferredBytes      *prometheus.HistogramVec
-	opsWrittenBytes          *prometheus.HistogramVec
 	opsDuration              *prometheus.HistogramVec
 	lastSuccessfulUploadTime prometheus.Gauge
 }
@@ -490,7 +489,6 @@ func (b *metricBucket) WithExpectedErrs(fn IsOpFailureExpectedFunc) Bucket {
 		opsFailures:              b.opsFailures,
 		opsFetchedBytes:          b.opsFetchedBytes,
 		opsTransferredBytes:      b.opsTransferredBytes,
-		opsWrittenBytes:          b.opsWrittenBytes,
 		isOpFailureExpected:      fn,
 		opsDuration:              b.opsDuration,
 		lastSuccessfulUploadTime: b.lastSuccessfulUploadTime,
