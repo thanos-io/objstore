@@ -126,7 +126,7 @@ func TestDownloadUploadDirConcurrency(t *testing.T) {
         objstore_bucket_operation_fetched_bytes_total{bucket="",operation="get"} 1.048578e+06
         objstore_bucket_operation_fetched_bytes_total{bucket="",operation="get_range"} 0
         objstore_bucket_operation_fetched_bytes_total{bucket="",operation="iter"} 0
-        objstore_bucket_operation_fetched_bytes_total{bucket="",operation="upload"} 0
+        objstore_bucket_operation_fetched_bytes_total{bucket="",operation="upload"} 1.048578e+06
 		`), `objstore_bucket_operation_fetched_bytes_total`))
 
 	testutil.Ok(t, promtest.GatherAndCompare(r, strings.NewReader(`
@@ -170,11 +170,11 @@ func TestDownloadUploadDirConcurrency(t *testing.T) {
         objstore_bucket_operation_transferred_bytes_bucket{bucket="",operation="get_range",le="+Inf"} 0
         objstore_bucket_operation_transferred_bytes_sum{bucket="",operation="get_range"} 0
         objstore_bucket_operation_transferred_bytes_count{bucket="",operation="get_range"} 0
-		objstore_bucket_operation_transferred_bytes_bucket{bucket="",operation="upload",le="32768"} 3
-        objstore_bucket_operation_transferred_bytes_bucket{bucket="",operation="upload",le="65536"} 3
-        objstore_bucket_operation_transferred_bytes_bucket{bucket="",operation="upload",le="131072"} 3
-        objstore_bucket_operation_transferred_bytes_bucket{bucket="",operation="upload",le="262144"} 3
-        objstore_bucket_operation_transferred_bytes_bucket{bucket="",operation="upload",le="524288"} 3
+		objstore_bucket_operation_transferred_bytes_bucket{bucket="",operation="upload",le="32768"} 2
+        objstore_bucket_operation_transferred_bytes_bucket{bucket="",operation="upload",le="65536"} 2
+        objstore_bucket_operation_transferred_bytes_bucket{bucket="",operation="upload",le="131072"} 2
+        objstore_bucket_operation_transferred_bytes_bucket{bucket="",operation="upload",le="262144"} 2
+        objstore_bucket_operation_transferred_bytes_bucket{bucket="",operation="upload",le="524288"} 2
         objstore_bucket_operation_transferred_bytes_bucket{bucket="",operation="upload",le="1.048576e+06"} 3
         objstore_bucket_operation_transferred_bytes_bucket{bucket="",operation="upload",le="2.097152e+06"} 3
         objstore_bucket_operation_transferred_bytes_bucket{bucket="",operation="upload",le="4.194304e+06"} 3
@@ -187,7 +187,7 @@ func TestDownloadUploadDirConcurrency(t *testing.T) {
         objstore_bucket_operation_transferred_bytes_bucket{bucket="",operation="upload",le="5.36870912e+08"} 3
         objstore_bucket_operation_transferred_bytes_bucket{bucket="",operation="upload",le="1.073741824e+09"} 3
         objstore_bucket_operation_transferred_bytes_bucket{bucket="",operation="upload",le="+Inf"} 3
-        objstore_bucket_operation_transferred_bytes_sum{bucket="",operation="upload"} 0
+        objstore_bucket_operation_transferred_bytes_sum{bucket="",operation="upload"} 1.048578e+06
         objstore_bucket_operation_transferred_bytes_count{bucket="",operation="upload"} 3
 		`), `objstore_bucket_operation_transferred_bytes`))
 
