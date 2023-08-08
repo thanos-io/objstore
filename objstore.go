@@ -458,6 +458,7 @@ func WrapWithMetrics(b Bucket, reg prometheus.Registerer, name string) *metricBu
 		bkt.opsDuration.WithLabelValues(op)
 		bkt.opsFetchedBytes.WithLabelValues(op)
 	}
+
 	// fetched bytes only relevant for get, getrange and upload
 	for _, op := range []string{
 		OpGet,
@@ -599,7 +600,7 @@ func (b *metricBucket) Upload(ctx context.Context, name string, r io.Reader) err
 		b.opsDuration,
 		b.opsFailures,
 		b.isOpFailureExpected,
-		b.opsFetchedBytes,
+		nil,
 		b.opsTransferredBytes,
 	)
 	err := b.bkt.Upload(ctx, name, trc)
@@ -707,7 +708,10 @@ func (rc *timingReadCloser) Close() error {
 
 func (rc *timingReadCloser) Read(b []byte) (n int, err error) {
 	n, err = rc.ReadCloser.Read(b)
-	rc.fetchedBytes.WithLabelValues(rc.op).Add(float64(n))
+	if rc.fetchedBytes != nil {
+		rc.fetchedBytes.WithLabelValues(rc.op).Add(float64(n))
+	}
+
 	rc.readBytes += int64(n)
 	// Report metric just once.
 	if !rc.alreadyGotErr && err != nil && err != io.EOF {
