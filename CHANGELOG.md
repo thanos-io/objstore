@@ -27,7 +27,8 @@ We use *breaking :warning:* to mark changes that are not backward compatible (re
 - [#61](https://github.com/thanos-io/objstore/pull/61) Add OpenTelemetry TracingBucket.
     > This also changes the behaviour of `client.NewBucket`. Now it returns, uninstrumented and untraced bucket.
     You can combine `objstore.WrapWithMetrics` and `tracing/{opentelemetry,opentracing}.WrapWithTraces` to have old behavior.
-- [#66](https://github.com/thanos-io/objstore/pull/66) Add `objstore_bucket_operation_written_bytes_total` that counts the number of total bytes per written to the bucket operation.
+- [#69](https://github.com/thanos-io/objstore/pull/69) Add `objstore_bucket_operation_transferred_bytes` that counts the number of total bytes read from the bucket operation Get/GetRange.
+- [#66](https://github.com/thanos-io/objstore/pull/66) Made `objstore_bucket_operation_transferred_bytes` also count the number of total bytes per written to the bucket operation Upload.
 - [#64](https://github.com/thanos-io/objstore/pull/64) OCI: OKE Workload Identity support.
 - [#73](https://github.com/thanos-io/objstore/pull/73) Аdded file path to erros from DownloadFile
 - [#51](https://github.com/thanos-io/objstore/pull/51) Azure: Support using connection string authentication.
