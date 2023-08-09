@@ -314,7 +314,6 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) error {
 		BlockSize:   3 * 1024 * 1024,
 		Concurrency: 4,
 	}
-
 	if _, err := blobClient.UploadStream(ctx, r, opts); err != nil {
 		return errors.Wrapf(err, "cannot upload Azure blob, address: %s", name)
 	}
