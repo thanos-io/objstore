@@ -593,7 +593,6 @@ func (b *metricBucket) Upload(ctx context.Context, name string, r io.Reader) err
 	const op = OpUpload
 	b.ops.WithLabelValues(op).Inc()
 
-	start := time.Now()
 	trc := newTimingReadCloser(
 		io.NopCloser(r),
 		op,
@@ -603,6 +602,7 @@ func (b *metricBucket) Upload(ctx context.Context, name string, r io.Reader) err
 		nil,
 		b.opsTransferredBytes,
 	)
+	defer trc.Close()
 	err := b.bkt.Upload(ctx, name, trc)
 	if err != nil {
 		if !b.isOpFailureExpected(err) && ctx.Err() != context.Canceled {
@@ -613,9 +613,6 @@ func (b *metricBucket) Upload(ctx context.Context, name string, r io.Reader) err
 		return err
 	}
 	b.lastSuccessfulUploadTime.SetToCurrentTime()
-	b.opsDuration.WithLabelValues(op).Observe(time.Since(start).Seconds())
-
-	trc.Close()
 
 	return nil
 }
