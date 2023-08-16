@@ -379,7 +379,13 @@ func (b *Bucket) IsObjNotFoundErr(err error) bool {
 	return false
 }
 
-// IsCustomerManagedKeyError returns true if the permissions for key used to encrypt the object was revoked.
-func (b *Bucket) IsCustomerManagedKeyError(_ error) bool {
+// IsAccessDeniedErr returns true if access to object is denied.
+func (b *Bucket) IsAccessDeniedErr(err error) bool {
+	switch aliErr := errors.Cause(err).(type) {
+	case alioss.ServiceError:
+		if aliErr.StatusCode == http.StatusForbidden {
+			return true
+		}
+	}
 	return false
 }
