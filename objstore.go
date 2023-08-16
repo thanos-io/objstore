@@ -608,8 +608,6 @@ func (b *metricBucket) Upload(ctx context.Context, name string, r io.Reader) err
 		if !b.isOpFailureExpected(err) && ctx.Err() != context.Canceled {
 			b.opsFailures.WithLabelValues(op).Inc()
 		}
-
-		trc.Close()
 		return err
 	}
 	b.lastSuccessfulUploadTime.SetToCurrentTime()
