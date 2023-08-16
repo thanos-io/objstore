@@ -227,8 +227,12 @@ func (b *Bucket) IsObjNotFoundErr(err error) bool {
 	return false
 }
 
-// IsCustomerManagedKeyError returns true if the permissions for key used to encrypt the object was revoked.
-func (b *Bucket) IsCustomerManagedKeyError(_ error) bool {
+// IsAccessDeniedErr returns true if access to object is denied.
+func (b *Bucket) IsAccessDeniedErr(err error) bool {
+	failure, isServiceError := common.IsServiceError(err)
+	if isServiceError {
+		return failure.GetHTTPStatusCode() == http.StatusForbidden
+	}
 	return false
 }
 
