@@ -364,8 +364,8 @@ func (b *Bucket) IsObjNotFoundErr(err error) bool {
 	}
 }
 
-// IsCustomerManagedKeyError returns true if the permissions for key used to encrypt the object was revoked.
-func (b *Bucket) IsCustomerManagedKeyError(_ error) bool {
+// IsAccessDeniedErr returns true if access to object is denied.
+func (b *Bucket) IsAccessDeniedErr(_ error) bool {
 	return false
 }
 
