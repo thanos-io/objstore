@@ -132,6 +132,16 @@ container: "MyContainer"`),
 		wantFailParse:    false,
 		wantFailValidate: false,
 	},
+	{
+		name: "Valid User Assigned and Connection String set",
+		config: []byte(`storage_account: "myAccount"
+storage_account_key: ""
+user_assigned_id: "1234-56578678-655"
+storage_connection_string: "myConnectionString"
+container: "MyContainer"`),
+		wantFailParse:    false,
+		wantFailValidate: true,
+	},
 }
 
 func TestConfig_validate(t *testing.T) {
