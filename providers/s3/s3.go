@@ -660,7 +660,7 @@ type ErrorResponse struct {
 	HostId     string
 }
 
-// ToErrorResponse Returns parsed s3 ErrorResponse
+// ToErrorResponse Returns parsed s3 ErrorResponse.
 func ToErrorResponse(err error) ErrorResponse {
 	er := minio.ToErrorResponse(errors.Cause(err))
 	return ErrorResponse{
