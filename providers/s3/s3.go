@@ -638,3 +638,37 @@ func NewTestBucketFromConfig(t testing.TB, location string, c Config, reuseBucke
 func ContextWithSSEConfig(ctx context.Context, value encrypt.ServerSide) context.Context {
 	return context.WithValue(ctx, sseConfigKey, value)
 }
+
+/* **** SAMPLE ERROR RESPONSE ****
+<?xml version="1.0" encoding="UTF-8"?>
+<Error>
+   <Code>AccessDenied</Code>
+   <Message>Access Denied</Message>
+   <BucketName>bucketName</BucketName>
+   <Key>objectName</Key>
+   <RequestId>F19772218238A85A</RequestId>
+   <HostId>GuWkjyviSiGHizehqpmsD1ndz5NClSP19DOT+s2mv7gXGQ8/X1lhbDGiIJEXpGFD</HostId>
+</Error>
+*/
+
+type ErrorResponse struct {
+	Code       string
+	Message    string
+	BucketName string
+	Key        string
+	RequestId  string
+	HostId     string
+}
+
+// ToErrorResponse Returns parsed s3 ErrorResponse
+func ToErrorResponse(err error) ErrorResponse {
+	er := minio.ToErrorResponse(errors.Cause(err))
+	return ErrorResponse{
+		Code: er.Code,
+		Message: er.Message,
+		BucketName: er.BucketName,
+		Key: er.Key,
+		RequestId: er.RequestID,
+		HostId: er.HostID,
+	}
+}
