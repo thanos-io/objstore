@@ -108,25 +108,30 @@ func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, opt
 		delimiter = ""
 	}
 
-	it := b.bkt.Objects(ctx, &storage.Query{
+	const pageSize = 1000
+	items := make([]*storage.ObjectAttrs, 0, pageSize)
+	it := iterator.NewPager(b.bkt.Objects(ctx, &storage.Query{
 		Prefix:    dir,
 		Delimiter: delimiter,
-	})
+	}), pageSize, "")
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
 		}
-		attrs, err := it.Next()
-		if err == iterator.Done {
-			return nil
-		}
+		token, err := it.NextPage(&items)
 		if err != nil {
 			return err
 		}
-		if err := f(attrs.Prefix + attrs.Name); err != nil {
-			return err
+		for _, attrs := range items {
+			if err := f(attrs.Prefix + attrs.Name); err != nil {
+				return err
+			}
+		}
+		items = items[:0]
+		if token == "" {
+			return nil
 		}
 	}
 }
