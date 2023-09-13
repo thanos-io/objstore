@@ -31,6 +31,7 @@ We use *breaking :warning:* to mark changes that are not backward compatible (re
 - [#64](https://github.com/thanos-io/objstore/pull/64) OCI: OKE Workload Identity support.
 - [#73](https://github.com/thanos-io/objstore/pull/73) Аdded file path to erros from DownloadFile
 - [#51](https://github.com/thanos-io/objstore/pull/51) Azure: Support using connection string authentication.
+- [#76](https://github.com/thanos-io/objstore/pull/76) GCS: Query for object names only in `Iter` to possibly improve performance when listing objects.
 
 ### Changed
 - [#38](https://github.com/thanos-io/objstore/pull/38) *: Upgrade minio-go version to `v7.0.45`.
