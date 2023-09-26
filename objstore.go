@@ -433,7 +433,7 @@ func WrapWithMetrics(b Bucket, reg prometheus.Registerer, name string) *metricBu
 
 		opsDuration: promauto.With(reg).NewHistogramVec(prometheus.HistogramOpts{
 			Name:        "objstore_bucket_operation_duration_seconds",
-			Help:        "Duration of successful operations against the bucket per operation - iter operations include time spent on each function call.",
+			Help:        "Duration of successful operations against the bucket per operation - iter operations include time spent on each callback.",
 			ConstLabels: prometheus.Labels{"bucket": name},
 			Buckets:     []float64{0.001, 0.01, 0.1, 0.3, 0.6, 1, 3, 6, 9, 20, 30, 60, 90, 120},
 		}, []string{"operation"}),
