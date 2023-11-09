@@ -8,9 +8,11 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"cloud.google.com/go/storage"
 	"github.com/go-kit/log"
@@ -24,15 +26,21 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/thanos-io/objstore"
+	"github.com/thanos-io/objstore/exthttp"
 )
 
 // DirDelim is the delimiter used to model a directory structure in an object store bucket.
 const DirDelim = "/"
 
+var DefaultConfig = Config{
+	HTTPConfig: exthttp.DefaultHTTPConfig,
+}
+
 // Config stores the configuration for gcs bucket.
 type Config struct {
-	Bucket         string `yaml:"bucket"`
-	ServiceAccount string `yaml:"service_account"`
+	Bucket         string             `yaml:"bucket"`
+	ServiceAccount string             `yaml:"service_account"`
+	HTTPConfig     exthttp.HTTPConfig `yaml:"http_config"`
 }
 
 // Bucket implements the store.Bucket and shipper.Bucket interfaces against GCS.
@@ -44,14 +52,23 @@ type Bucket struct {
 	closer io.Closer
 }
 
-// NewBucket returns a new Bucket against the given bucket handle.
-func NewBucket(ctx context.Context, logger log.Logger, conf []byte, component string) (*Bucket, error) {
-	var gc Config
-	if err := yaml.Unmarshal(conf, &gc); err != nil {
-		return nil, err
+// parseConfig unmarshals a buffer into a Config with default values.
+func parseConfig(conf []byte) (Config, error) {
+	config := DefaultConfig
+	if err := yaml.UnmarshalStrict(conf, &config); err != nil {
+		return Config{}, err
 	}
 
-	return NewBucketWithConfig(ctx, logger, gc, component)
+	return config, nil
+}
+
+// NewBucket returns a new Bucket against the given bucket handle.
+func NewBucket(ctx context.Context, logger log.Logger, conf []byte, component string) (*Bucket, error) {
+	config, err := parseConfig(conf)
+	if err != nil {
+		return nil, err
+	}
+	return NewBucketWithConfig(ctx, logger, config, component)
 }
 
 // NewBucketWithConfig returns a new Bucket with gcs Config struct.
@@ -70,6 +87,25 @@ func NewBucketWithConfig(ctx context.Context, logger log.Logger, gc Config, comp
 		}
 		opts = append(opts, option.WithCredentials(credentials))
 	}
+
+	// Check if a roundtripper has been set in the config
+	// otherwise build the default transport.
+	var rt http.RoundTripper
+	if gc.HTTPConfig.Transport != nil {
+		rt = gc.HTTPConfig.Transport
+	} else {
+		var err error
+		rt, err = exthttp.DefaultTransport(gc.HTTPConfig)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	httpCli := &http.Client{
+		Transport: rt,
+		Timeout:   time.Duration(gc.HTTPConfig.IdleConnTimeout),
+	}
+	opts = append(opts, option.WithHTTPClient(httpCli))
 
 	opts = append(opts,
 		option.WithUserAgent(fmt.Sprintf("thanos-%s/%s (%s)", component, version.Version, runtime.Version())),
