@@ -21,6 +21,7 @@ import (
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
+	htransport "google.golang.org/api/transport/http"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gopkg.in/yaml.v2"
@@ -86,7 +87,13 @@ func NewBucketWithConfig(ctx context.Context, logger log.Logger, gc Config, comp
 			return nil, errors.Wrap(err, "failed to create credentials from JSON")
 		}
 		opts = append(opts, option.WithCredentials(credentials))
+	} else {
+		opts = append(opts, option.WithoutAuthentication())
 	}
+
+	opts = append(opts,
+		option.WithUserAgent(fmt.Sprintf("thanos-%s/%s (%s)", component, version.Version, runtime.Version())),
+	)
 
 	// Check if a roundtripper has been set in the config
 	// otherwise build the default transport.
@@ -101,15 +108,16 @@ func NewBucketWithConfig(ctx context.Context, logger log.Logger, gc Config, comp
 		}
 	}
 
+	gRT, err := htransport.NewTransport(context.Background(), rt, opts...)
+	if err != nil {
+		return nil, err
+	}
+
 	httpCli := &http.Client{
-		Transport: rt,
+		Transport: gRT,
 		Timeout:   time.Duration(gc.HTTPConfig.IdleConnTimeout),
 	}
 	opts = append(opts, option.WithHTTPClient(httpCli))
-
-	opts = append(opts,
-		option.WithUserAgent(fmt.Sprintf("thanos-%s/%s (%s)", component, version.Version, runtime.Version())),
-	)
 
 	gcsClient, err := storage.NewClient(ctx, opts...)
 	if err != nil {
