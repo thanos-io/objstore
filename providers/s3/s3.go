@@ -272,7 +272,7 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string) (*B
 	if err != nil {
 		return nil, errors.Wrap(err, "initialize s3 client")
 	}
-	client.SetAppInfo(fmt.Sprintf("thanos-%s", component), fmt.Sprintf("%s (%s)", version.Version, runtime.Version()))
+	client.SetAppInfo(component, fmt.Sprintf("%s (%s)", version.Version, runtime.Version()))
 
 	var sse encrypt.ServerSide
 	if config.SSEConfig.Type != "" {
