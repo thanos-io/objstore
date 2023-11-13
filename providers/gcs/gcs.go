@@ -72,7 +72,7 @@ func NewBucketWithConfig(ctx context.Context, logger log.Logger, gc Config, comp
 	}
 
 	opts = append(opts,
-		option.WithUserAgent(fmt.Sprintf("thanos-%s/%s (%s)", component, version.Version, runtime.Version())),
+		option.WithUserAgent(fmt.Sprintf("%s/%s (%s)", component, version.Version, runtime.Version())),
 	)
 
 	gcsClient, err := storage.NewClient(ctx, opts...)

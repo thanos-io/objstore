@@ -89,7 +89,7 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string) (*B
 		return nil, errors.Wrap(err, "creating BOS client")
 	}
 
-	client.Config.UserAgent = fmt.Sprintf("thanos-%s", component)
+	client.Config.UserAgent = component
 
 	bkt := &Bucket{
 		logger: logger,
