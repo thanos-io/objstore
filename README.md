@@ -88,7 +88,7 @@ type BucketReader interface {
 	// IsObjNotFoundErr returns true if error means that object is not found. Relevant to Get operations.
 	IsObjNotFoundErr(err error) bool
 
-	// IsAccessDeniedErr returns true if acces to object is denied.
+	// IsAccessDeniedErr returns true if access to object is denied.
 ```
 
 Those interfaces represent the object storage operations your code can use from `objstore` clients.
