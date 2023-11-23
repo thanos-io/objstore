@@ -6,7 +6,7 @@ package client
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"github.com/go-kit/log"
 	"go.opentelemetry.io/otel/trace"
@@ -17,7 +17,7 @@ import (
 
 func ExampleBucket() {
 	// Read the configuration file.
-	confContentYaml, err := ioutil.ReadFile("testconf/filesystem.conf.yml")
+	confContentYaml, err := os.ReadFile("testconf/filesystem.conf.yml")
 	if err != nil {
 		panic(err)
 	}
@@ -40,7 +40,7 @@ func ExampleBucket() {
 
 func ExampleTracingBucketUsingOpenTracing() { //nolint:govet
 	// Read the configuration file.
-	confContentYaml, err := ioutil.ReadFile("testconf/filesystem.conf.yml")
+	confContentYaml, err := os.ReadFile("testconf/filesystem.conf.yml")
 	if err != nil {
 		panic(err)
 	}
@@ -66,7 +66,7 @@ func ExampleTracingBucketUsingOpenTracing() { //nolint:govet
 
 func ExampleTracingBucketUsingOpenTelemetry() { //nolint:govet
 	// Read the configuration file.
-	confContentYaml, err := ioutil.ReadFile("testconf/filesystem.conf.yml")
+	confContentYaml, err := os.ReadFile("testconf/filesystem.conf.yml")
 	if err != nil {
 		panic(err)
 	}
