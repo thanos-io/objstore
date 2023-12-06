@@ -33,6 +33,7 @@ const DirDelim = "/"
 type Config struct {
 	Bucket         string `yaml:"bucket"`
 	ServiceAccount string `yaml:"service_account"`
+	UseGRPC        bool   `yaml:"use_grpc"`
 }
 
 // Bucket implements the store.Bucket and shipper.Bucket interfaces against GCS.
@@ -75,7 +76,19 @@ func NewBucketWithConfig(ctx context.Context, logger log.Logger, gc Config, comp
 		option.WithUserAgent(fmt.Sprintf("thanos-%s/%s (%s)", component, version.Version, runtime.Version())),
 	)
 
-	gcsClient, err := storage.NewClient(ctx, opts...)
+	return newBucket(ctx, logger, gc, opts)
+}
+
+func newBucket(ctx context.Context, logger log.Logger, gc Config, opts []option.ClientOption) (*Bucket, error) {
+	var (
+		err       error
+		gcsClient *storage.Client
+	)
+	if gc.UseGRPC {
+		gcsClient, err = storage.NewGRPCClient(ctx, opts...)
+	} else {
+		gcsClient, err = storage.NewClient(ctx, opts...)
+	}
 	if err != nil {
 		return nil, err
 	}
