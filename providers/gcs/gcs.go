@@ -19,6 +19,7 @@ import (
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gopkg.in/yaml.v2"
@@ -31,9 +32,10 @@ const DirDelim = "/"
 
 // Config stores the configuration for gcs bucket.
 type Config struct {
-	Bucket         string `yaml:"bucket"`
-	ServiceAccount string `yaml:"service_account"`
-	UseGRPC        bool   `yaml:"use_grpc"`
+	Bucket           string `yaml:"bucket"`
+	ServiceAccount   string `yaml:"service_account"`
+	UseGRPC          bool   `yaml:"use_grpc"`
+	GRPCConnPoolSize int    `yaml:"grpc_conn_pool_size"`
 }
 
 // Bucket implements the store.Bucket and shipper.Bucket interfaces against GCS.
@@ -85,6 +87,10 @@ func newBucket(ctx context.Context, logger log.Logger, gc Config, opts []option.
 		gcsClient *storage.Client
 	)
 	if gc.UseGRPC {
+		opts = append(opts,
+			option.WithGRPCDialOption(grpc.WithRecvBufferPool(grpc.NewSharedBufferPool())),
+			option.WithGRPCConnectionPool(gc.GRPCConnPoolSize),
+		)
 		gcsClient, err = storage.NewGRPCClient(ctx, opts...)
 	} else {
 		gcsClient, err = storage.NewClient(ctx, opts...)
