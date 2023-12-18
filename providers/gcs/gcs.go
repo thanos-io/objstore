@@ -32,10 +32,14 @@ const DirDelim = "/"
 
 // Config stores the configuration for gcs bucket.
 type Config struct {
-	Bucket           string `yaml:"bucket"`
-	ServiceAccount   string `yaml:"service_account"`
-	UseGRPC          bool   `yaml:"use_grpc"`
-	GRPCConnPoolSize int    `yaml:"grpc_conn_pool_size"`
+	Bucket         string `yaml:"bucket"`
+	ServiceAccount string `yaml:"service_account"`
+	UseGRPC        bool   `yaml:"use_grpc"`
+	// GRPCConnPoolSize controls the size of the gRPC connection pool and should only be used
+	// when direct path is not enabled.
+	// See https://pkg.go.dev/cloud.google.com/go/storage#hdr-Experimental_gRPC_API for more details
+	// on how to enable direct path.
+	GRPCConnPoolSize int `yaml:"grpc_conn_pool_size"`
 }
 
 // Bucket implements the store.Bucket and shipper.Bucket interfaces against GCS.
