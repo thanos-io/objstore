@@ -232,6 +232,35 @@ func TestTimingTracingReader(t *testing.T) {
 	testutil.Equals(t, int64(11), size)
 }
 
+func TestTimingTracingReaderSeeker(t *testing.T) {
+	m := WrapWithMetrics(NewInMemBucket(), nil, "")
+	r := bytes.NewReader([]byte("hello world"))
+
+	tr := nopSeekerCloserWithSize(r).(io.ReadCloser)
+	tr = newTimingReadCloser(tr, "", m.opsDuration, m.opsFailures, func(err error) bool {
+		return false
+	}, m.opsFetchedBytes, m.opsTransferredBytes)
+
+	size, err := TryToGetSize(tr)
+
+	testutil.Ok(t, err)
+	testutil.Equals(t, int64(11), size)
+
+	smallBuf := make([]byte, 4)
+	n, err := io.ReadFull(tr, smallBuf)
+	testutil.Ok(t, err)
+	testutil.Equals(t, 4, n)
+
+	// Verify that size is still the same, after reading 4 bytes.
+	size, err = TryToGetSize(tr)
+
+	testutil.Ok(t, err)
+	testutil.Equals(t, int64(11), size)
+
+	_, ok := tr.(io.Seeker)
+	testutil.Equals(t, true, ok)
+}
+
 func TestDownloadDir_CleanUp(t *testing.T) {
 	b := unreliableBucket{
 		Bucket:  NewInMemBucket(),
@@ -263,4 +292,17 @@ func (b unreliableBucket) Get(ctx context.Context, name string) (io.ReadCloser, 
 		return nil, errors.Errorf("some error message")
 	}
 	return b.Bucket.Get(ctx, name)
+}
+
+type nopSeekerCloserWithObjectSize struct{ io.Reader }
+
+func (n nopSeekerCloserWithObjectSize) Seek(offset int64, whence int) (int64, error) {
+	return 0, nil
+}
+
+func (nopSeekerCloserWithObjectSize) Close() error                 { return nil }
+func (n nopSeekerCloserWithObjectSize) ObjectSize() (int64, error) { return TryToGetSize(n.Reader) }
+
+func nopSeekerCloserWithSize(r io.Reader) io.ReadSeekCloser {
+	return nopSeekerCloserWithObjectSize{r}
 }
