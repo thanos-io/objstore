@@ -102,7 +102,7 @@ func (conf *Config) validate() error {
 	}
 
 	if conf.Endpoint == "" {
-		errMsg = append(errMsg, "The value of endpoint is required but not configured")
+		conf.Endpoint = DefaultConfig.Endpoint
 	}
 
 	if len(errMsg) > 0 {
