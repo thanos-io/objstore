@@ -232,6 +232,29 @@ func TestTimingTracingReader(t *testing.T) {
 	testutil.Equals(t, int64(11), size)
 }
 
+func TestUploadKeepsSeekerObj(t *testing.T) {
+	r := prometheus.NewRegistry()
+	m := seekerTestBucket{
+		Bucket: WrapWithMetrics(NewInMemBucket(), r, ""),
+	}
+
+	testutil.Ok(t, m.Upload(context.Background(), "dir/obj1", bytes.NewReader([]byte("1"))))
+}
+
+// seekerBucket implements Bucket and checks if io.Reader is still seekable.
+type seekerTestBucket struct {
+	Bucket
+}
+
+func (b seekerTestBucket) Upload(ctx context.Context, name string, r io.Reader) error {
+	_, ok := r.(io.Seeker)
+	if !ok {
+		return errors.New("Reader was supposed to be seekable")
+	}
+
+	return nil
+}
+
 func TestTimingTracingReaderSeeker(t *testing.T) {
 	m := WrapWithMetrics(NewInMemBucket(), nil, "")
 	r := bytes.NewReader([]byte("hello world"))
@@ -292,17 +315,4 @@ func (b unreliableBucket) Get(ctx context.Context, name string) (io.ReadCloser, 
 		return nil, errors.Errorf("some error message")
 	}
 	return b.Bucket.Get(ctx, name)
-}
-
-type nopSeekerCloserWithObjectSize struct{ io.Reader }
-
-func (n nopSeekerCloserWithObjectSize) Seek(offset int64, whence int) (int64, error) {
-	return 0, nil
-}
-
-func (nopSeekerCloserWithObjectSize) Close() error                 { return nil }
-func (n nopSeekerCloserWithObjectSize) ObjectSize() (int64, error) { return TryToGetSize(n.Reader) }
-
-func nopSeekerCloserWithSize(r io.Reader) io.ReadSeekCloser {
-	return nopSeekerCloserWithObjectSize{r}
 }
