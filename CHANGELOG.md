@@ -10,6 +10,9 @@ We use *breaking :warning:* to mark changes that are not backward compatible (re
 
 ## Unreleased
 
+### Added
+- [#74](https://github.com/thanos-io/objstore/pull/74) S3: Implementing `ToErrorResponse` function to return the parsed S3 ErrorResponse.
+
 ### Fixed
 - [#33](https://github.com/thanos-io/objstore/pull/33) Tracing: Add `ContextWithTracer()` to inject the tracer into the context.
 - [#34](https://github.com/thanos-io/objstore/pull/34) Fix ignored options when creating shared credential Azure client.
