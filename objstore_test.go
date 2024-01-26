@@ -81,6 +81,208 @@ func TestMetricBucket_Multiple_Clients(t *testing.T) {
 	WrapWithMetrics(NewInMemBucket(), reg, "def")
 }
 
+func TestMetricBucket_UploadShouldPreserveReaderFeatures(t *testing.T) {
+	tests := map[string]struct {
+		reader             io.Reader
+		expectedIsSeeker   bool
+		expectedIsReaderAt bool
+	}{
+		"bytes.Reader": {
+			reader:             bytes.NewReader([]byte("1")),
+			expectedIsSeeker:   true,
+			expectedIsReaderAt: true,
+		},
+		"bytes.Buffer": {
+			reader:             bytes.NewBuffer([]byte("1")),
+			expectedIsSeeker:   false,
+			expectedIsReaderAt: false,
+		},
+		"os.File": {
+			reader: func() io.Reader {
+				// Create a test file.
+				testFilepath := filepath.Join(t.TempDir(), "test")
+				testutil.Ok(t, os.WriteFile(testFilepath, []byte("test"), os.ModePerm))
+
+				// Open the file (it will be used as io.Reader).
+				file, err := os.Open(testFilepath)
+				testutil.Ok(t, err)
+				t.Cleanup(func() {
+					testutil.Ok(t, file.Close())
+				})
+
+				return file
+			}(),
+			expectedIsSeeker:   true,
+			expectedIsReaderAt: true,
+		},
+	}
+
+	for testName, testData := range tests {
+		t.Run(testName, func(t *testing.T) {
+			var uploadReader io.Reader
+
+			m := &mockBucket{
+				Bucket: WrapWithMetrics(NewInMemBucket(), nil, ""),
+				upload: func(ctx context.Context, name string, r io.Reader) error {
+					uploadReader = r
+					return nil
+				},
+			}
+
+			testutil.Ok(t, m.Upload(context.Background(), "dir/obj1", testData.reader))
+
+			_, isSeeker := uploadReader.(io.Seeker)
+			testutil.Equals(t, testData.expectedIsSeeker, isSeeker)
+
+			_, isReaderAt := uploadReader.(io.ReaderAt)
+			testutil.Equals(t, testData.expectedIsReaderAt, isReaderAt)
+		})
+	}
+}
+
+func TestMetricBucket_ReaderClose(t *testing.T) {
+	const objPath = "dir/obj1"
+
+	t.Run("Upload() should not close the input Reader", func(t *testing.T) {
+		closeCalled := false
+
+		reader := &mockReader{
+			Reader: bytes.NewBuffer([]byte("test")),
+			close: func() error {
+				closeCalled = true
+				return nil
+			},
+		}
+
+		bucket := WrapWithMetrics(NewInMemBucket(), nil, "")
+		testutil.Ok(t, bucket.Upload(context.Background(), objPath, reader))
+
+		// Should not call Close() on the reader.
+		testutil.Assert(t, !closeCalled)
+
+		// An explicit call to Close() should close it.
+		testutil.Ok(t, reader.Close())
+		testutil.Assert(t, closeCalled)
+
+		testutil.Equals(t, float64(1), promtest.ToFloat64(bucket.ops.WithLabelValues(OpUpload)))
+		testutil.Equals(t, float64(0), promtest.ToFloat64(bucket.opsFailures.WithLabelValues(OpUpload)))
+	})
+
+	t.Run("Get() should return a wrapper io.ReadCloser that correctly Close the wrapped one", func(t *testing.T) {
+		closeCalled := false
+
+		origReader := &mockReader{
+			Reader: bytes.NewBuffer([]byte("test")),
+			close: func() error {
+				closeCalled = true
+				return nil
+			},
+		}
+
+		bucket := WrapWithMetrics(&mockBucket{
+			get: func(_ context.Context, _ string) (io.ReadCloser, error) {
+				return origReader, nil
+			},
+		}, nil, "")
+
+		wrappedReader, err := bucket.Get(context.Background(), objPath)
+		testutil.Ok(t, err)
+		testutil.Assert(t, origReader != wrappedReader)
+
+		// Calling Close() to the wrappedReader should close origReader.
+		testutil.Assert(t, !closeCalled)
+		testutil.Ok(t, wrappedReader.Close())
+		testutil.Assert(t, closeCalled)
+
+		testutil.Equals(t, float64(1), promtest.ToFloat64(bucket.ops.WithLabelValues(OpGet)))
+		testutil.Equals(t, float64(0), promtest.ToFloat64(bucket.opsFailures.WithLabelValues(OpGet)))
+	})
+
+	t.Run("GetRange() should return a wrapper io.ReadCloser that correctly Close the wrapped one", func(t *testing.T) {
+		closeCalled := false
+
+		origReader := &mockReader{
+			Reader: bytes.NewBuffer([]byte("test")),
+			close: func() error {
+				closeCalled = true
+				return nil
+			},
+		}
+
+		bucket := WrapWithMetrics(&mockBucket{
+			getRange: func(_ context.Context, _ string, _, _ int64) (io.ReadCloser, error) {
+				return origReader, nil
+			},
+		}, nil, "")
+
+		wrappedReader, err := bucket.GetRange(context.Background(), objPath, 0, 1)
+		testutil.Ok(t, err)
+		testutil.Assert(t, origReader != wrappedReader)
+
+		// Calling Close() to the wrappedReader should close origReader.
+		testutil.Assert(t, !closeCalled)
+		testutil.Ok(t, wrappedReader.Close())
+		testutil.Assert(t, closeCalled)
+
+		testutil.Equals(t, float64(1), promtest.ToFloat64(bucket.ops.WithLabelValues(OpGetRange)))
+		testutil.Equals(t, float64(0), promtest.ToFloat64(bucket.opsFailures.WithLabelValues(OpGetRange)))
+	})
+}
+
+func TestMetricBucket_ReaderCloseError(t *testing.T) {
+	origReader := &mockReader{
+		Reader: bytes.NewBuffer([]byte("test")),
+		close: func() error {
+			return errors.New("mocked error")
+		},
+	}
+
+	t.Run("Get() should track failure if reader Close() returns error", func(t *testing.T) {
+		bucket := WrapWithMetrics(&mockBucket{
+			get: func(ctx context.Context, name string) (io.ReadCloser, error) {
+				return origReader, nil
+			},
+		}, nil, "")
+
+		testutil.NotOk(t, bucket.Upload(context.Background(), "test", origReader))
+
+		testutil.Equals(t, float64(1), promtest.ToFloat64(bucket.ops.WithLabelValues(OpUpload)))
+		testutil.Equals(t, float64(1), promtest.ToFloat64(bucket.opsFailures.WithLabelValues(OpUpload)))
+	})
+
+	t.Run("Get() should track failure if reader Close() returns error", func(t *testing.T) {
+		bucket := WrapWithMetrics(&mockBucket{
+			get: func(ctx context.Context, name string) (io.ReadCloser, error) {
+				return origReader, nil
+			},
+		}, nil, "")
+
+		reader, err := bucket.Get(context.Background(), "test")
+		testutil.Ok(t, err)
+		testutil.NotOk(t, reader.Close())
+		testutil.NotOk(t, reader.Close()) // Called twice to ensure metrics are not tracked twice.
+
+		testutil.Equals(t, float64(1), promtest.ToFloat64(bucket.ops.WithLabelValues(OpGet)))
+		testutil.Equals(t, float64(1), promtest.ToFloat64(bucket.opsFailures.WithLabelValues(OpGet)))
+	})
+
+	t.Run("GetRange() should track failure if reader Close() returns error", func(t *testing.T) {
+		bucket := WrapWithMetrics(&mockBucket{
+			getRange: func(ctx context.Context, name string, off, length int64) (io.ReadCloser, error) {
+				return origReader, nil
+			},
+		}, nil, "")
+
+		reader, err := bucket.GetRange(context.Background(), "test", 0, 1)
+		testutil.Ok(t, err)
+		testutil.NotOk(t, reader.Close())
+		testutil.NotOk(t, reader.Close()) // Called twice to ensure metrics are not tracked twice.
+
+		testutil.Equals(t, float64(1), promtest.ToFloat64(bucket.ops.WithLabelValues(OpGetRange)))
+		testutil.Equals(t, float64(1), promtest.ToFloat64(bucket.opsFailures.WithLabelValues(OpGetRange)))
+	})
+}
+
 func TestDownloadUploadDirConcurrency(t *testing.T) {
 	r := prometheus.NewRegistry()
 	m := WrapWithMetrics(NewInMemBucket(), r, "")
@@ -263,127 +465,6 @@ func TestTimingReader_ShouldCorrectlyWrapFile(t *testing.T) {
 	testutil.Assert(t, isReaderAt)
 }
 
-func TestWrapWithMetrics_UploadShouldPreserveReaderFeatures(t *testing.T) {
-	tests := map[string]struct {
-		reader             io.Reader
-		expectedIsSeeker   bool
-		expectedIsReaderAt bool
-	}{
-		"bytes.Reader": {
-			reader:             bytes.NewReader([]byte("1")),
-			expectedIsSeeker:   true,
-			expectedIsReaderAt: true,
-		},
-		"bytes.Buffer": {
-			reader:             bytes.NewBuffer([]byte("1")),
-			expectedIsSeeker:   false,
-			expectedIsReaderAt: false,
-		},
-		"os.File": {
-			reader: func() io.Reader {
-				// Create a test file.
-				testFilepath := filepath.Join(t.TempDir(), "test")
-				testutil.Ok(t, os.WriteFile(testFilepath, []byte("test"), os.ModePerm))
-
-				// Open the file (it will be used as io.Reader).
-				file, err := os.Open(testFilepath)
-				testutil.Ok(t, err)
-				t.Cleanup(func() {
-					testutil.Ok(t, file.Close())
-				})
-
-				return file
-			}(),
-			expectedIsSeeker:   true,
-			expectedIsReaderAt: true,
-		},
-	}
-
-	for testName, testData := range tests {
-		t.Run(testName, func(t *testing.T) {
-			var uploadReader io.Reader
-
-			m := &testBucket{
-				Bucket: WrapWithMetrics(NewInMemBucket(), nil, ""),
-				upload: func(ctx context.Context, name string, r io.Reader) error {
-					uploadReader = r
-					return nil
-				},
-			}
-
-			testutil.Ok(t, m.Upload(context.Background(), "dir/obj1", testData.reader))
-
-			_, isSeeker := uploadReader.(io.Seeker)
-			testutil.Equals(t, testData.expectedIsSeeker, isSeeker)
-
-			_, isReaderAt := uploadReader.(io.ReaderAt)
-			testutil.Equals(t, testData.expectedIsReaderAt, isReaderAt)
-		})
-	}
-}
-
-func TestWrapWithMetrics_CloseReader(t *testing.T) {
-	const objPath = "dir/obj1"
-
-	t.Run("Upload() should not close the input Reader", func(t *testing.T) {
-		reader := &closeTrackerReader{
-			Reader: bytes.NewBuffer([]byte("test")),
-		}
-
-		bucket := WrapWithMetrics(NewInMemBucket(), nil, "")
-		testutil.Ok(t, bucket.Upload(context.Background(), objPath, reader))
-
-		// Should not call Close() on the reader.
-		testutil.Assert(t, !reader.closeCalled)
-
-		// An explicit call to Close() should close it.
-		testutil.Ok(t, reader.Close())
-		testutil.Assert(t, reader.closeCalled)
-	})
-
-	t.Run("Get() should return a wrapper io.ReadCloser that correctly Close the wrapped one", func(t *testing.T) {
-		origReader := &closeTrackerReader{
-			Reader: bytes.NewBuffer([]byte("test")),
-		}
-
-		bucket := WrapWithMetrics(&testBucket{
-			get: func(_ context.Context, _ string) (io.ReadCloser, error) {
-				return origReader, nil
-			},
-		}, nil, "")
-
-		wrappedReader, err := bucket.Get(context.Background(), objPath)
-		testutil.Ok(t, err)
-		testutil.Assert(t, origReader != wrappedReader)
-
-		// Calling Close() to the wrappedReader should close origReader.
-		testutil.Assert(t, !origReader.closeCalled)
-		testutil.Ok(t, wrappedReader.Close())
-		testutil.Assert(t, origReader.closeCalled)
-	})
-
-	t.Run("GetRange() should return a wrapper io.ReadCloser that correctly Close the wrapped one", func(t *testing.T) {
-		origReader := &closeTrackerReader{
-			Reader: bytes.NewBuffer([]byte("test")),
-		}
-
-		bucket := WrapWithMetrics(&testBucket{
-			getRange: func(_ context.Context, _ string, _, _ int64) (io.ReadCloser, error) {
-				return origReader, nil
-			},
-		}, nil, "")
-
-		wrappedReader, err := bucket.GetRange(context.Background(), objPath, 0, 1)
-		testutil.Ok(t, err)
-		testutil.Assert(t, origReader != wrappedReader)
-
-		// Calling Close() to the wrappedReader should close origReader.
-		testutil.Assert(t, !origReader.closeCalled)
-		testutil.Ok(t, wrappedReader.Close())
-		testutil.Assert(t, origReader.closeCalled)
-	})
-}
-
 func TestDownloadDir_CleanUp(t *testing.T) {
 	b := unreliableBucket{
 		Bucket:  NewInMemBucket(),
@@ -417,19 +498,22 @@ func (b unreliableBucket) Get(ctx context.Context, name string) (io.ReadCloser, 
 	return b.Bucket.Get(ctx, name)
 }
 
-// closeTrackerReader is a io.ReadCloser which keeps track whether Close() has been called.
-type closeTrackerReader struct {
+// mockReader implements io.ReadCloser and allows to mock the functions.
+type mockReader struct {
 	io.Reader
-	closeCalled bool
+
+	close func() error
 }
 
-func (r *closeTrackerReader) Close() error {
-	r.closeCalled = true
+func (r *mockReader) Close() error {
+	if r.close != nil {
+		return r.close()
+	}
 	return nil
 }
 
-// testBucket implements Bucket and allows to customize the functions.
-type testBucket struct {
+// mockBucket implements Bucket and allows to mock the functions.
+type mockBucket struct {
 	Bucket
 
 	upload   func(ctx context.Context, name string, r io.Reader) error
@@ -437,21 +521,21 @@ type testBucket struct {
 	getRange func(ctx context.Context, name string, off, length int64) (io.ReadCloser, error)
 }
 
-func (b *testBucket) Upload(ctx context.Context, name string, r io.Reader) error {
+func (b *mockBucket) Upload(ctx context.Context, name string, r io.Reader) error {
 	if b.upload != nil {
 		return b.upload(ctx, name, r)
 	}
 	return errors.New("Upload has not been mocked")
 }
 
-func (b *testBucket) Get(ctx context.Context, name string) (io.ReadCloser, error) {
+func (b *mockBucket) Get(ctx context.Context, name string) (io.ReadCloser, error) {
 	if b.get != nil {
 		return b.get(ctx, name)
 	}
 	return nil, errors.New("Get has not been mocked")
 }
 
-func (b *testBucket) GetRange(ctx context.Context, name string, off, length int64) (io.ReadCloser, error) {
+func (b *mockBucket) GetRange(ctx context.Context, name string, off, length int64) (io.ReadCloser, error) {
 	if b.getRange != nil {
 		return b.getRange(ctx, name, off, length)
 	}
