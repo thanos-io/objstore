@@ -544,6 +544,7 @@ func (b *metricBucket) Get(ctx context.Context, name string) (io.ReadCloser, err
 	}
 	return newTimingReader(
 		rc,
+		true,
 		op,
 		b.opsDuration,
 		b.opsFailures,
@@ -566,6 +567,7 @@ func (b *metricBucket) GetRange(ctx context.Context, name string, off, length in
 	}
 	return newTimingReader(
 		rc,
+		true,
 		op,
 		b.opsDuration,
 		b.opsFailures,
@@ -597,6 +599,7 @@ func (b *metricBucket) Upload(ctx context.Context, name string, r io.Reader) err
 
 	trc := newTimingReader(
 		r,
+		false,
 		op,
 		b.opsDuration,
 		b.opsFailures,
@@ -651,6 +654,11 @@ func (b *metricBucket) Name() string {
 
 type timingReader struct {
 	io.Reader
+
+	// closeReader holds whether the wrapper io.Reader should be closed when
+	// Close() is called on the timingReader.
+	closeReader bool
+
 	objSize    int64
 	objSizeErr error
 
@@ -666,7 +674,7 @@ type timingReader struct {
 	transferredBytes  *prometheus.HistogramVec
 }
 
-func newTimingReader(r io.Reader, op string, dur *prometheus.HistogramVec, failed *prometheus.CounterVec, isFailureExpected IsOpFailureExpectedFunc, fetchedBytes *prometheus.CounterVec, transferredBytes *prometheus.HistogramVec) io.ReadCloser {
+func newTimingReader(r io.Reader, closeReader bool, op string, dur *prometheus.HistogramVec, failed *prometheus.CounterVec, isFailureExpected IsOpFailureExpectedFunc, fetchedBytes *prometheus.CounterVec, transferredBytes *prometheus.HistogramVec) io.ReadCloser {
 	// Initialize the metrics with 0.
 	dur.WithLabelValues(op)
 	failed.WithLabelValues(op)
@@ -674,6 +682,7 @@ func newTimingReader(r io.Reader, op string, dur *prometheus.HistogramVec, faile
 
 	trc := timingReader{
 		Reader:            r,
+		closeReader:       closeReader,
 		objSize:           objSize,
 		objSizeErr:        objSizeErr,
 		start:             time.Now(),
@@ -708,8 +717,8 @@ func (r *timingReader) ObjectSize() (int64, error) {
 func (r *timingReader) Close() error {
 	var closeErr error
 
-	// Call the wrapped reader if it implements Close().
-	if closer, ok := r.Reader.(io.Closer); ok {
+	// Call the wrapped reader if it implements Close(), only if we've been asked to close it.
+	if closer, ok := r.Reader.(io.Closer); r.closeReader && ok {
 		closeErr = closer.Close()
 
 		if !r.alreadyGotErr && closeErr != nil {

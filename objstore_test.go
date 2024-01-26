@@ -210,7 +210,7 @@ func TestDownloadUploadDirConcurrency(t *testing.T) {
 func TestTimingReader(t *testing.T) {
 	m := WrapWithMetrics(NewInMemBucket(), nil, "")
 	r := bytes.NewReader([]byte("hello world"))
-	tr := newTimingReader(r, "", m.opsDuration, m.opsFailures, func(err error) bool {
+	tr := newTimingReader(r, true, "", m.opsDuration, m.opsFailures, func(err error) bool {
 		return false
 	}, m.opsFetchedBytes, m.opsTransferredBytes)
 
@@ -251,7 +251,7 @@ func TestTimingReader_ShouldCorrectlyWrapFile(t *testing.T) {
 	})
 
 	m := WrapWithMetrics(NewInMemBucket(), nil, "")
-	r := newTimingReader(file, "", m.opsDuration, m.opsFailures, func(err error) bool {
+	r := newTimingReader(file, true, "", m.opsDuration, m.opsFailures, func(err error) bool {
 		return false
 	}, m.opsFetchedBytes, m.opsTransferredBytes)
 
@@ -314,7 +314,18 @@ func TestWrapWithMetrics_UploadShouldPreserveReaderFeatures(t *testing.T) {
 			testutil.Equals(t, testData.expectedIsReaderAt, isReaderAt)
 		})
 	}
+}
 
+func TestWrapWithMetrics_UploadShouldNotCloseTheReader(t *testing.T) {
+	reader := &closeTrackerReader{
+		Reader: bytes.NewBuffer([]byte("test")),
+	}
+
+	bucket := WrapWithMetrics(NewInMemBucket(), nil, "")
+	testutil.Ok(t, bucket.Upload(context.Background(), "dir/obj1", reader))
+
+	// Should not call Close() on the reader.
+	testutil.Assert(t, !reader.closeCalled)
 }
 
 // seekerBucket implements Bucket and keeps a reference of the io.Reader passed to Upload().
@@ -360,4 +371,15 @@ func (b unreliableBucket) Get(ctx context.Context, name string) (io.ReadCloser, 
 		return nil, errors.Errorf("some error message")
 	}
 	return b.Bucket.Get(ctx, name)
+}
+
+// closeTrackerReader is a io.ReadCloser which keeps track whether Close() has been called.
+type closeTrackerReader struct {
+	io.Reader
+	closeCalled bool
+}
+
+func (r *closeTrackerReader) Close() error {
+	r.closeCalled = true
+	return nil
 }
