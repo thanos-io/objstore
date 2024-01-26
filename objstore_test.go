@@ -301,43 +301,87 @@ func TestWrapWithMetrics_UploadShouldPreserveReaderFeatures(t *testing.T) {
 
 	for testName, testData := range tests {
 		t.Run(testName, func(t *testing.T) {
-			m := &uploadTrackerTestBucket{
+			var uploadReader io.Reader
+
+			m := &testBucket{
 				Bucket: WrapWithMetrics(NewInMemBucket(), nil, ""),
+				upload: func(ctx context.Context, name string, r io.Reader) error {
+					uploadReader = r
+					return nil
+				},
 			}
 
 			testutil.Ok(t, m.Upload(context.Background(), "dir/obj1", testData.reader))
 
-			_, isSeeker := m.uploadReader.(io.Seeker)
+			_, isSeeker := uploadReader.(io.Seeker)
 			testutil.Equals(t, testData.expectedIsSeeker, isSeeker)
 
-			_, isReaderAt := m.uploadReader.(io.ReaderAt)
+			_, isReaderAt := uploadReader.(io.ReaderAt)
 			testutil.Equals(t, testData.expectedIsReaderAt, isReaderAt)
 		})
 	}
 }
 
-func TestWrapWithMetrics_UploadShouldNotCloseTheReader(t *testing.T) {
-	reader := &closeTrackerReader{
-		Reader: bytes.NewBuffer([]byte("test")),
-	}
+func TestWrapWithMetrics_CloseReader(t *testing.T) {
+	const objPath = "dir/obj1"
 
-	bucket := WrapWithMetrics(NewInMemBucket(), nil, "")
-	testutil.Ok(t, bucket.Upload(context.Background(), "dir/obj1", reader))
+	t.Run("Upload() should not close the input Reader", func(t *testing.T) {
+		reader := &closeTrackerReader{
+			Reader: bytes.NewBuffer([]byte("test")),
+		}
 
-	// Should not call Close() on the reader.
-	testutil.Assert(t, !reader.closeCalled)
-}
+		bucket := WrapWithMetrics(NewInMemBucket(), nil, "")
+		testutil.Ok(t, bucket.Upload(context.Background(), objPath, reader))
 
-// seekerBucket implements Bucket and keeps a reference of the io.Reader passed to Upload().
-type uploadTrackerTestBucket struct {
-	Bucket
+		// Should not call Close() on the reader.
+		testutil.Assert(t, !reader.closeCalled)
 
-	uploadReader io.Reader
-}
+		// An explicit call to Close() should close it.
+		testutil.Ok(t, reader.Close())
+		testutil.Assert(t, reader.closeCalled)
+	})
 
-func (b *uploadTrackerTestBucket) Upload(ctx context.Context, name string, r io.Reader) error {
-	b.uploadReader = r
-	return nil
+	t.Run("Get() should return a wrapper io.ReadCloser that correctly Close the wrapped one", func(t *testing.T) {
+		origReader := &closeTrackerReader{
+			Reader: bytes.NewBuffer([]byte("test")),
+		}
+
+		bucket := WrapWithMetrics(&testBucket{
+			get: func(_ context.Context, _ string) (io.ReadCloser, error) {
+				return origReader, nil
+			},
+		}, nil, "")
+
+		wrappedReader, err := bucket.Get(context.Background(), objPath)
+		testutil.Ok(t, err)
+		testutil.Assert(t, origReader != wrappedReader)
+
+		// Calling Close() to the wrappedReader should close origReader.
+		testutil.Assert(t, !origReader.closeCalled)
+		testutil.Ok(t, wrappedReader.Close())
+		testutil.Assert(t, origReader.closeCalled)
+	})
+
+	t.Run("GetRange() should return a wrapper io.ReadCloser that correctly Close the wrapped one", func(t *testing.T) {
+		origReader := &closeTrackerReader{
+			Reader: bytes.NewBuffer([]byte("test")),
+		}
+
+		bucket := WrapWithMetrics(&testBucket{
+			getRange: func(_ context.Context, _ string, _, _ int64) (io.ReadCloser, error) {
+				return origReader, nil
+			},
+		}, nil, "")
+
+		wrappedReader, err := bucket.GetRange(context.Background(), objPath, 0, 1)
+		testutil.Ok(t, err)
+		testutil.Assert(t, origReader != wrappedReader)
+
+		// Calling Close() to the wrappedReader should close origReader.
+		testutil.Assert(t, !origReader.closeCalled)
+		testutil.Ok(t, wrappedReader.Close())
+		testutil.Assert(t, origReader.closeCalled)
+	})
 }
 
 func TestDownloadDir_CleanUp(t *testing.T) {
@@ -382,4 +426,34 @@ type closeTrackerReader struct {
 func (r *closeTrackerReader) Close() error {
 	r.closeCalled = true
 	return nil
+}
+
+// testBucket implements Bucket and allows to customize the functions.
+type testBucket struct {
+	Bucket
+
+	upload   func(ctx context.Context, name string, r io.Reader) error
+	get      func(ctx context.Context, name string) (io.ReadCloser, error)
+	getRange func(ctx context.Context, name string, off, length int64) (io.ReadCloser, error)
+}
+
+func (b *testBucket) Upload(ctx context.Context, name string, r io.Reader) error {
+	if b.upload != nil {
+		return b.upload(ctx, name, r)
+	}
+	return errors.New("Upload has not been mocked")
+}
+
+func (b *testBucket) Get(ctx context.Context, name string) (io.ReadCloser, error) {
+	if b.get != nil {
+		return b.get(ctx, name)
+	}
+	return nil, errors.New("Get has not been mocked")
+}
+
+func (b *testBucket) GetRange(ctx context.Context, name string, off, length int64) (io.ReadCloser, error) {
+	if b.getRange != nil {
+		return b.getRange(ctx, name, off, length)
+	}
+	return nil, errors.New("GetRange has not been mocked")
 }
