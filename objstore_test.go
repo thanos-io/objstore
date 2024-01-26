@@ -8,6 +8,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -206,12 +207,12 @@ func TestDownloadUploadDirConcurrency(t *testing.T) {
 		`), `objstore_bucket_operations_total`))
 }
 
-func TestTimingTracingReader(t *testing.T) {
+func TestTimingReader(t *testing.T) {
 	m := WrapWithMetrics(NewInMemBucket(), nil, "")
 	r := bytes.NewReader([]byte("hello world"))
 
 	tr := NopCloserWithSize(r)
-	tr = newTimingReadCloser(tr, "", m.opsDuration, m.opsFailures, func(err error) bool {
+	tr = newTimingReader(tr, "", m.opsDuration, m.opsFailures, func(err error) bool {
 		return false
 	}, m.opsFetchedBytes, m.opsTransferredBytes)
 
@@ -232,35 +233,103 @@ func TestTimingTracingReader(t *testing.T) {
 	testutil.Equals(t, int64(11), size)
 }
 
-func TestUploadKeepsSeekerObj(t *testing.T) {
-	r := prometheus.NewRegistry()
-	m := seekerTestBucket{
-		Bucket: WrapWithMetrics(NewInMemBucket(), r, ""),
-	}
+func TestTimingReader_ShouldCorrectlyWrapFile(t *testing.T) {
+	// Create a test file.
+	testFilepath := filepath.Join(t.TempDir(), "test")
+	testutil.Ok(t, os.WriteFile(testFilepath, []byte("test"), os.ModePerm))
 
-	testutil.Ok(t, m.Upload(context.Background(), "dir/obj1", bytes.NewReader([]byte("1"))))
+	// Open the file (it will be used as io.Reader).
+	file, err := os.Open(testFilepath)
+	testutil.Ok(t, err)
+	t.Cleanup(func() {
+		testutil.Ok(t, file.Close())
+	})
+
+	m := WrapWithMetrics(NewInMemBucket(), nil, "")
+	r := newTimingReader(file, "", m.opsDuration, m.opsFailures, func(err error) bool {
+		return false
+	}, m.opsFetchedBytes, m.opsTransferredBytes)
+
+	// It must both implement io.Seeker and io.ReaderAt.
+	_, isSeeker := r.(io.Seeker)
+	testutil.Assert(t, isSeeker)
+
+	_, isReaderAt := r.(io.ReaderAt)
+	testutil.Assert(t, isReaderAt)
 }
 
-// seekerBucket implements Bucket and checks if io.Reader is still seekable.
-type seekerTestBucket struct {
+func TestWrapWithMetrics_UploadShouldPreserveReaderFeatures(t *testing.T) {
+	tests := map[string]struct {
+		reader             io.Reader
+		expectedIsSeeker   bool
+		expectedIsReaderAt bool
+	}{
+		"bytes.Reader": {
+			reader:             bytes.NewReader([]byte("1")),
+			expectedIsSeeker:   true,
+			expectedIsReaderAt: true,
+		},
+		"bytes.Buffer": {
+			reader:             bytes.NewBuffer([]byte("1")),
+			expectedIsSeeker:   false,
+			expectedIsReaderAt: false,
+		},
+		"os.File": {
+			reader: func() io.Reader {
+				// Create a test file.
+				testFilepath := filepath.Join(t.TempDir(), "test")
+				testutil.Ok(t, os.WriteFile(testFilepath, []byte("test"), os.ModePerm))
+
+				// Open the file (it will be used as io.Reader).
+				file, err := os.Open(testFilepath)
+				testutil.Ok(t, err)
+				t.Cleanup(func() {
+					testutil.Ok(t, file.Close())
+				})
+
+				return file
+			}(),
+			expectedIsSeeker:   true,
+			expectedIsReaderAt: true,
+		},
+	}
+
+	for testName, testData := range tests {
+		t.Run(testName, func(t *testing.T) {
+			m := &uploadTrackerTestBucket{
+				Bucket: WrapWithMetrics(NewInMemBucket(), nil, ""),
+			}
+
+			testutil.Ok(t, m.Upload(context.Background(), "dir/obj1", testData.reader))
+
+			_, isSeeker := m.uploadReader.(io.Seeker)
+			testutil.Equals(t, testData.expectedIsSeeker, isSeeker)
+
+			_, isReaderAt := m.uploadReader.(io.ReaderAt)
+			testutil.Equals(t, testData.expectedIsReaderAt, isReaderAt)
+		})
+	}
+
+}
+
+// seekerBucket implements Bucket and keeps a reference of the io.Reader passed to Upload().
+type uploadTrackerTestBucket struct {
 	Bucket
+
+	uploadReader io.Reader
 }
 
-func (b seekerTestBucket) Upload(ctx context.Context, name string, r io.Reader) error {
-	_, ok := r.(io.Seeker)
-	if !ok {
-		return errors.New("Reader was supposed to be seekable")
-	}
-
+func (b *uploadTrackerTestBucket) Upload(ctx context.Context, name string, r io.Reader) error {
+	b.uploadReader = r
 	return nil
 }
 
-func TestTimingTracingReaderSeeker(t *testing.T) {
+func TestTimingReader_ShouldWrapSeeker(t *testing.T) {
 	m := WrapWithMetrics(NewInMemBucket(), nil, "")
 	r := bytes.NewReader([]byte("hello world"))
 
 	tr := nopSeekerCloserWithSize(r).(io.ReadCloser)
-	tr = newTimingReadCloser(tr, "", m.opsDuration, m.opsFailures, func(err error) bool {
+	tr = newTimingReader(tr, "", m.opsDuration, m.opsFailures, func(err error) bool {
 		return false
 	}, m.opsFetchedBytes, m.opsTransferredBytes)
 
@@ -315,4 +384,17 @@ func (b unreliableBucket) Get(ctx context.Context, name string) (io.ReadCloser, 
 		return nil, errors.Errorf("some error message")
 	}
 	return b.Bucket.Get(ctx, name)
+}
+
+type nopSeekerCloserWithObjectSize struct{ io.Reader }
+
+func (nopSeekerCloserWithObjectSize) Close() error                 { return nil }
+func (n nopSeekerCloserWithObjectSize) ObjectSize() (int64, error) { return TryToGetSize(n.Reader) }
+
+func (n nopSeekerCloserWithObjectSize) Seek(offset int64, whence int) (int64, error) {
+	return n.Reader.(io.Seeker).Seek(offset, whence)
+}
+
+func nopSeekerCloserWithSize(r io.Reader) io.ReadSeekCloser {
+	return nopSeekerCloserWithObjectSize{r}
 }
