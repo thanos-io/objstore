@@ -280,7 +280,7 @@ func (b *Bucket) GetRange(ctx context.Context, name string, off, length int64) (
 	return b.getRange(ctx, name, off, length)
 }
 
-func (b *Bucket) getRange(ctx context.Context, name string, off, length int64) (io.ReadCloser, error) {
+func (b *Bucket) getRange(_ context.Context, name string, off, length int64) (io.ReadCloser, error) {
 	if strings.TrimSpace(name) == "" {
 		return nil, errors.New("object name cannot be empty")
 	}

@@ -36,6 +36,9 @@ We use *breaking :warning:* to mark changes that are not backward compatible (re
 - [#51](https://github.com/thanos-io/objstore/pull/51) Azure: Support using connection string authentication.
 - [#76](https://github.com/thanos-io/objstore/pull/76) GCS: Query for object names only in `Iter` to possibly improve performance when listing objects.
 - [#85](https://github.com/thanos-io/objstore/pull/85) S3: Allow checksum algorithm to be configured
+- [#92](https://github.com/thanos-io/objstore/pull/92) GCS: Allow using a gRPC client.
+- [#94](https://github.com/thanos-io/objstore/pull/94) Allow timingReadCloser to be seeker 
+- [#96](https://github.com/thanos-io/objstore/pull/96) Allow nopCloserWithObjectSize to be seeker
 - [#86](https://github.com/thanos-io/objstore/pull/86) GCS: Add HTTP Config to GCS
 
 ### Changed
@@ -45,4 +48,5 @@ We use *breaking :warning:* to mark changes that are not backward compatible (re
 - [#65](https://github.com/thanos-io/objstore/pull/65) *: Upgrade minio-go version to `v7.0.61`.
 - [#70](https://github.com/thanos-io/objstore/pull/70) GCS: Update cloud.google.com/go/storage version to `v1.27.0`.
 - [#71](https://github.com/thanos-io/objstore/pull/71) Replace method `IsCustomerManagedKeyError` for a more generic `IsAccessDeniedErr` on the bucket interface.
+- [#89](https://github.com/thanos-io/objstore/pull/89) GCS: Upgrade cloud.google.com/go/storage version to `v1.35.1`.
 ### Removed
