@@ -5,8 +5,10 @@ package swift
 
 import (
 	"testing"
+	"time"
 
 	"github.com/efficientgo/core/testutil"
+	"github.com/prometheus/common/model"
 )
 
 func TestParseConfig(t *testing.T) {
@@ -33,4 +35,32 @@ tenant_name: something`)
 	_, err := parseConfig(input)
 	// Must result in unmarshal error as there's no `tenant_name` in SwiftConfig.
 	testutil.NotOk(t, err)
+}
+
+func TestParseConfig_HTTPConfig(t *testing.T) {
+	input := []byte(`auth_url: http://identity.something.com/v3
+username: thanos
+user_domain_name: userDomain
+project_name: thanosProject
+project_domain_name: projectDomain
+http_config:
+  tls_config:
+    ca_file: /certs/ca.crt
+    cert_file: /certs/cert.crt
+    key_file: /certs/key.key
+    server_name: server
+    insecure_skip_verify: false`)
+	cfg, err := parseConfig([]byte(input))
+
+	testutil.Ok(t, err)
+
+	testutil.Equals(t, "http://identity.something.com/v3", cfg.AuthUrl)
+	testutil.Equals(t, "thanos", cfg.Username)
+	testutil.Equals(t, "userDomain", cfg.UserDomainName)
+	testutil.Equals(t, "thanosProject", cfg.ProjectName)
+	testutil.Equals(t, "projectDomain", cfg.ProjectDomainName)
+	testutil.Equals(t, model.Duration(90*time.Second), cfg.HTTPConfig.IdleConnTimeout)
+	testutil.Equals(t, model.Duration(2*time.Minute), cfg.HTTPConfig.ResponseHeaderTimeout)
+	testutil.Equals(t, false, cfg.HTTPConfig.InsecureSkipVerify)
+
 }
