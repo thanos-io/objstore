@@ -28,7 +28,7 @@ func TestMetricBucket_Close(t *testing.T) {
 	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.metrics.opsFailures))
 	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.metrics.opsDuration))
 
-	AcceptanceTest(t, bkt.WithExpectedErrs(bkt.IsObjNotFoundErr))
+	AcceptanceTest(t, bkt.WithExpectedErrs(bkt.IsObjNotFoundErr), true)
 	testutil.Equals(t, float64(9), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpIter)))
 	testutil.Equals(t, float64(2), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpAttributes)))
 	testutil.Equals(t, float64(3), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpGet)))
@@ -51,7 +51,7 @@ func TestMetricBucket_Close(t *testing.T) {
 
 	// Clear bucket, but don't clear metrics to ensure we use same.
 	bkt.bkt = NewInMemBucket()
-	AcceptanceTest(t, bkt)
+	AcceptanceTestWithoutNotFoundErr(t, bkt)
 	testutil.Equals(t, float64(18), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpIter)))
 	testutil.Equals(t, float64(4), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpAttributes)))
 	testutil.Equals(t, float64(6), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpGet)))
