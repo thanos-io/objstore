@@ -537,6 +537,54 @@ func TestDownloadDir_CleanUp(t *testing.T) {
 	testutil.Assert(t, os.IsNotExist(err))
 }
 
+func TestBucketExpectedErrNoReturnError(t *testing.T) {
+	expectedErr := errors.New("test error")
+
+	bucket := WrapWithMetrics(&mockBucket{
+		get: func(_ context.Context, _ string) (io.ReadCloser, error) {
+			return nil, expectedErr
+		},
+		getRange: func(ctx context.Context, name string, off, length int64) (io.ReadCloser, error) {
+			return nil, expectedErr
+		},
+		upload: func(ctx context.Context, name string, r io.Reader) error {
+			return expectedErr
+		},
+		iter: func(ctx context.Context, dir string, f func(string) error, options ...IterOption) error {
+			return expectedErr
+		},
+		attributes: func(ctx context.Context, name string) (ObjectAttributes, error) {
+			return ObjectAttributes{}, expectedErr
+		},
+		exists: func(ctx context.Context, name string) (bool, error) {
+			return false, expectedErr
+		},
+	}, nil, "").WithExpectedErrs(func(err error) bool {
+		return errors.Is(err, expectedErr)
+	})
+
+	// Expect no error to be returned since the error is expected.
+	_, err := bucket.Get(context.Background(), "")
+	testutil.Ok(t, err)
+
+	_, err = bucket.GetRange(context.Background(), "", 1, 2)
+	testutil.Ok(t, err)
+
+	err = bucket.Upload(context.Background(), "", nil)
+	testutil.Ok(t, err)
+
+	err = bucket.Iter(context.Background(), "", func(s string) error {
+		return nil
+	})
+	testutil.Ok(t, err)
+
+	_, err = bucket.Exists(context.Background(), "")
+	testutil.Ok(t, err)
+
+	_, err = bucket.Attributes(context.Background(), "")
+	testutil.Ok(t, err)
+}
+
 // unreliableBucket implements Bucket and returns an error on every n-th Get.
 type unreliableBucket struct {
 	Bucket
@@ -570,9 +618,12 @@ func (r *mockReader) Close() error {
 type mockBucket struct {
 	Bucket
 
-	upload   func(ctx context.Context, name string, r io.Reader) error
-	get      func(ctx context.Context, name string) (io.ReadCloser, error)
-	getRange func(ctx context.Context, name string, off, length int64) (io.ReadCloser, error)
+	upload     func(ctx context.Context, name string, r io.Reader) error
+	get        func(ctx context.Context, name string) (io.ReadCloser, error)
+	getRange   func(ctx context.Context, name string, off, length int64) (io.ReadCloser, error)
+	iter       func(ctx context.Context, dir string, f func(string) error, options ...IterOption) error
+	attributes func(ctx context.Context, name string) (ObjectAttributes, error)
+	exists     func(ctx context.Context, name string) (bool, error)
 }
 
 func (b *mockBucket) Upload(ctx context.Context, name string, r io.Reader) error {
@@ -594,6 +645,27 @@ func (b *mockBucket) GetRange(ctx context.Context, name string, off, length int6
 		return b.getRange(ctx, name, off, length)
 	}
 	return nil, errors.New("GetRange has not been mocked")
+}
+
+func (b *mockBucket) Iter(ctx context.Context, dir string, f func(string) error, options ...IterOption) error {
+	if b.iter != nil {
+		return b.iter(ctx, dir, f, options...)
+	}
+	return errors.New("Iter has not been mocked")
+}
+
+func (b *mockBucket) Exists(ctx context.Context, name string) (bool, error) {
+	if b.exists != nil {
+		return b.exists(ctx, name)
+	}
+	return false, errors.New("Exists has not been mocked")
+}
+
+func (b *mockBucket) Attributes(ctx context.Context, name string) (ObjectAttributes, error) {
+	if b.attributes != nil {
+		return b.attributes(ctx, name)
+	}
+	return ObjectAttributes{}, errors.New("Attributes has not been mocked")
 }
 
 func Test_TryToGetSizeLimitedReader(t *testing.T) {
