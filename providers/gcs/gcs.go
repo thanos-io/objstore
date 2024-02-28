@@ -94,8 +94,6 @@ func NewBucketWithConfig(ctx context.Context, logger log.Logger, gc Config, comp
 			return nil, errors.Wrap(err, "failed to create credentials from JSON")
 		}
 		opts = append(opts, option.WithCredentials(credentials))
-	} else {
-		opts = append(opts, option.WithoutAuthentication())
 	}
 
 	opts = append(opts,
