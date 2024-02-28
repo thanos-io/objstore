@@ -15,6 +15,7 @@ import (
 	"github.com/efficientgo/core/testutil"
 	"github.com/go-kit/log"
 	"github.com/prometheus/common/model"
+	"google.golang.org/api/option"
 )
 
 func TestBucket_Get_ShouldReturnErrorIfServerTruncateResponse(t *testing.T) {
@@ -35,7 +36,8 @@ func TestBucket_Get_ShouldReturnErrorIfServerTruncateResponse(t *testing.T) {
 		ServiceAccount: "",
 	}
 
-	bkt, err := NewBucketWithConfig(context.Background(), log.NewNopLogger(), cfg, "test")
+	// NewBucketWithConfig wraps newBucket and processes HTTP options. Can skip for test.
+	bkt, err := newBucket(context.Background(), log.NewNopLogger(), cfg, []option.ClientOption{})
 	testutil.Ok(t, err)
 
 	reader, err := bkt.Get(context.Background(), "test")
