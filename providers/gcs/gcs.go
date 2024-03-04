@@ -113,6 +113,10 @@ func NewBucketWithConfig(ctx context.Context, logger log.Logger, gc Config, comp
 		}
 	}
 
+	// GCS uses some defaults when "options.WithHTTPClient" is not used that are important when we call
+	// htransport.NewTransport namely the scopes that are then used for OAth authentication. So to build our own
+	// http client we need to se those defaults
+	opts = append(opts, option.WithScopes(storage.ScopeFullControl, "https://www.googleapis.com/auth/cloud-platform"))
 	gRT, err := htransport.NewTransport(context.Background(), rt, opts...)
 	if err != nil {
 		return nil, err
