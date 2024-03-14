@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/efficientgo/core/testutil"
@@ -17,7 +18,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	promtest "github.com/prometheus/client_golang/prometheus/testutil"
-	"go.uber.org/atomic"
 )
 
 func TestMetricBucket_Close(t *testing.T) {
@@ -469,7 +469,7 @@ func TestDownloadDir_CleanUp(t *testing.T) {
 	b := unreliableBucket{
 		Bucket:  NewInMemBucket(),
 		n:       3,
-		current: atomic.NewInt32(0),
+		current: &atomic.Int32{},
 	}
 	tempDir := t.TempDir()
 
@@ -492,7 +492,7 @@ type unreliableBucket struct {
 }
 
 func (b unreliableBucket) Get(ctx context.Context, name string) (io.ReadCloser, error) {
-	if b.current.Inc()%b.n == 0 {
+	if b.current.Add(1)%b.n == 0 {
 		return nil, errors.Errorf("some error message")
 	}
 	return b.Bucket.Get(ctx, name)

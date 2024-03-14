@@ -23,7 +23,6 @@ require (
 	github.com/tencentyun/cos-go-sdk-v5 v0.7.40
 	go.opentelemetry.io/otel v1.16.0
 	go.opentelemetry.io/otel/trace v1.16.0
-	go.uber.org/atomic v1.9.0
 	golang.org/x/oauth2 v0.14.0
 	golang.org/x/sync v0.5.0
 	google.golang.org/api v0.150.0
