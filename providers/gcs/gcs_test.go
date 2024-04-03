@@ -49,6 +49,20 @@ func TestBucket_Get_ShouldReturnErrorIfServerTruncateResponse(t *testing.T) {
 	testutil.Equals(t, "storage: partial request not satisfied", err.Error())
 }
 
+func TestNewBucketWithConfig_ShouldCreateGRPC(t *testing.T) {
+	cfg := Config{
+		Bucket:         "test-bucket",
+		ServiceAccount: "",
+		UseGRPC:        true,
+	}
+
+	bkt, err := NewBucketWithConfig(context.Background(), log.NewNopLogger(), cfg, "test-bucket")
+	testutil.Ok(t, err)
+
+	// Check if the bucket is created.
+	testutil.Assert(t, bkt != nil, "expected bucket to be created")
+}
+
 func TestParseConfig_HTTPConfig(t *testing.T) {
 	for _, tc := range []struct {
 		name       string

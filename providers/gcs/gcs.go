@@ -100,6 +100,18 @@ func NewBucketWithConfig(ctx context.Context, logger log.Logger, gc Config, comp
 		option.WithUserAgent(fmt.Sprintf("thanos-%s/%s (%s)", component, version.Version, runtime.Version())),
 	)
 
+	if !gc.UseGRPC {
+		var err error
+		opts, err = appendHttpOptions(gc, opts)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return newBucket(ctx, logger, gc, opts)
+}
+
+func appendHttpOptions(gc Config, opts []option.ClientOption) ([]option.ClientOption, error) {
 	// Check if a roundtripper has been set in the config
 	// otherwise build the default transport.
 	var rt http.RoundTripper
@@ -119,16 +131,14 @@ func NewBucketWithConfig(ctx context.Context, logger log.Logger, gc Config, comp
 	opts = append(opts, option.WithScopes(storage.ScopeFullControl, "https://www.googleapis.com/auth/cloud-platform"))
 	gRT, err := htransport.NewTransport(context.Background(), rt, opts...)
 	if err != nil {
-		return nil, err
+		return nil, nil
 	}
 
 	httpCli := &http.Client{
 		Transport: gRT,
 		Timeout:   time.Duration(gc.HTTPConfig.IdleConnTimeout),
 	}
-	opts = append(opts, option.WithHTTPClient(httpCli))
-
-	return newBucket(ctx, logger, gc, opts)
+	return append(opts, option.WithHTTPClient(httpCli)), nil
 }
 
 func newBucket(ctx context.Context, logger log.Logger, gc Config, opts []option.ClientOption) (*Bucket, error) {
