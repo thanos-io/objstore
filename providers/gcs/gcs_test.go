@@ -13,8 +13,10 @@ import (
 	"time"
 
 	"github.com/efficientgo/core/testutil"
+	"github.com/fullstorydev/emulators/storage/gcsemu"
 	"github.com/go-kit/log"
 	"github.com/prometheus/common/model"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/api/option"
 )
 
@@ -55,6 +57,12 @@ func TestNewBucketWithConfig_ShouldCreateGRPC(t *testing.T) {
 		ServiceAccount: "",
 		UseGRPC:        true,
 	}
+
+	svr, err := gcsemu.NewServer("127.0.0.1:0", gcsemu.Options{})
+	err = os.Setenv("STORAGE_EMULATOR_HOST", svr.Addr)
+	require.NoError(t, err)
+	err = os.Setenv("GCS_EMULATOR_HOST", svr.Addr)
+	require.NoError(t, err)
 
 	bkt, err := NewBucketWithConfig(context.Background(), log.NewNopLogger(), cfg, "test-bucket")
 	testutil.Ok(t, err)
