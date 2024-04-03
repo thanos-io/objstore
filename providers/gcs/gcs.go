@@ -131,7 +131,7 @@ func appendHttpOptions(gc Config, opts []option.ClientOption) ([]option.ClientOp
 	opts = append(opts, option.WithScopes(storage.ScopeFullControl, "https://www.googleapis.com/auth/cloud-platform"))
 	gRT, err := htransport.NewTransport(context.Background(), rt, opts...)
 	if err != nil {
-		return nil, nil
+		return nil, err
 	}
 
 	httpCli := &http.Client{
