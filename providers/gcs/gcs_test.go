@@ -59,9 +59,12 @@ func TestNewBucketWithConfig_ShouldCreateGRPC(t *testing.T) {
 	}
 
 	svr, err := gcsemu.NewServer("127.0.0.1:0", gcsemu.Options{})
+	testutil.Ok(t, err)
 	err = os.Setenv("STORAGE_EMULATOR_HOST", svr.Addr)
 	require.NoError(t, err)
 	err = os.Setenv("GCS_EMULATOR_HOST", svr.Addr)
+	require.NoError(t, err)
+	err = os.Setenv("STORAGE_EMULATOR_HOST_GRPC", svr.Addr)
 	require.NoError(t, err)
 
 	bkt, err := NewBucketWithConfig(context.Background(), log.NewNopLogger(), cfg, "test-bucket")
