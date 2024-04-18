@@ -9,7 +9,7 @@ import (
 	"os"
 
 	"github.com/go-kit/log"
-	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/thanos-io/objstore/tracing/opentelemetry"
 	"github.com/thanos-io/objstore/tracing/opentracing"
@@ -78,7 +78,7 @@ func ExampleTracingBucketUsingOpenTelemetry() { //nolint:govet
 	}
 
 	// Wrap it with tracing.
-	bucket = opentelemetry.WrapWithTraces(bucket, trace.NewNoopTracerProvider().Tracer("bucket"))
+	bucket = opentelemetry.WrapWithTraces(bucket, noop.NewTracerProvider().Tracer("bucket"))
 
 	// Test it.
 	exists, err := bucket.Exists(context.Background(), "example")

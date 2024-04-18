@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/efficientgo/core/testutil"
+	"github.com/fullstorydev/emulators/storage/gcsemu"
 	"github.com/go-kit/log"
 	"github.com/prometheus/common/model"
 	"google.golang.org/api/option"
@@ -47,6 +48,29 @@ func TestBucket_Get_ShouldReturnErrorIfServerTruncateResponse(t *testing.T) {
 	_, err = io.ReadAll(reader)
 	testutil.NotOk(t, err)
 	testutil.Equals(t, "storage: partial request not satisfied", err.Error())
+}
+
+func TestNewBucketWithConfig_ShouldCreateGRPC(t *testing.T) {
+	cfg := Config{
+		Bucket:         "test-bucket",
+		ServiceAccount: "",
+		UseGRPC:        true,
+	}
+
+	svr, err := gcsemu.NewServer("127.0.0.1:0", gcsemu.Options{})
+	testutil.Ok(t, err)
+	err = os.Setenv("STORAGE_EMULATOR_HOST", svr.Addr)
+	testutil.Ok(t, err)
+	err = os.Setenv("GCS_EMULATOR_HOST", svr.Addr)
+	testutil.Ok(t, err)
+	err = os.Setenv("STORAGE_EMULATOR_HOST_GRPC", svr.Addr)
+	testutil.Ok(t, err)
+
+	bkt, err := NewBucketWithConfig(context.Background(), log.NewNopLogger(), cfg, "test-bucket")
+	testutil.Ok(t, err)
+
+	// Check if the bucket is created.
+	testutil.Assert(t, bkt != nil, "expected bucket to be created")
 }
 
 func TestParseConfig_HTTPConfig(t *testing.T) {
