@@ -470,6 +470,18 @@ func TestTimingReader_UnexpectedError(t *testing.T) {
 	testutil.Equals(t, float64(1), promtest.ToFloat64(m.opsFailures.WithLabelValues(OpGet)))
 }
 
+func TestTimingReader_ContextCancellation(t *testing.T) {
+	m := WrapWithMetrics(NewInMemBucket(), nil, "")
+	r := dummyReader{context.Canceled}
+	tr := newTimingReader(r, true, OpGet, m.opsDuration, m.opsFailures, func(err error) bool { return false }, m.opsFetchedBytes, m.opsTransferredBytes)
+
+	buf := make([]byte, 1)
+	_, err := io.ReadFull(tr, buf)
+	testutil.Equals(t, context.Canceled, err)
+
+	testutil.Equals(t, float64(0), promtest.ToFloat64(m.opsFailures.WithLabelValues(OpGet)))
+}
+
 type dummyReader struct {
 	err error
 }
