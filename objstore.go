@@ -551,6 +551,7 @@ func (b *metricBucket) Get(ctx context.Context, name string) (io.ReadCloser, err
 		return nil, err
 	}
 	return newTimingReader(
+		ctx,
 		rc,
 		true,
 		op,
@@ -574,6 +575,7 @@ func (b *metricBucket) GetRange(ctx context.Context, name string, off, length in
 		return nil, err
 	}
 	return newTimingReader(
+		ctx,
 		rc,
 		true,
 		op,
@@ -606,6 +608,7 @@ func (b *metricBucket) Upload(ctx context.Context, name string, r io.Reader) err
 	b.ops.WithLabelValues(op).Inc()
 
 	trc := newTimingReader(
+		ctx,
 		r,
 		false,
 		op,
@@ -663,6 +666,8 @@ func (b *metricBucket) Name() string {
 type timingReader struct {
 	io.Reader
 
+	ctx context.Context
+
 	// closeReader holds whether the wrapper io.Reader should be closed when
 	// Close() is called on the timingReader.
 	closeReader bool
@@ -682,7 +687,7 @@ type timingReader struct {
 	transferredBytes  *prometheus.HistogramVec
 }
 
-func newTimingReader(r io.Reader, closeReader bool, op string, dur *prometheus.HistogramVec, failed *prometheus.CounterVec, isFailureExpected IsOpFailureExpectedFunc, fetchedBytes *prometheus.CounterVec, transferredBytes *prometheus.HistogramVec) io.ReadCloser {
+func newTimingReader(ctx context.Context, r io.Reader, closeReader bool, op string, dur *prometheus.HistogramVec, failed *prometheus.CounterVec, isFailureExpected IsOpFailureExpectedFunc, fetchedBytes *prometheus.CounterVec, transferredBytes *prometheus.HistogramVec) io.ReadCloser {
 	// Initialize the metrics with 0.
 	dur.WithLabelValues(op)
 	failed.WithLabelValues(op)
@@ -690,6 +695,7 @@ func newTimingReader(r io.Reader, closeReader bool, op string, dur *prometheus.H
 
 	trc := timingReader{
 		Reader:            r,
+		ctx:               ctx,
 		closeReader:       closeReader,
 		objSize:           objSize,
 		objSizeErr:        objSizeErr,
@@ -756,7 +762,7 @@ func (r *timingReader) Read(b []byte) (n int, err error) {
 	r.readBytes += int64(n)
 	// Report metric just once.
 	if !r.alreadyGotErr && err != nil && err != io.EOF {
-		if !r.isFailureExpected(err) {
+		if !r.isFailureExpected(err) && r.ctx.Err() != context.Canceled {
 			r.failed.WithLabelValues(r.op).Inc()
 		}
 		r.alreadyGotErr = true

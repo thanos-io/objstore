@@ -412,7 +412,7 @@ func TestDownloadUploadDirConcurrency(t *testing.T) {
 func TestTimingReader(t *testing.T) {
 	m := WrapWithMetrics(NewInMemBucket(), nil, "")
 	r := bytes.NewReader([]byte("hello world"))
-	tr := newTimingReader(r, true, OpGet, m.opsDuration, m.opsFailures, func(err error) bool {
+	tr := newTimingReader(context.Background(), r, true, OpGet, m.opsDuration, m.opsFailures, func(err error) bool {
 		return false
 	}, m.opsFetchedBytes, m.opsTransferredBytes)
 
@@ -447,7 +447,7 @@ func TestTimingReader_ExpectedError(t *testing.T) {
 
 	m := WrapWithMetrics(NewInMemBucket(), nil, "")
 	r := dummyReader{readerErr}
-	tr := newTimingReader(r, true, OpGet, m.opsDuration, m.opsFailures, func(err error) bool { return errors.Is(err, readerErr) }, m.opsFetchedBytes, m.opsTransferredBytes)
+	tr := newTimingReader(context.Background(), r, true, OpGet, m.opsDuration, m.opsFailures, func(err error) bool { return errors.Is(err, readerErr) }, m.opsFetchedBytes, m.opsTransferredBytes)
 
 	buf := make([]byte, 1)
 	_, err := io.ReadFull(tr, buf)
@@ -461,7 +461,7 @@ func TestTimingReader_UnexpectedError(t *testing.T) {
 
 	m := WrapWithMetrics(NewInMemBucket(), nil, "")
 	r := dummyReader{readerErr}
-	tr := newTimingReader(r, true, OpGet, m.opsDuration, m.opsFailures, func(err error) bool { return false }, m.opsFetchedBytes, m.opsTransferredBytes)
+	tr := newTimingReader(context.Background(), r, true, OpGet, m.opsDuration, m.opsFailures, func(err error) bool { return false }, m.opsFetchedBytes, m.opsTransferredBytes)
 
 	buf := make([]byte, 1)
 	_, err := io.ReadFull(tr, buf)
@@ -471,13 +471,16 @@ func TestTimingReader_UnexpectedError(t *testing.T) {
 }
 
 func TestTimingReader_ContextCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
 	m := WrapWithMetrics(NewInMemBucket(), nil, "")
-	r := dummyReader{context.Canceled}
-	tr := newTimingReader(r, true, OpGet, m.opsDuration, m.opsFailures, func(err error) bool { return false }, m.opsFetchedBytes, m.opsTransferredBytes)
+	r := dummyReader{ctx.Err()}
+	tr := newTimingReader(ctx, r, true, OpGet, m.opsDuration, m.opsFailures, func(err error) bool { return false }, m.opsFetchedBytes, m.opsTransferredBytes)
 
 	buf := make([]byte, 1)
 	_, err := io.ReadFull(tr, buf)
-	testutil.Equals(t, context.Canceled, err)
+	testutil.Equals(t, ctx.Err(), err)
 
 	testutil.Equals(t, float64(0), promtest.ToFloat64(m.opsFailures.WithLabelValues(OpGet)))
 }
@@ -503,7 +506,7 @@ func TestTimingReader_ShouldCorrectlyWrapFile(t *testing.T) {
 	})
 
 	m := WrapWithMetrics(NewInMemBucket(), nil, "")
-	r := newTimingReader(file, true, "", m.opsDuration, m.opsFailures, func(err error) bool {
+	r := newTimingReader(context.Background(), file, true, "", m.opsDuration, m.opsFailures, func(err error) bool {
 		return false
 	}, m.opsFetchedBytes, m.opsTransferredBytes)
 
