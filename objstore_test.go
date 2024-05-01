@@ -412,7 +412,7 @@ func TestDownloadUploadDirConcurrency(t *testing.T) {
 func TestTimingReader(t *testing.T) {
 	m := WrapWithMetrics(NewInMemBucket(), nil, "")
 	r := bytes.NewReader([]byte("hello world"))
-	tr := newTimingReader(r, true, "", m.opsDuration, m.opsFailures, func(err error) bool {
+	tr := newTimingReader(r, true, OpGet, m.opsDuration, m.opsFailures, func(err error) bool {
 		return false
 	}, m.opsFetchedBytes, m.opsTransferredBytes)
 
@@ -438,6 +438,44 @@ func TestTimingReader(t *testing.T) {
 
 	_, isReaderAt := tr.(io.ReaderAt)
 	testutil.Assert(t, isReaderAt)
+
+	testutil.Equals(t, float64(0), promtest.ToFloat64(m.opsFailures.WithLabelValues(OpGet)))
+}
+
+func TestTimingReader_ExpectedError(t *testing.T) {
+	readerErr := errors.New("something went wrong")
+
+	m := WrapWithMetrics(NewInMemBucket(), nil, "")
+	r := dummyReader{readerErr}
+	tr := newTimingReader(r, true, OpGet, m.opsDuration, m.opsFailures, func(err error) bool { return errors.Is(err, readerErr) }, m.opsFetchedBytes, m.opsTransferredBytes)
+
+	buf := make([]byte, 1)
+	_, err := io.ReadFull(tr, buf)
+	testutil.Equals(t, readerErr, err)
+
+	testutil.Equals(t, float64(0), promtest.ToFloat64(m.opsFailures.WithLabelValues(OpGet)))
+}
+
+func TestTimingReader_UnexpectedError(t *testing.T) {
+	readerErr := errors.New("something went wrong")
+
+	m := WrapWithMetrics(NewInMemBucket(), nil, "")
+	r := dummyReader{readerErr}
+	tr := newTimingReader(r, true, OpGet, m.opsDuration, m.opsFailures, func(err error) bool { return false }, m.opsFetchedBytes, m.opsTransferredBytes)
+
+	buf := make([]byte, 1)
+	_, err := io.ReadFull(tr, buf)
+	testutil.Equals(t, readerErr, err)
+
+	testutil.Equals(t, float64(1), promtest.ToFloat64(m.opsFailures.WithLabelValues(OpGet)))
+}
+
+type dummyReader struct {
+	err error
+}
+
+func (r dummyReader) Read(_ []byte) (int, error) {
+	return 0, r.err
 }
 
 func TestTimingReader_ShouldCorrectlyWrapFile(t *testing.T) {
