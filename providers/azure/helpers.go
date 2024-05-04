@@ -5,13 +5,13 @@ package azure
 
 import (
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
+	"github.com/cristalhq/hedgedhttp"
 
 	"github.com/thanos-io/objstore/exthttp"
 )
@@ -24,6 +24,14 @@ func getContainerClient(conf Config) (*container.Client, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	hedgedClient, err := hedgedhttp.New(hedgedhttp.Config{
+		Transport: dt,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	opt := &container.ClientOptions{
 		ClientOptions: azcore.ClientOptions{
 			Retry: policy.RetryOptions{
@@ -35,7 +43,7 @@ func getContainerClient(conf Config) (*container.Client, error) {
 			Telemetry: policy.TelemetryOptions{
 				ApplicationID: "Thanos",
 			},
-			Transport: &http.Client{Transport: dt},
+			Transport: hedgedClient,
 		},
 	}
 

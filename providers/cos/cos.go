@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cristalhq/hedgedhttp"
 	"github.com/efficientgo/core/logerrcapture"
 	"github.com/go-kit/log"
 	"github.com/pkg/errors"
@@ -129,11 +130,17 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string) (*B
 	}
 	b := &cos.BaseURL{BucketURL: bucketURL}
 	tpt, _ := exthttp.DefaultTransport(config.HTTPConfig)
+	hedgedClient, err := hedgedhttp.New(hedgedhttp.Config{
+		Transport: tpt,
+	})
+	if err != nil {
+		return nil, err
+	}
 	client := cos.NewClient(b, &http.Client{
 		Transport: &cos.AuthorizationTransport{
 			SecretID:  config.SecretId,
 			SecretKey: config.SecretKey,
-			Transport: tpt,
+			Transport: hedgedClient,
 		},
 	})
 

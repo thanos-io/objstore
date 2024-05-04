@@ -15,6 +15,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cristalhq/hedgedhttp"
 	"github.com/efficientgo/core/logerrcapture"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -227,12 +228,18 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string) (*B
 			},
 		})}
 	} else {
+		hedgedClient, err := hedgedhttp.New(hedgedhttp.Config{
+			Transport: http.DefaultTransport,
+		})
+		if err != nil {
+			return nil, err
+		}
 		chain = []credentials.Provider{
 			wrapCredentialsProvider(&credentials.EnvAWS{}),
 			wrapCredentialsProvider(&credentials.FileAWSCredentials{}),
 			wrapCredentialsProvider(&credentials.IAM{
 				Client: &http.Client{
-					Transport: http.DefaultTransport,
+					Transport: hedgedClient,
 				},
 				Endpoint: config.STSEndpoint,
 			}),

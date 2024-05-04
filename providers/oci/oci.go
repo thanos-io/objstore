@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cristalhq/hedgedhttp"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/oracle/oci-go-sdk/v65/common"
@@ -335,8 +336,15 @@ func NewBucket(logger log.Logger, ociConfig []byte) (*Bucket, error) {
 		return nil, errors.Wrapf(err, "unable to create ObjectStorage client with the given oci configurations")
 	}
 
-	httpClient := http.Client{
+	hedgedClient, err := hedgedhttp.New(hedgedhttp.Config{
 		Transport: CustomTransport(config),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	httpClient := http.Client{
+		Transport: hedgedClient,
 		Timeout:   config.HTTPConfig.ClientTimeout,
 	}
 	client.HTTPClient = &httpClient

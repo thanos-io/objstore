@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
+	"github.com/cristalhq/hedgedhttp"
 	"github.com/go-kit/log"
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/version"
@@ -135,8 +136,15 @@ func appendHttpOptions(gc Config, opts []option.ClientOption) ([]option.ClientOp
 		return nil, err
 	}
 
-	httpCli := &http.Client{
+	hedgedClient, err := hedgedhttp.New(hedgedhttp.Config{
 		Transport: gRT,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	httpCli := &http.Client{
+		Transport: hedgedClient,
 		Timeout:   time.Duration(gc.HTTPConfig.IdleConnTimeout),
 	}
 	return append(opts, option.WithHTTPClient(httpCli)), nil
