@@ -288,7 +288,7 @@ func (b *Bucket) deleteBucket(ctx context.Context) (err error) {
 }
 
 // NewBucket returns a new Bucket using the provided oci config values.
-func NewBucket(logger log.Logger, ociConfig []byte, httpClient *http.Client) (*Bucket, error) {
+func NewBucket(logger log.Logger, ociConfig []byte) (*Bucket, error) {
 	level.Debug(logger).Log("msg", "creating new oci bucket connection")
 	var config = DefaultConfig
 	var configurationProvider common.ConfigurationProvider
@@ -335,13 +335,12 @@ func NewBucket(logger log.Logger, ociConfig []byte, httpClient *http.Client) (*B
 		return nil, errors.Wrapf(err, "unable to create ObjectStorage client with the given oci configurations")
 	}
 
-	if httpClient == nil {
-		httpClient = &http.Client{
-			Transport: CustomTransport(config),
-			Timeout:   config.HTTPConfig.ClientTimeout,
-		}
+	httpClient := http.Client{
+		Transport: CustomTransport(config),
+		Timeout:   config.HTTPConfig.ClientTimeout,
 	}
-	client.HTTPClient = httpClient
+
+	client.HTTPClient = &httpClient
 
 	requestMetadata := getRequestMetadata(config.MaxRequestRetries, config.RequestRetryInterval)
 
@@ -377,7 +376,7 @@ func NewTestBucket(t testing.TB) (objstore.Bucket, func(), error) {
 		return nil, nil, err
 	}
 
-	bkt, err := NewBucket(log.NewNopLogger(), ociConfig, http.DefaultClient)
+	bkt, err := NewBucket(log.NewNopLogger(), ociConfig)
 	if err != nil {
 		return nil, nil, err
 	}

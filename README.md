@@ -104,7 +104,7 @@ Generally, you have two ways of using `objstore` module:
 
 First is to import the provider you want e.g. [`github.com/thanos-io/objstore/providers/s3`](providers/s3) and instantiate it with available constructor (e.g. `NewBucket`).
 
-The second option is to use the factory `NewBucket(logger log.Logger, confContentYaml []byte, reg prometheus.Registerer, component string)` that will instantiate the object storage client based on YAML file provided. The YAML file has generally the format like this:
+The second option is to use the factory `NewBucket(logger log.Logger, confContentYaml []byte, reg prometheus.Registerer, component string,rt http.RoundTripper)` that will instantiate the object storage client based on YAML file provided. The YAML file has generally the format like this:
 
 ```yaml
 type: <PROVIDER_TYPE>
@@ -114,6 +114,8 @@ config:
 
 The exact option depends on provider and are in sections below.
 
+ `NewBucket` function now accepts an `http.RoundTripper` parameter allows clients to provide a custom transport for HTTP requests, making the function more flexible , this change facilitates the use of various HTTP client configurations, including hedged HTTP transports.
+ 
 > NOTE: All code snippets are auto-generated from code and up-to-date.
 
 Check out the [Thanos documentation](https://thanos.io/tip/thanos/storage.md/) to see how Thanos uses this module.

@@ -6,7 +6,6 @@ package azure
 import (
 	"context"
 	"io"
-	"net/http"
 	"os"
 	"strings"
 	"testing"
@@ -144,7 +143,7 @@ type Bucket struct {
 }
 
 // NewBucket returns a new Bucket using the provided Azure config.
-func NewBucket(logger log.Logger, azureConfig []byte, component string, httpClient *http.Client) (*Bucket, error) {
+func NewBucket(logger log.Logger, azureConfig []byte, component string) (*Bucket, error) {
 	level.Debug(logger).Log("msg", "creating new Azure bucket connection", "component", component)
 	conf, err := parseConfig(azureConfig)
 	if err != nil {
@@ -353,7 +352,7 @@ func NewTestBucket(t testing.TB, component string) (objstore.Bucket, func(), err
 	if err != nil {
 		return nil, nil, err
 	}
-	bkt, err := NewBucket(log.NewNopLogger(), bc, component, http.DefaultClient)
+	bkt, err := NewBucket(log.NewNopLogger(), bc, component)
 	if err != nil {
 		t.Errorf("Cannot create Azure storage container:")
 		return nil, nil, err

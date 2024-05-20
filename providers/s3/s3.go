@@ -175,7 +175,7 @@ func parseConfig(conf []byte) (Config, error) {
 }
 
 // NewBucket returns a new Bucket using the provided s3 config values.
-func NewBucket(logger log.Logger, conf []byte, component string, httpClient *http.Client) (*Bucket, error) {
+func NewBucket(logger log.Logger, conf []byte, component string) (*Bucket, error) {
 	config, err := parseConfig(conf)
 	if err != nil {
 		return nil, err
@@ -605,7 +605,7 @@ func NewTestBucketFromConfig(t testing.TB, location string, c Config, reuseBucke
 	if err != nil {
 		return nil, nil, err
 	}
-	b, err := NewBucket(log.NewNopLogger(), bc, "thanos-e2e-test", http.DefaultClient)
+	b, err := NewBucket(log.NewNopLogger(), bc, "thanos-e2e-test")
 	if err != nil {
 		return nil, nil, err
 	}

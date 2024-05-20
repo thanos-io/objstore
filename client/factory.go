@@ -8,9 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
-	"github.com/cristalhq/hedgedhttp"
 	"github.com/thanos-io/objstore"
 	"github.com/thanos-io/objstore/providers/azure"
 	"github.com/thanos-io/objstore/providers/bos"
@@ -45,15 +43,14 @@ const (
 )
 
 type BucketConfig struct {
-	Type          ObjProvider `yaml:"type"`
-	Config        interface{} `yaml:"config"`
-	Prefix        string      `yaml:"prefix" default:""`
-	UseHedgedHTTP bool        `yaml:"use_hedged_http" default:"false"`
+	Type   ObjProvider `yaml:"type"`
+	Config interface{} `yaml:"config"`
+	Prefix string      `yaml:"prefix" default:""`
 }
 
 // NewBucket initializes and returns new object storage clients.
 // NOTE: confContentYaml can contain secrets.
-func NewBucket(logger log.Logger, confContentYaml []byte, component string) (objstore.Bucket, error) {
+func NewBucket(logger log.Logger, confContentYaml []byte, component string, rt http.RoundTripper) (objstore.Bucket, error) {
 	level.Info(logger).Log("msg", "loading bucket configuration")
 	bucketConf := &BucketConfig{}
 	if err := yaml.UnmarshalStrict(confContentYaml, bucketConf); err != nil {
@@ -64,34 +61,19 @@ func NewBucket(logger log.Logger, confContentYaml []byte, component string) (obj
 	if err != nil {
 		return nil, errors.Wrap(err, "marshal content of bucket configuration")
 	}
-	var httpClient *http.Client = http.DefaultClient
 
-	// If UseHedgedHTTP is true, create a hedged HTTP client
-	if bucketConf.UseHedgedHTTP {
-		hedgedClient, err := hedgedhttp.New(hedgedhttp.Config{
-			Transport: http.DefaultTransport,
-			Upto:      3,
-			Delay:     100 * time.Millisecond,
-		})
-		if err != nil {
-			return nil, errors.Wrap(err, "creating hedged HTTP client")
-		}
-		httpClient = &http.Client{
-			Transport: hedgedClient,
-		}
-	}
 	var bucket objstore.Bucket
 	switch strings.ToUpper(string(bucketConf.Type)) {
 	case string(GCS):
-		bucket, err = gcs.NewBucket(context.Background(), logger, config, component, httpClient)
+		bucket, err = gcs.NewBucket(context.Background(), logger, config, component)
 	case string(S3):
-		bucket, err = s3.NewBucket(logger, config, component, httpClient)
+		bucket, err = s3.NewBucket(logger, config, component)
 	case string(AZURE):
-		bucket, err = azure.NewBucket(logger, config, component, httpClient)
+		bucket, err = azure.NewBucket(logger, config, component)
 	case string(SWIFT):
 		bucket, err = swift.NewContainer(logger, config)
 	case string(COS):
-		bucket, err = cos.NewBucket(logger, config, component, httpClient)
+		bucket, err = cos.NewBucket(logger, config, component)
 	case string(ALIYUNOSS):
 		bucket, err = oss.NewBucket(logger, config, component)
 	case string(FILESYSTEM):
@@ -99,7 +81,7 @@ func NewBucket(logger log.Logger, confContentYaml []byte, component string) (obj
 	case string(BOS):
 		bucket, err = bos.NewBucket(logger, config, component)
 	case string(OCI):
-		bucket, err = oci.NewBucket(logger, config, httpClient)
+		bucket, err = oci.NewBucket(logger, config)
 	case string(OBS):
 		bucket, err = obs.NewBucket(logger, config)
 	default:

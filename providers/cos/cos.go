@@ -95,7 +95,7 @@ func parseConfig(conf []byte) (Config, error) {
 }
 
 // NewBucket returns a new Bucket using the provided cos configuration.
-func NewBucket(logger log.Logger, conf []byte, component string, httpClient *http.Client) (*Bucket, error) {
+func NewBucket(logger log.Logger, conf []byte, component string) (*Bucket, error) {
 	if logger == nil {
 		logger = log.NewNopLogger()
 	}
@@ -485,7 +485,7 @@ func NewTestBucket(t testing.TB) (objstore.Bucket, func(), error) {
 			return nil, nil, err
 		}
 
-		b, err := NewBucket(log.NewNopLogger(), bc, "thanos-e2e-test", http.DefaultClient)
+		b, err := NewBucket(log.NewNopLogger(), bc, "thanos-e2e-test")
 		if err != nil {
 			return nil, nil, err
 		}
@@ -506,7 +506,7 @@ func NewTestBucket(t testing.TB) (objstore.Bucket, func(), error) {
 		return nil, nil, err
 	}
 
-	b, err := NewBucket(log.NewNopLogger(), bc, "thanos-e2e-test", http.DefaultClient)
+	b, err := NewBucket(log.NewNopLogger(), bc, "thanos-e2e-test")
 	if err != nil {
 		return nil, nil, err
 	}
