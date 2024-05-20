@@ -339,7 +339,6 @@ func NewBucket(logger log.Logger, ociConfig []byte) (*Bucket, error) {
 		Transport: CustomTransport(config),
 		Timeout:   config.HTTPConfig.ClientTimeout,
 	}
-
 	client.HTTPClient = &httpClient
 
 	requestMetadata := getRequestMetadata(config.MaxRequestRetries, config.RequestRetryInterval)
