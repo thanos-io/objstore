@@ -72,7 +72,7 @@ func parseConfig(conf []byte) (Config, error) {
 }
 
 // NewBucket returns a new Bucket against the given bucket handle.
-func NewBucket(ctx context.Context, logger log.Logger, conf []byte, component string) (*Bucket, error) {
+func NewBucket(ctx context.Context, logger log.Logger, conf []byte, component string, rt http.RoundTripper) (*Bucket, error) {
 	config, err := parseConfig(conf)
 	if err != nil {
 		return nil, err
@@ -302,7 +302,7 @@ func NewTestBucket(t testing.TB, project string) (objstore.Bucket, func(), error
 		return nil, nil, err
 	}
 
-	b, err := NewBucket(ctx, log.NewNopLogger(), bc, "thanos-e2e-test")
+	b, err := NewBucket(ctx, log.NewNopLogger(), bc, "thanos-e2e-test", http.DefaultTransport)
 	if err != nil {
 		return nil, nil, err
 	}

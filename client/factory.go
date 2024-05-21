@@ -65,15 +65,15 @@ func NewBucket(logger log.Logger, confContentYaml []byte, component string, rt h
 	var bucket objstore.Bucket
 	switch strings.ToUpper(string(bucketConf.Type)) {
 	case string(GCS):
-		bucket, err = gcs.NewBucket(context.Background(), logger, config, component)
+		bucket, err = gcs.NewBucket(context.Background(), logger, config, component, rt)
 	case string(S3):
-		bucket, err = s3.NewBucket(logger, config, component)
+		bucket, err = s3.NewBucket(logger, config, component, rt)
 	case string(AZURE):
-		bucket, err = azure.NewBucket(logger, config, component)
+		bucket, err = azure.NewBucket(logger, config, component, rt)
 	case string(SWIFT):
 		bucket, err = swift.NewContainer(logger, config)
 	case string(COS):
-		bucket, err = cos.NewBucket(logger, config, component)
+		bucket, err = cos.NewBucket(logger, config, component, rt)
 	case string(ALIYUNOSS):
 		bucket, err = oss.NewBucket(logger, config, component)
 	case string(FILESYSTEM):
@@ -81,7 +81,7 @@ func NewBucket(logger log.Logger, confContentYaml []byte, component string, rt h
 	case string(BOS):
 		bucket, err = bos.NewBucket(logger, config, component)
 	case string(OCI):
-		bucket, err = oci.NewBucket(logger, config)
+		bucket, err = oci.NewBucket(logger, config, rt)
 	case string(OBS):
 		bucket, err = obs.NewBucket(logger, config)
 	default:

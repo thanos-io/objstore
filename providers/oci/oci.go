@@ -288,7 +288,7 @@ func (b *Bucket) deleteBucket(ctx context.Context) (err error) {
 }
 
 // NewBucket returns a new Bucket using the provided oci config values.
-func NewBucket(logger log.Logger, ociConfig []byte) (*Bucket, error) {
+func NewBucket(logger log.Logger, ociConfig []byte, rt http.RoundTripper) (*Bucket, error) {
 	level.Debug(logger).Log("msg", "creating new oci bucket connection")
 	var config = DefaultConfig
 	var configurationProvider common.ConfigurationProvider
@@ -375,7 +375,7 @@ func NewTestBucket(t testing.TB) (objstore.Bucket, func(), error) {
 		return nil, nil, err
 	}
 
-	bkt, err := NewBucket(log.NewNopLogger(), ociConfig)
+	bkt, err := NewBucket(log.NewNopLogger(), ociConfig, http.DefaultTransport)
 	if err != nil {
 		return nil, nil, err
 	}
