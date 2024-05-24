@@ -77,11 +77,11 @@ func NewBucket(ctx context.Context, logger log.Logger, conf []byte, component st
 	if err != nil {
 		return nil, err
 	}
-	return NewBucketWithConfig(ctx, logger, config, component)
+	return NewBucketWithConfig(ctx, logger, config, component, rt)
 }
 
 // NewBucketWithConfig returns a new Bucket with gcs Config struct.
-func NewBucketWithConfig(ctx context.Context, logger log.Logger, gc Config, component string) (*Bucket, error) {
+func NewBucketWithConfig(ctx context.Context, logger log.Logger, gc Config, component string, rt http.RoundTripper) (*Bucket, error) {
 	if gc.Bucket == "" {
 		return nil, errors.New("missing Google Cloud Storage bucket name for stored blocks")
 	}
@@ -103,7 +103,7 @@ func NewBucketWithConfig(ctx context.Context, logger log.Logger, gc Config, comp
 
 	if !gc.UseGRPC {
 		var err error
-		opts, err = appendHttpOptions(gc, opts)
+		opts, err = appendHttpOptions(gc, opts, rt)
 		if err != nil {
 			return nil, err
 		}
@@ -112,25 +112,24 @@ func NewBucketWithConfig(ctx context.Context, logger log.Logger, gc Config, comp
 	return newBucket(ctx, logger, gc, opts)
 }
 
-func appendHttpOptions(gc Config, opts []option.ClientOption) ([]option.ClientOption, error) {
+func appendHttpOptions(gc Config, opts []option.ClientOption, rt http.RoundTripper) ([]option.ClientOption, error) {
 	// Check if a roundtripper has been set in the config
 	// otherwise build the default transport.
-	var rt http.RoundTripper
-	if gc.HTTPConfig.Transport != nil {
-		rt = gc.HTTPConfig.Transport
+	var tpt http.RoundTripper
+	if rt != nil {
+		tpt = rt
 	} else {
 		var err error
-		rt, err = exthttp.DefaultTransport(gc.HTTPConfig)
+		tpt, err = exthttp.DefaultTransport(gc.HTTPConfig)
 		if err != nil {
 			return nil, err
 		}
 	}
-
 	// GCS uses some defaults when "options.WithHTTPClient" is not used that are important when we call
 	// htransport.NewTransport namely the scopes that are then used for OAth authentication. So to build our own
 	// http client we need to se those defaults
 	opts = append(opts, option.WithScopes(storage.ScopeFullControl, "https://www.googleapis.com/auth/cloud-platform"))
-	gRT, err := htransport.NewTransport(context.Background(), rt, opts...)
+	gRT, err := htransport.NewTransport(context.Background(), tpt, opts...)
 	if err != nil {
 		return nil, err
 	}

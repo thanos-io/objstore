@@ -153,16 +153,16 @@ func NewBucket(logger log.Logger, azureConfig []byte, component string, rt http.
 	if conf.MSIResource != "" {
 		level.Warn(logger).Log("msg", "The field msi_resource has been deprecated and should no longer be set")
 	}
-	return NewBucketWithConfig(logger, conf, component)
+	return NewBucketWithConfig(logger, conf, component, rt)
 }
 
 // NewBucketWithConfig returns a new Bucket using the provided Azure config struct.
-func NewBucketWithConfig(logger log.Logger, conf Config, component string) (*Bucket, error) {
+func NewBucketWithConfig(logger log.Logger, conf Config, component string, rt http.RoundTripper) (*Bucket, error) {
 	if err := conf.validate(); err != nil {
 		return nil, err
 	}
 
-	containerClient, err := getContainerClient(conf)
+	containerClient, err := getContainerClient(conf, rt)
 	if err != nil {
 		return nil, err
 	}

@@ -6,6 +6,7 @@ package s3_test
 import (
 	"bytes"
 	"context"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -37,6 +38,7 @@ func BenchmarkUpload(b *testing.B) {
 		log.NewNopLogger(),
 		e2ethanos.NewS3Config(bucket, m.Endpoint("https"), m.Dir()),
 		"test-feed",
+		http.DefaultTransport,
 	)
 	testutil.Ok(b, err)
 

@@ -105,11 +105,11 @@ func NewBucket(logger log.Logger, conf []byte, component string, rt http.RoundTr
 		return nil, errors.Wrap(err, "parsing cos configuration")
 	}
 
-	return NewBucketWithConfig(logger, config, component)
+	return NewBucketWithConfig(logger, config, component, rt)
 }
 
 // NewBucketWithConfig returns a new Bucket using the provided cos config values.
-func NewBucketWithConfig(logger log.Logger, config Config, component string) (*Bucket, error) {
+func NewBucketWithConfig(logger log.Logger, config Config, component string, rt http.RoundTripper) (*Bucket, error) {
 	if err := config.validate(); err != nil {
 		return nil, errors.Wrap(err, "validate cos configuration")
 	}
@@ -128,7 +128,12 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string) (*B
 		}
 	}
 	b := &cos.BaseURL{BucketURL: bucketURL}
-	tpt, _ := exthttp.DefaultTransport(config.HTTPConfig)
+	var tpt http.RoundTripper
+	if rt != nil {
+		tpt = rt
+	} else {
+		tpt, _ = exthttp.DefaultTransport(config.HTTPConfig)
+	}
 	client := cos.NewClient(b, &http.Client{
 		Transport: &cos.AuthorizationTransport{
 			SecretID:  config.SecretId,
