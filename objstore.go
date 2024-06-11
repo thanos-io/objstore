@@ -728,7 +728,7 @@ func newTimingReader(r io.Reader, closeReader bool, op string, dur *prometheus.H
 
 	_, isSeeker := r.(io.Seeker)
 	_, isReaderAt := r.(io.ReaderAt)
-
+	_, isWriterTo := r.(io.WriterTo)
 	if isSeeker && isReaderAt {
 		// The assumption is that in most cases when io.ReaderAt() is implemented then
 		// io.Seeker is implemented too (e.g. os.File).
@@ -736,6 +736,9 @@ func newTimingReader(r io.Reader, closeReader bool, op string, dur *prometheus.H
 	}
 	if isSeeker {
 		return &timingReaderSeeker{timingReader: trc}
+	}
+	if isWriterTo {
+		return &timingReaderWriterTo{timingReader: trc}
 	}
 
 	return &trc
@@ -801,4 +804,12 @@ type timingReaderSeekerReaderAt struct {
 
 func (rsc *timingReaderSeekerReaderAt) ReadAt(p []byte, off int64) (int, error) {
 	return (rsc.Reader).(io.ReaderAt).ReadAt(p, off)
+}
+
+type timingReaderWriterTo struct {
+	timingReader
+}
+
+func (t *timingReaderWriterTo) WriteTo(w io.Writer) (n int64, err error) {
+	return (t.Reader).(io.WriterTo).WriteTo(w)
 }
