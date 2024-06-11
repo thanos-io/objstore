@@ -705,7 +705,6 @@ func newTimingReader(r io.Reader, closeReader bool, op string, dur *prometheus.H
 
 	_, isSeeker := r.(io.Seeker)
 	_, isReaderAt := r.(io.ReaderAt)
-	_, isWriterTo := r.(io.WriterTo)
 	if isSeeker && isReaderAt {
 		// The assumption is that in most cases when io.ReaderAt() is implemented then
 		// io.Seeker is implemented too (e.g. os.File).
@@ -714,7 +713,7 @@ func newTimingReader(r io.Reader, closeReader bool, op string, dur *prometheus.H
 	if isSeeker {
 		return &timingReaderSeeker{timingReader: trc}
 	}
-	if isWriterTo {
+	if _, isWriterTo := r.(io.WriterTo); isWriterTo {
 		return &timingReaderWriterTo{timingReader: trc}
 	}
 
@@ -752,11 +751,16 @@ func (r *timingReader) Close() error {
 
 func (r *timingReader) Read(b []byte) (n int, err error) {
 	n, err = r.Reader.Read(b)
+	r.updateMetrics(n, err)
+	return n, err
+}
+
+func (r *timingReader) updateMetrics(n int, err error) {
 	if r.fetchedBytes != nil {
 		r.fetchedBytes.WithLabelValues(r.op).Add(float64(n))
 	}
-
 	r.readBytes += int64(n)
+
 	// Report metric just once.
 	if !r.alreadyGotErr && err != nil && err != io.EOF {
 		if !r.isFailureExpected(err) && !errors.Is(err, context.Canceled) {
@@ -764,7 +768,6 @@ func (r *timingReader) Read(b []byte) (n int, err error) {
 		}
 		r.alreadyGotErr = true
 	}
-	return n, err
 }
 
 type timingReaderSeeker struct {
@@ -788,5 +791,7 @@ type timingReaderWriterTo struct {
 }
 
 func (t *timingReaderWriterTo) WriteTo(w io.Writer) (n int64, err error) {
-	return (t.Reader).(io.WriterTo).WriteTo(w)
+	n, err = (t.Reader).(io.WriterTo).WriteTo(w)
+	t.timingReader.updateMetrics(int(n), err)
+	return n, err
 }
