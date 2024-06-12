@@ -10,6 +10,9 @@ We use *breaking :warning:* to mark changes that are not backward compatible (re
 
 ## Unreleased
 
+### Added
+- [#74](https://github.com/thanos-io/objstore/pull/74) S3: Implementing `ToErrorResponse` function to return the parsed S3 ErrorResponse.
+
 ### Fixed
 - [#117](https://github.com/thanos-io/objstore/pull/117) Metrics: Fix `objstore_bucket_operation_failures_total` incorrectly incremented if context is cancelled while reading object contents.
 - [#115](https://github.com/thanos-io/objstore/pull/115) GCS: Fix creation of bucket with GRPC connections. Also update storage client to `v1.40.0`.
