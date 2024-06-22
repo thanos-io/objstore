@@ -430,8 +430,8 @@ func WrapWithMetrics(b Bucket, reg prometheus.Registerer, name string) *metricBu
 			ConstLabels: prometheus.Labels{"bucket": name},
 			Buckets:     prometheus.ExponentialBuckets(2<<14, 2, 16), // 32KiB, 64KiB, ... 1GiB
 			// Use factor=2 for native histograms, which gives similar buckets as the original exponential buckets.
-			NativeHistogramBucketFactor: 2,
-			NativeHistogramMaxBucketNumber: 100,
+			NativeHistogramBucketFactor:     2,
+			NativeHistogramMaxBucketNumber:  100,
 			NativeHistogramMinResetDuration: 1 * time.Hour,
 		}, []string{"operation"}),
 
@@ -441,8 +441,8 @@ func WrapWithMetrics(b Bucket, reg prometheus.Registerer, name string) *metricBu
 			ConstLabels: prometheus.Labels{"bucket": name},
 			Buckets:     []float64{0.001, 0.01, 0.1, 0.3, 0.6, 1, 3, 6, 9, 20, 30, 60, 90, 120},
 			// Use the recommended defaults for native histograms with 10% growth factor.
-			NativeHistogramBucketFactor: 1.1,
-			NativeHistogramMaxBucketNumber: 100,
+			NativeHistogramBucketFactor:     1.1,
+			NativeHistogramMaxBucketNumber:  100,
 			NativeHistogramMinResetDuration: 1 * time.Hour,
 		}, []string{"operation"}),
 
@@ -705,7 +705,6 @@ func newTimingReader(r io.Reader, closeReader bool, op string, dur *prometheus.H
 
 	_, isSeeker := r.(io.Seeker)
 	_, isReaderAt := r.(io.ReaderAt)
-
 	if isSeeker && isReaderAt {
 		// The assumption is that in most cases when io.ReaderAt() is implemented then
 		// io.Seeker is implemented too (e.g. os.File).
@@ -713,6 +712,9 @@ func newTimingReader(r io.Reader, closeReader bool, op string, dur *prometheus.H
 	}
 	if isSeeker {
 		return &timingReaderSeeker{timingReader: trc}
+	}
+	if _, isWriterTo := r.(io.WriterTo); isWriterTo {
+		return &timingReaderWriterTo{timingReader: trc}
 	}
 
 	return &trc
@@ -749,11 +751,16 @@ func (r *timingReader) Close() error {
 
 func (r *timingReader) Read(b []byte) (n int, err error) {
 	n, err = r.Reader.Read(b)
+	r.updateMetrics(n, err)
+	return n, err
+}
+
+func (r *timingReader) updateMetrics(n int, err error) {
 	if r.fetchedBytes != nil {
 		r.fetchedBytes.WithLabelValues(r.op).Add(float64(n))
 	}
-
 	r.readBytes += int64(n)
+
 	// Report metric just once.
 	if !r.alreadyGotErr && err != nil && err != io.EOF {
 		if !r.isFailureExpected(err) && !errors.Is(err, context.Canceled) {
@@ -761,7 +768,6 @@ func (r *timingReader) Read(b []byte) (n int, err error) {
 		}
 		r.alreadyGotErr = true
 	}
-	return n, err
 }
 
 type timingReaderSeeker struct {
@@ -778,4 +784,14 @@ type timingReaderSeekerReaderAt struct {
 
 func (rsc *timingReaderSeekerReaderAt) ReadAt(p []byte, off int64) (int, error) {
 	return (rsc.Reader).(io.ReaderAt).ReadAt(p, off)
+}
+
+type timingReaderWriterTo struct {
+	timingReader
+}
+
+func (t *timingReaderWriterTo) WriteTo(w io.Writer) (n int64, err error) {
+	n, err = (t.Reader).(io.WriterTo).WriteTo(w)
+	t.timingReader.updateMetrics(int(n), err)
+	return n, err
 }
