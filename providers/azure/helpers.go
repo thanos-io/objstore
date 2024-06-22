@@ -19,11 +19,19 @@ import (
 // DirDelim is the delimiter used to model a directory structure in an object store bucket.
 const DirDelim = "/"
 
-func getContainerClient(conf Config) (*container.Client, error) {
-	dt, err := exthttp.DefaultTransport(conf.HTTPConfig)
-	if err != nil {
-		return nil, err
+func getContainerClient(conf Config, rt http.RoundTripper) (*container.Client, error) {
+	var dt http.RoundTripper
+	var err error
+
+	if rt != nil {
+		dt = rt
+	} else {
+		dt, err = exthttp.DefaultTransport(conf.HTTPConfig)
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	opt := &container.ClientOptions{
 		ClientOptions: azcore.ClientOptions{
 			Retry: policy.RetryOptions{

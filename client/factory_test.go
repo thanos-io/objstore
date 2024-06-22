@@ -6,6 +6,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 
 	"github.com/go-kit/log"
@@ -23,7 +24,7 @@ func ExampleBucket() {
 	}
 
 	// Create a new bucket.
-	bucket, err := NewBucket(log.NewNopLogger(), confContentYaml, "example")
+	bucket, err := NewBucket(log.NewNopLogger(), confContentYaml, "example", http.DefaultTransport)
 	if err != nil {
 		panic(err)
 	}
@@ -46,7 +47,7 @@ func ExampleTracingBucketUsingOpenTracing() { //nolint:govet
 	}
 
 	// Create a new bucket.
-	bucket, err := NewBucket(log.NewNopLogger(), confContentYaml, "example")
+	bucket, err := NewBucket(log.NewNopLogger(), confContentYaml, "example", http.DefaultTransport)
 	if err != nil {
 		panic(err)
 	}
@@ -72,7 +73,7 @@ func ExampleTracingBucketUsingOpenTelemetry() { //nolint:govet
 	}
 
 	// Create a new bucket.
-	bucket, err := NewBucket(log.NewNopLogger(), confContentYaml, "example")
+	bucket, err := NewBucket(log.NewNopLogger(), confContentYaml, "example", http.DefaultTransport)
 	if err != nil {
 		panic(err)
 	}
