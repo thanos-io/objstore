@@ -5,6 +5,7 @@
 package s3
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -133,7 +134,9 @@ type Config struct {
 	DisableMultipart   bool               `yaml:"disable_multipart"`
 	// PartSize used for multipart upload. Only used if uploaded object size is known and larger than configured PartSize.
 	// NOTE we need to make sure this number does not produce more parts than 10 000.
-	PartSize    uint64    `yaml:"part_size"`
+	PartSize uint64 `yaml:"part_size"`
+	// BufferSize is used to buffer GetRange requests through wrapping the returned reader into a buffered one.
+	BufferSize  uint64    `yaml:"buffer_size"`
 	SSEConfig   SSEConfig `yaml:"sse_config"`
 	STSEndpoint string    `yaml:"sts_endpoint"`
 }
@@ -161,6 +164,7 @@ type Bucket struct {
 	storageClass     string
 	disableMultipart bool
 	partSize         uint64
+	bufSize          uint64
 	listObjectsV1    bool
 	sendContentMd5   bool
 }
@@ -336,6 +340,7 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string) (*B
 		storageClass:     storageClass,
 		disableMultipart: config.DisableMultipart,
 		partSize:         config.PartSize,
+		bufSize:          config.BufferSize,
 		listObjectsV1:    config.ListObjectsVersion == "v1",
 		sendContentMd5:   config.SendContentMd5,
 	}
@@ -452,7 +457,26 @@ func (b *Bucket) getRange(ctx context.Context, name string, off, length int64) (
 		return nil, err
 	}
 
-	return r, nil
+	if b.bufSize == 0 {
+		return r, nil
+	}
+	return newBufferedReadCloser(r, int(b.bufSize)), nil
+}
+
+type bufferedReadCloser struct {
+	r io.Closer
+	b *bufio.Reader
+}
+
+func newBufferedReadCloser(r io.ReadCloser, bufSize int) bufferedReadCloser {
+	return bufferedReadCloser{r, bufio.NewReaderSize(r, bufSize)}
+}
+
+func (brc bufferedReadCloser) Read(p []byte) (int, error) {
+	return brc.b.Read(p)
+}
+func (brc bufferedReadCloser) Close() error {
+	return brc.r.Close()
 }
 
 // Get returns a reader for the given object name.
