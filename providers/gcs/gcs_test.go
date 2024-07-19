@@ -87,7 +87,7 @@ func TestParseConfig_ChunkSize(t *testing.T) {
 			},
 		},
 		{
-			name: "DefaultConfig",
+			name: "CustomConfig",
 			input: `bucket: abcd
 chunk_size_bytes: 1024`,
 			assertions: func(cfg Config) {
