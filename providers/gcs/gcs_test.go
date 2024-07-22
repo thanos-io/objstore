@@ -73,6 +73,36 @@ func TestNewBucketWithConfig_ShouldCreateGRPC(t *testing.T) {
 	testutil.Assert(t, bkt != nil, "expected bucket to be created")
 }
 
+func TestParseConfig_ChunkSize(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		input      string
+		assertions func(cfg Config)
+	}{
+		{
+			name:  "DefaultConfig",
+			input: `bucket: abcd`,
+			assertions: func(cfg Config) {
+				testutil.Equals(t, cfg.ChunkSizeBytes, 0)
+			},
+		},
+		{
+			name: "CustomConfig",
+			input: `bucket: abcd
+chunk_size_bytes: 1024`,
+			assertions: func(cfg Config) {
+				testutil.Equals(t, cfg.ChunkSizeBytes, 1024)
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg, err := parseConfig([]byte(tc.input))
+			testutil.Ok(t, err)
+			tc.assertions(cfg)
+		})
+	}
+}
+
 func TestParseConfig_HTTPConfig(t *testing.T) {
 	for _, tc := range []struct {
 		name       string
