@@ -381,7 +381,6 @@ func NewTestBucket(t testing.TB) (objstore.Bucket, func(), error) {
 	}
 
 	ctx := context.Background()
-	fmt.Println("Debug!!! bkt", bkt)
 	bkt.name = objstore.CreateTemporaryTestBucketName(t)
 	if err := bkt.createBucket(ctx, config.Compartment); err != nil {
 		t.Errorf("failed to create temporary Oracle Cloud Infrastructure bucket '%s' for testing", bkt.name)
