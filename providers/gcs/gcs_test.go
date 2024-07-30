@@ -66,7 +66,7 @@ func TestNewBucketWithConfig_ShouldCreateGRPC(t *testing.T) {
 	err = os.Setenv("STORAGE_EMULATOR_HOST_GRPC", svr.Addr)
 	testutil.Ok(t, err)
 
-	bkt, err := NewBucketWithConfig(context.Background(), log.NewNopLogger(), cfg, "test-bucket")
+	bkt, err := NewBucketWithConfig(context.Background(), log.NewNopLogger(), cfg, "test-bucket", http.DefaultTransport)
 	testutil.Ok(t, err)
 
 	// Check if the bucket is created.
