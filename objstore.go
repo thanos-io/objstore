@@ -507,17 +507,6 @@ type Metrics struct {
 	lastSuccessfulUploadTime prometheus.Gauge
 }
 
-func (m *Metrics) mustRegister(reg prometheus.Registerer) {
-	reg.MustRegister(
-		m.ops,
-		m.opsFailures,
-		m.opsFetchedBytes,
-		m.opsTransferredBytes,
-		m.opsDuration,
-		m.lastSuccessfulUploadTime,
-	)
-}
-
 type metricBucket struct {
 	bkt     Bucket
 	metrics *Metrics
