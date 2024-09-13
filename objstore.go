@@ -566,14 +566,18 @@ func (b *metricBucket) Get(ctx context.Context, name string) (io.ReadCloser, err
 	const op = OpGet
 	b.metrics.ops.WithLabelValues(op).Inc()
 
+	start := time.Now()
+
 	rc, err := b.bkt.Get(ctx, name)
 	if err != nil {
 		if !b.metrics.isOpFailureExpected(err) && ctx.Err() != context.Canceled {
 			b.metrics.opsFailures.WithLabelValues(op).Inc()
 		}
+		b.metrics.opsDuration.WithLabelValues(op).Observe(float64(time.Since(start)))
 		return nil, err
 	}
 	return newTimingReader(
+		start,
 		rc,
 		true,
 		op,
@@ -589,14 +593,18 @@ func (b *metricBucket) GetRange(ctx context.Context, name string, off, length in
 	const op = OpGetRange
 	b.metrics.ops.WithLabelValues(op).Inc()
 
+	start := time.Now()
+
 	rc, err := b.bkt.GetRange(ctx, name, off, length)
 	if err != nil {
 		if !b.metrics.isOpFailureExpected(err) && ctx.Err() != context.Canceled {
 			b.metrics.opsFailures.WithLabelValues(op).Inc()
 		}
+		b.metrics.opsDuration.WithLabelValues(op).Observe(float64(time.Since(start)))
 		return nil, err
 	}
 	return newTimingReader(
+		start,
 		rc,
 		true,
 		op,
@@ -628,7 +636,10 @@ func (b *metricBucket) Upload(ctx context.Context, name string, r io.Reader) err
 	const op = OpUpload
 	b.metrics.ops.WithLabelValues(op).Inc()
 
+	start := time.Now()
+
 	trc := newTimingReader(
+		start,
 		r,
 		false,
 		op,
@@ -705,7 +716,7 @@ type timingReader struct {
 	transferredBytes  *prometheus.HistogramVec
 }
 
-func newTimingReader(r io.Reader, closeReader bool, op string, dur *prometheus.HistogramVec, failed *prometheus.CounterVec, isFailureExpected IsOpFailureExpectedFunc, fetchedBytes *prometheus.CounterVec, transferredBytes *prometheus.HistogramVec) io.ReadCloser {
+func newTimingReader(start time.Time, r io.Reader, closeReader bool, op string, dur *prometheus.HistogramVec, failed *prometheus.CounterVec, isFailureExpected IsOpFailureExpectedFunc, fetchedBytes *prometheus.CounterVec, transferredBytes *prometheus.HistogramVec) io.ReadCloser {
 	// Initialize the metrics with 0.
 	dur.WithLabelValues(op)
 	failed.WithLabelValues(op)
@@ -716,7 +727,7 @@ func newTimingReader(r io.Reader, closeReader bool, op string, dur *prometheus.H
 		closeReader:       closeReader,
 		objSize:           objSize,
 		objSizeErr:        objSizeErr,
-		start:             time.Now(),
+		start:             start,
 		op:                op,
 		duration:          dur,
 		failed:            failed,
