@@ -76,20 +76,22 @@ func parseConfig(conf []byte) (Config, error) {
 }
 
 // NewBucket returns a new Bucket against the given bucket handle.
-func NewBucket(ctx context.Context, logger log.Logger, conf []byte, component string) (*Bucket, error) {
+func NewBucket(ctx context.Context, logger log.Logger, conf []byte, component string, rt http.RoundTripper) (*Bucket, error) {
 	config, err := parseConfig(conf)
 	if err != nil {
 		return nil, err
 	}
-	return NewBucketWithConfig(ctx, logger, config, component)
+	return NewBucketWithConfig(ctx, logger, config, component, rt)
 }
 
 // NewBucketWithConfig returns a new Bucket with gcs Config struct.
-func NewBucketWithConfig(ctx context.Context, logger log.Logger, gc Config, component string) (*Bucket, error) {
+func NewBucketWithConfig(ctx context.Context, logger log.Logger, gc Config, component string, rt http.RoundTripper) (*Bucket, error) {
 	if gc.Bucket == "" {
 		return nil, errors.New("missing Google Cloud Storage bucket name for stored blocks")
 	}
-
+	if rt != nil {
+		gc.HTTPConfig.Transport = rt
+	}
 	var opts []option.ClientOption
 
 	// If ServiceAccount is provided, use them in GCS client, otherwise fallback to Google default logic.
@@ -312,7 +314,7 @@ func NewTestBucket(t testing.TB, project string) (objstore.Bucket, func(), error
 		return nil, nil, err
 	}
 
-	b, err := NewBucket(ctx, log.NewNopLogger(), bc, "thanos-e2e-test")
+	b, err := NewBucket(ctx, log.NewNopLogger(), bc, "thanos-e2e-test", nil)
 	if err != nil {
 		return nil, nil, err
 	}

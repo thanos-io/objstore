@@ -37,6 +37,7 @@ func BenchmarkUpload(b *testing.B) {
 		log.NewNopLogger(),
 		e2ethanos.NewS3Config(bucket, m.Endpoint("https"), m.Dir()),
 		"test-feed",
+		nil,
 	)
 	testutil.Ok(b, err)
 

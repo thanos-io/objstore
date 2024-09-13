@@ -4,10 +4,13 @@
 package swift
 
 import (
+	"net/http"
 	"testing"
 	"time"
 
 	"github.com/efficientgo/core/testutil"
+	"github.com/go-kit/log"
+	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
 )
 
@@ -63,4 +66,25 @@ http_config:
 	testutil.Equals(t, model.Duration(2*time.Minute), cfg.HTTPConfig.ResponseHeaderTimeout)
 	testutil.Equals(t, false, cfg.HTTPConfig.InsecureSkipVerify)
 
+}
+
+// ErrorRoundTripper is a custom RoundTripper that always returns an error
+type ErrorRoundTripper struct {
+	Err error
+}
+
+func (ert *ErrorRoundTripper) RoundTrip(*http.Request) (*http.Response, error) {
+	return nil, ert.Err
+}
+
+func TestNewBucketWithErrorRoundTripper(t *testing.T) {
+	logger := log.NewNopLogger()
+	rt := &ErrorRoundTripper{Err: errors.New("RoundTripper error")}
+	config := DefaultConfig
+	config.AuthUrl = "http://identity.something.com/v3"
+	_, err := NewContainerFromConfig(logger, &config, false, rt)
+
+	// We expect an error from the RoundTripper
+	testutil.NotOk(t, err)
+	testutil.Assert(t, errors.Is(err, rt.Err), "Expected RoundTripper error, got: %v", err)
 }

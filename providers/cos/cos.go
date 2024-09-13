@@ -95,7 +95,7 @@ func parseConfig(conf []byte) (Config, error) {
 }
 
 // NewBucket returns a new Bucket using the provided cos configuration.
-func NewBucket(logger log.Logger, conf []byte, component string) (*Bucket, error) {
+func NewBucket(logger log.Logger, conf []byte, component string, rt http.RoundTripper) (*Bucket, error) {
 	if logger == nil {
 		logger = log.NewNopLogger()
 	}
@@ -104,12 +104,11 @@ func NewBucket(logger log.Logger, conf []byte, component string) (*Bucket, error
 	if err != nil {
 		return nil, errors.Wrap(err, "parsing cos configuration")
 	}
-
-	return NewBucketWithConfig(logger, config, component)
+	return NewBucketWithConfig(logger, config, component, rt)
 }
 
 // NewBucketWithConfig returns a new Bucket using the provided cos config values.
-func NewBucketWithConfig(logger log.Logger, config Config, component string) (*Bucket, error) {
+func NewBucketWithConfig(logger log.Logger, config Config, component string, rt http.RoundTripper) (*Bucket, error) {
 	if err := config.validate(); err != nil {
 		return nil, errors.Wrap(err, "validate cos configuration")
 	}
@@ -128,7 +127,21 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string) (*B
 		}
 	}
 	b := &cos.BaseURL{BucketURL: bucketURL}
-	tpt, _ := exthttp.DefaultTransport(config.HTTPConfig)
+	if rt != nil {
+		config.HTTPConfig.Transport = rt
+	}
+	// Check if a roundtripper has been set in the config
+	// otherwise build the default transport.
+	var tpt http.RoundTripper
+	if config.HTTPConfig.Transport != nil {
+		tpt = config.HTTPConfig.Transport
+	} else {
+		var err error
+		tpt, err = exthttp.DefaultTransport(config.HTTPConfig)
+		if err != nil {
+			return nil, err
+		}
+	}
 	client := cos.NewClient(b, &http.Client{
 		Transport: &cos.AuthorizationTransport{
 			SecretID:  config.SecretId,
@@ -485,7 +498,7 @@ func NewTestBucket(t testing.TB) (objstore.Bucket, func(), error) {
 			return nil, nil, err
 		}
 
-		b, err := NewBucket(log.NewNopLogger(), bc, "thanos-e2e-test")
+		b, err := NewBucket(log.NewNopLogger(), bc, "thanos-e2e-test", nil)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -506,7 +519,7 @@ func NewTestBucket(t testing.TB) (objstore.Bucket, func(), error) {
 		return nil, nil, err
 	}
 
-	b, err := NewBucket(log.NewNopLogger(), bc, "thanos-e2e-test")
+	b, err := NewBucket(log.NewNopLogger(), bc, "thanos-e2e-test", nil)
 	if err != nil {
 		return nil, nil, err
 	}

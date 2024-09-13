@@ -7,6 +7,7 @@ import (
 	"context"
 	"io"
 	"math"
+	"net/http"
 	"os"
 	"strings"
 	"testing"
@@ -74,13 +75,12 @@ type Bucket struct {
 	name   string
 }
 
-func NewBucket(logger log.Logger, conf []byte) (*Bucket, error) {
+func NewBucket(logger log.Logger, conf []byte, rt http.RoundTripper) (*Bucket, error) {
 	config, err := parseConfig(conf)
 	if err != nil {
 		return nil, errors.Wrap(err, "parsing cos configuration")
 	}
-
-	return NewBucketWithConfig(logger, config)
+	return NewBucketWithConfig(logger, config, rt)
 }
 
 func parseConfig(conf []byte) (Config, error) {
@@ -92,17 +92,25 @@ func parseConfig(conf []byte) (Config, error) {
 	return config, nil
 }
 
-func NewBucketWithConfig(logger log.Logger, config Config) (*Bucket, error) {
+func NewBucketWithConfig(logger log.Logger, config Config, rt http.RoundTripper) (*Bucket, error) {
 	if err := config.validate(); err != nil {
 		return nil, errors.Wrap(err, "validate obs config err")
 	}
-
-	rt, err := exthttp.DefaultTransport(config.HTTPConfig)
-	if err != nil {
-		return nil, errors.Wrap(err, "get http transport err")
+	if rt != nil {
+		config.HTTPConfig.Transport = rt
+	}
+	var tpt *http.Transport
+	if config.HTTPConfig.Transport != nil {
+		tpt = config.HTTPConfig.Transport.(*http.Transport)
+	} else {
+		var err error
+		tpt, err = exthttp.DefaultTransport(config.HTTPConfig)
+		if err != nil {
+			return nil, errors.Wrap(err, "get http transport err")
+		}
 	}
 
-	client, err := obs.New(config.AccessKey, config.SecretKey, config.Endpoint, obs.WithHttpTransport(rt))
+	client, err := obs.New(config.AccessKey, config.SecretKey, config.Endpoint, obs.WithHttpTransport(tpt))
 	if err != nil {
 		return nil, errors.Wrap(err, "initialize obs client err")
 	}
@@ -369,7 +377,7 @@ func NewTestBucketFromConfig(t testing.TB, c Config, reuseBucket bool, location 
 	if err != nil {
 		return nil, nil, err
 	}
-	b, err := NewBucket(log.NewNopLogger(), bc)
+	b, err := NewBucket(log.NewNopLogger(), bc, nil)
 	if err != nil {
 		return nil, nil, err
 	}
