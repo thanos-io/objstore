@@ -15,6 +15,7 @@ import (
 	"github.com/efficientgo/core/testutil"
 	"github.com/fullstorydev/emulators/storage/gcsemu"
 	"github.com/go-kit/log"
+	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
 	"google.golang.org/api/option"
 )
@@ -167,16 +168,23 @@ func (ert *ErrorRoundTripper) RoundTrip(*http.Request) (*http.Response, error) {
 	return nil, ert.Err
 }
 
-// func TestNewBucketWithErrorRoundTripper(t *testing.T) {
-// 	cfg := Config{
-// 		Bucket:         "test-bucket",
-// 		ServiceAccount: "",
-// 	}
-// 	// Create an error RoundTripper
-// 	rt := &ErrorRoundTripper{Err: errors.New("RoundTripper error")}
+func TestNewBucketWithErrorRoundTripper(t *testing.T) {
+	// Create an error RoundTripper
+	rt := &ErrorRoundTripper{Err: errors.New("RoundTripper error")}
+	cfg := Config{
+		Bucket:         "test-bucket",
+		ServiceAccount: "",
+		UseGRPC:        false,
+	}
+	svr, err := gcsemu.NewServer("127.0.0.1:0", gcsemu.Options{})
+	testutil.Ok(t, err)
+	err = os.Setenv("STORAGE_EMULATOR_HOST", svr.Addr)
+	testutil.Ok(t, err)
+	err = os.Setenv("GCS_EMULATOR_HOST", svr.Addr)
+	testutil.Ok(t, err)
+	defer svr.Close()
 
-// 	// Create the bucket with the custom RoundTripper
-// 	_, err := NewBucketWithConfig(context.Background(), log.NewNopLogger(), cfg, "test-bucket", rt)
-// 	testutil.NotOk(t, err) // Expect an error when using the error RoundTripper
-// 	testutil.Assert(t, err.Error() == "RoundTripper error" || errors.Is(err, rt.Err), "Expected RoundTripper error, got: %v", err)
-// }
+	_, err = NewBucketWithConfig(context.Background(), log.NewNopLogger(), cfg, "test-bucket", rt)
+	testutil.NotOk(t, err) // Expect an error when using the error RoundTripper
+	testutil.Assert(t, errors.Is(err, rt.Err), "Expected RoundTripper error, got: %v", err)
+}

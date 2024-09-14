@@ -155,7 +155,7 @@ func TestNewBucketWithErrorRoundTripper(t *testing.T) {
 	config := Config{
 		Bucket:    "bucket",
 		AppId:     "123",
-		Region:    "ap-beijing",
+		Region:    "test",
 		SecretId:  "sid",
 		SecretKey: "skey",
 	}
