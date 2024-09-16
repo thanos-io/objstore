@@ -95,7 +95,7 @@ func parseConfig(conf []byte) (Config, error) {
 }
 
 // NewBucket returns a new Bucket using the provided cos configuration.
-func NewBucket(logger log.Logger, conf []byte, component string) (*Bucket, error) {
+func NewBucket(logger log.Logger, conf []byte, component string, rt http.RoundTripper) (*Bucket, error) {
 	if logger == nil {
 		logger = log.NewNopLogger()
 	}
@@ -105,11 +105,11 @@ func NewBucket(logger log.Logger, conf []byte, component string) (*Bucket, error
 		return nil, errors.Wrap(err, "parsing cos configuration")
 	}
 
-	return NewBucketWithConfig(logger, config, component)
+	return NewBucketWithConfig(logger, config, component, rt)
 }
 
 // NewBucketWithConfig returns a new Bucket using the provided cos config values.
-func NewBucketWithConfig(logger log.Logger, config Config, component string) (*Bucket, error) {
+func NewBucketWithConfig(logger log.Logger, config Config, component string, rt http.RoundTripper) (*Bucket, error) {
 	if err := config.validate(); err != nil {
 		return nil, errors.Wrap(err, "validate cos configuration")
 	}
@@ -128,7 +128,12 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string) (*B
 		}
 	}
 	b := &cos.BaseURL{BucketURL: bucketURL}
-	tpt, _ := exthttp.DefaultTransport(config.HTTPConfig)
+	var tpt http.RoundTripper
+	if rt != nil {
+		tpt = rt
+	} else {
+		tpt, _ = exthttp.DefaultTransport(config.HTTPConfig)
+	}
 	client := cos.NewClient(b, &http.Client{
 		Transport: &cos.AuthorizationTransport{
 			SecretID:  config.SecretId,
@@ -485,7 +490,7 @@ func NewTestBucket(t testing.TB) (objstore.Bucket, func(), error) {
 			return nil, nil, err
 		}
 
-		b, err := NewBucket(log.NewNopLogger(), bc, "thanos-e2e-test")
+		b, err := NewBucket(log.NewNopLogger(), bc, "thanos-e2e-test", http.DefaultTransport)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -506,7 +511,7 @@ func NewTestBucket(t testing.TB) (objstore.Bucket, func(), error) {
 		return nil, nil, err
 	}
 
-	b, err := NewBucket(log.NewNopLogger(), bc, "thanos-e2e-test")
+	b, err := NewBucket(log.NewNopLogger(), bc, "thanos-e2e-test", http.DefaultTransport)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -175,13 +175,13 @@ func parseConfig(conf []byte) (Config, error) {
 }
 
 // NewBucket returns a new Bucket using the provided s3 config values.
-func NewBucket(logger log.Logger, conf []byte, component string) (*Bucket, error) {
+func NewBucket(logger log.Logger, conf []byte, component string, rt http.RoundTripper) (*Bucket, error) {
 	config, err := parseConfig(conf)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewBucketWithConfig(logger, config, component)
+	return NewBucketWithConfig(logger, config, component, rt)
 }
 
 type overrideSignerType struct {
@@ -201,7 +201,7 @@ func (s *overrideSignerType) Retrieve() (credentials.Value, error) {
 }
 
 // NewBucketWithConfig returns a new Bucket using the provided s3 config values.
-func NewBucketWithConfig(logger log.Logger, config Config, component string) (*Bucket, error) {
+func NewBucketWithConfig(logger log.Logger, config Config, component string, rt http.RoundTripper) (*Bucket, error) {
 	var chain []credentials.Provider
 
 	// TODO(bwplotka): Don't do flags as they won't scale, use actual params like v2, v4 instead
@@ -244,12 +244,12 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string) (*B
 
 	// Check if a roundtripper has been set in the config
 	// otherwise build the default transport.
-	var rt http.RoundTripper
-	if config.HTTPConfig.Transport != nil {
-		rt = config.HTTPConfig.Transport
+	var tpt http.RoundTripper
+	if rt != nil {
+		tpt = rt
 	} else {
 		var err error
-		rt, err = exthttp.DefaultTransport(config.HTTPConfig)
+		tpt, err = exthttp.DefaultTransport(config.HTTPConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -259,7 +259,7 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string) (*B
 		Creds:        credentials.NewChainCredentials(chain),
 		Secure:       !config.Insecure,
 		Region:       config.Region,
-		Transport:    rt,
+		Transport:    tpt,
 		BucketLookup: config.BucketLookupType.MinioType(),
 	})
 	if err != nil {
@@ -601,7 +601,7 @@ func NewTestBucketFromConfig(t testing.TB, location string, c Config, reuseBucke
 	if err != nil {
 		return nil, nil, err
 	}
-	b, err := NewBucket(log.NewNopLogger(), bc, "thanos-e2e-test")
+	b, err := NewBucket(log.NewNopLogger(), bc, "thanos-e2e-test", http.DefaultTransport)
 	if err != nil {
 		return nil, nil, err
 	}
