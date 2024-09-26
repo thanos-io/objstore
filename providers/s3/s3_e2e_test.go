@@ -13,6 +13,7 @@ import (
 
 	"github.com/efficientgo/core/testutil"
 	"github.com/efficientgo/e2e"
+	e2edb "github.com/efficientgo/e2e/db"
 	"github.com/go-kit/log"
 	"github.com/minio/minio-go/v7/pkg/encrypt"
 
@@ -71,8 +72,8 @@ func TestSSECencryption(t *testing.T) {
 
 	cfg := s3.Config{
 		Bucket:    bucket,
-		AccessKey: "Cheescake",
-		SecretKey: "supersecret",
+		AccessKey: e2edb.MinioAccessKey,
+		SecretKey: e2edb.MinioSecretKey,
 		Endpoint:  m.Endpoint("https"),
 		Insecure:  false,
 		HTTPConfig: exthttp.HTTPConfig{
