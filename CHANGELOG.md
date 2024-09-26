@@ -15,6 +15,7 @@ We use *breaking :warning:* to mark changes that are not backward compatible (re
 
 ### Fixed
 - [#153](https://github.com/thanos-io/objstore/pull/153) Metrics: Fix `objstore_bucket_operation_duration_seconds_*` for `get` and `get_range` operations.
+- [#141](https://github.com/thanos-io/objstore/pull/142) S3: Fix missing encryption configuration for `Bucket.Exists()` and `Bucket.Attributes()` calls.
 - [#117](https://github.com/thanos-io/objstore/pull/117) Metrics: Fix `objstore_bucket_operation_failures_total` incorrectly incremented if context is cancelled while reading object contents.
 - [#115](https://github.com/thanos-io/objstore/pull/115) GCS: Fix creation of bucket with GRPC connections. Also update storage client to `v1.40.0`.
 - [#102](https://github.com/thanos-io/objstore/pull/102) Azure: bump azblob sdk to get concurrency fixes.
