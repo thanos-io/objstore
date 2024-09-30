@@ -98,7 +98,6 @@ func TestSSECencryption(t *testing.T) {
 	testutil.Ok(t, err)
 
 	upload := "secret content"
-	bkt.Upload(ctx, "encrypted", strings.NewReader(upload))
 	testutil.Ok(t, bkt.Upload(ctx, "encrypted", strings.NewReader(upload)))
 
 	exists, err := bkt.Exists(ctx, "encrypted")
