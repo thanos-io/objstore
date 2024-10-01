@@ -122,14 +122,12 @@ func appendHttpOptions(gc Config, opts []option.ClientOption) ([]option.ClientOp
 	// Check if a roundtripper has been set in the config
 	// otherwise build the default transport.
 	var rt http.RoundTripper
+	rt, err := exthttp.DefaultTransport(gc.HTTPConfig)
+	if err != nil {
+		return nil, err
+	}
 	if gc.HTTPConfig.Transport != nil {
 		rt = gc.HTTPConfig.Transport
-	} else {
-		var err error
-		rt, err = exthttp.DefaultTransport(gc.HTTPConfig)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	// GCS uses some defaults when "options.WithHTTPClient" is not used that are important when we call

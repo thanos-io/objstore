@@ -23,14 +23,12 @@ func getContainerClient(conf Config) (*container.Client, error) {
 	// Check if a roundtripper has been set in the config
 	// otherwise build the default transport.
 	var rt http.RoundTripper
+	rt, err := exthttp.DefaultTransport(conf.HTTPConfig)
+	if err != nil {
+		return nil, err
+	}
 	if conf.HTTPConfig.Transport != nil {
 		rt = conf.HTTPConfig.Transport
-	} else {
-		var err error
-		rt, err = exthttp.DefaultTransport(conf.HTTPConfig)
-		if err != nil {
-			return nil, err
-		}
 	}
 	opt := &container.ClientOptions{
 		ClientOptions: azcore.ClientOptions{
@@ -73,7 +71,6 @@ func getContainerClient(conf Config) (*container.Client, error) {
 
 	// Otherwise use a token credential
 	var cred azcore.TokenCredential
-	var err error
 
 	// Use Managed Identity Credential if a user assigned ID is set
 	if conf.UserAssignedID != "" {

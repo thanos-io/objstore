@@ -336,10 +336,9 @@ func NewBucket(logger log.Logger, ociConfig []byte, rt http.RoundTripper) (*Buck
 		return nil, errors.Wrapf(err, "unable to create ObjectStorage client with the given oci configurations")
 	}
 
+	config.HTTPConfig.Transport = CustomTransport(config)
 	if rt != nil {
 		config.HTTPConfig.Transport = rt
-	} else {
-		config.HTTPConfig.Transport = CustomTransport(config)
 	}
 	httpClient := http.Client{
 		Transport: config.HTTPConfig.Transport,

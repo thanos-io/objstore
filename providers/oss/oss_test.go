@@ -2,22 +2,13 @@ package oss
 
 import (
 	"context"
-	"net/http"
 	"testing"
 
 	"github.com/efficientgo/core/testutil"
 	"github.com/go-kit/log"
 	"github.com/pkg/errors"
+	"github.com/thanos-io/objstore/errutil"
 )
-
-// ErrorRoundTripper is a custom RoundTripper that always returns an error
-type ErrorRoundTripper struct {
-	Err error
-}
-
-func (ert *ErrorRoundTripper) RoundTrip(*http.Request) (*http.Response, error) {
-	return nil, ert.Err
-}
 
 func TestNewBucketWithErrorRoundTripper(t *testing.T) {
 
@@ -28,7 +19,7 @@ func TestNewBucketWithErrorRoundTripper(t *testing.T) {
 	config.Bucket = "test"
 	config.AccessKeySecret = "123"
 
-	rt := &ErrorRoundTripper{Err: errors.New("RoundTripper error")}
+	rt := &errutil.ErrorRoundTripper{Err: errors.New("RoundTripper error")}
 
 	bkt, err := NewBucketWithConfig(log.NewNopLogger(), config, "test", rt)
 	// We expect an error from the RoundTripper

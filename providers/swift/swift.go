@@ -185,14 +185,12 @@ func NewContainerFromConfig(logger log.Logger, sc *Config, createContainer bool,
 	// Check if a roundtripper has been set in the config
 	// otherwise build the default transport.
 	var tpt http.RoundTripper
+	tpt, err := exthttp.DefaultTransport(sc.HTTPConfig)
+	if err != nil {
+		return nil, err
+	}
 	if sc.HTTPConfig.Transport != nil {
 		tpt = sc.HTTPConfig.Transport
-	} else {
-		var err error
-		tpt, err = exthttp.DefaultTransport(sc.HTTPConfig)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	connection := connectionFromConfig(sc, tpt)

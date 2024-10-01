@@ -4,7 +4,6 @@
 package swift
 
 import (
-	"net/http"
 	"testing"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/go-kit/log"
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
+	"github.com/thanos-io/objstore/errutil"
 )
 
 func TestParseConfig(t *testing.T) {
@@ -68,18 +68,9 @@ http_config:
 
 }
 
-// ErrorRoundTripper is a custom RoundTripper that always returns an error
-type ErrorRoundTripper struct {
-	Err error
-}
-
-func (ert *ErrorRoundTripper) RoundTrip(*http.Request) (*http.Response, error) {
-	return nil, ert.Err
-}
-
 func TestNewBucketWithErrorRoundTripper(t *testing.T) {
 	logger := log.NewNopLogger()
-	rt := &ErrorRoundTripper{Err: errors.New("RoundTripper error")}
+	rt := &errutil.ErrorRoundTripper{Err: errors.New("RoundTripper error")}
 	config := DefaultConfig
 	config.AuthUrl = "http://identity.something.com/v3"
 	_, err := NewContainerFromConfig(logger, &config, false, rt)

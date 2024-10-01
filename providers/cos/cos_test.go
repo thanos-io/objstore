@@ -5,7 +5,6 @@ package cos
 
 import (
 	"context"
-	"net/http"
 	"testing"
 	"time"
 
@@ -14,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
 
+	"github.com/thanos-io/objstore/errutil"
 	"github.com/thanos-io/objstore/exthttp"
 )
 
@@ -142,15 +142,6 @@ func TestConfig_validate(t *testing.T) {
 	}
 }
 
-// ErrorRoundTripper is a custom RoundTripper that always returns an error
-type ErrorRoundTripper struct {
-	Err error
-}
-
-func (ert *ErrorRoundTripper) RoundTrip(*http.Request) (*http.Response, error) {
-	return nil, ert.Err
-}
-
 func TestNewBucketWithErrorRoundTripper(t *testing.T) {
 	config := Config{
 		Bucket:    "bucket",
@@ -159,7 +150,7 @@ func TestNewBucketWithErrorRoundTripper(t *testing.T) {
 		SecretId:  "sid",
 		SecretKey: "skey",
 	}
-	rt := &ErrorRoundTripper{Err: errors.New("RoundTripper error")}
+	rt := &errutil.ErrorRoundTripper{Err: errors.New("RoundTripper error")}
 
 	bkt, err := NewBucketWithConfig(log.NewNopLogger(), config, "test", rt)
 	testutil.Ok(t, err)

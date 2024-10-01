@@ -127,20 +127,13 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string, rt 
 		}
 	}
 	b := &cos.BaseURL{BucketURL: bucketURL}
-	if rt != nil {
-		config.HTTPConfig.Transport = rt
-	}
-	// Check if a roundtripper has been set in the config
-	// otherwise build the default transport.
 	var tpt http.RoundTripper
-	if config.HTTPConfig.Transport != nil {
-		tpt = config.HTTPConfig.Transport
-	} else {
-		var err error
-		tpt, err = exthttp.DefaultTransport(config.HTTPConfig)
-		if err != nil {
-			return nil, err
-		}
+	tpt, err = exthttp.DefaultTransport(config.HTTPConfig)
+	if err != nil {
+		return nil, err
+	}
+	if rt != nil {
+		tpt = rt
 	}
 	client := cos.NewClient(b, &http.Client{
 		Transport: &cos.AuthorizationTransport{

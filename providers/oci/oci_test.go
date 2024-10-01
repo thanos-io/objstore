@@ -1,23 +1,14 @@
 package oci
 
 import (
-	"net/http"
 	"testing"
 
 	"github.com/efficientgo/core/testutil"
 	"github.com/go-kit/log"
 	"github.com/pkg/errors"
+	"github.com/thanos-io/objstore/errutil"
 	"gopkg.in/yaml.v2"
 )
-
-// ErrorRoundTripper is a custom RoundTripper that always returns an error
-type ErrorRoundTripper struct {
-	Err error
-}
-
-func (ert *ErrorRoundTripper) RoundTrip(*http.Request) (*http.Response, error) {
-	return nil, ert.Err
-}
 
 func TestNewBucketWithErrorRoundTripper(t *testing.T) {
 
@@ -48,7 +39,7 @@ G6aFKaqQfOXKCyWoUiVknQJAXrlgySFci/2ueKlIE1QqIiLSZ8V8OlpFLRnb1pzI
 	ociConfig, err := yaml.Marshal(config)
 	testutil.Ok(t, err)
 
-	rt := &ErrorRoundTripper{Err: errors.New("RoundTripper error")}
+	rt := &errutil.ErrorRoundTripper{Err: errors.New("RoundTripper error")}
 
 	_, err = NewBucket(log.NewNopLogger(), ociConfig, rt)
 	// We expect an error from the RoundTripper

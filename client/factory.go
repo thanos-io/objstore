@@ -83,7 +83,7 @@ func NewBucket(logger log.Logger, confContentYaml []byte, component string, rt h
 	case string(OCI):
 		bucket, err = oci.NewBucket(logger, config, rt)
 	case string(OBS):
-		bucket, err = obs.NewBucket(logger, config, rt)
+		bucket, err = obs.NewBucket(logger, config)
 	default:
 		return nil, errors.Errorf("bucket with type %s is not supported", bucketConf.Type)
 	}

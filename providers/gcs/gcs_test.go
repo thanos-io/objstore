@@ -17,6 +17,7 @@ import (
 	"github.com/go-kit/log"
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
+	"github.com/thanos-io/objstore/errutil"
 	"google.golang.org/api/option"
 )
 
@@ -159,18 +160,10 @@ http_config:
 	}
 }
 
-// ErrorRoundTripper is a custom RoundTripper that always returns an error
-type ErrorRoundTripper struct {
-	Err error
-}
-
-func (ert *ErrorRoundTripper) RoundTrip(*http.Request) (*http.Response, error) {
-	return nil, ert.Err
-}
-
 func TestNewBucketWithErrorRoundTripper(t *testing.T) {
 	// Create an error RoundTripper
-	rt := &ErrorRoundTripper{Err: errors.New("RoundTripper error")}
+	rt := &errutil.ErrorRoundTripper{Err: errors.New("RoundTripper error")}
+
 	cfg := Config{
 		Bucket:         "test-bucket",
 		ServiceAccount: "",

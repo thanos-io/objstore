@@ -17,7 +17,8 @@ import (
 	"github.com/go-kit/log"
 	"github.com/minio/minio-go/v7/pkg/encrypt"
 	"github.com/pkg/errors"
-	
+
+	"github.com/thanos-io/objstore/errutil"
 	"github.com/thanos-io/objstore/exthttp"
 )
 
@@ -464,20 +465,11 @@ func TestParseConfig_DefaultStorageClassIsZero(t *testing.T) {
 	testutil.Equals(t, "", bkt.storageClass)
 }
 
-// ErrorRoundTripper is a custom RoundTripper that always returns an error
-type ErrorRoundTripper struct {
-	Err error
-}
-
-func (ert *ErrorRoundTripper) RoundTrip(*http.Request) (*http.Response, error) {
-	return nil, ert.Err
-}
-
 func TestNewBucketWithErrorRoundTripper(t *testing.T) {
 	cfg := DefaultConfig
 	cfg.Endpoint = endpoint
 	cfg.Bucket = "test"
-	rt := &ErrorRoundTripper{Err: errors.New("RoundTripper error")}
+	rt := &errutil.ErrorRoundTripper{Err: errors.New("RoundTripper error")}
 	bkt, err := NewBucketWithConfig(log.NewNopLogger(), cfg, "test", rt)
 	testutil.Ok(t, err)
 	_, err = bkt.Get(context.Background(), "test")

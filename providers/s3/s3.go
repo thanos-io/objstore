@@ -247,14 +247,12 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string, rt 
 	// Check if a roundtripper has been set in the config
 	// otherwise build the default transport.
 	var tpt http.RoundTripper
+	tpt, err := exthttp.DefaultTransport(config.HTTPConfig)
+	if err != nil {
+		return nil, err
+	}
 	if config.HTTPConfig.Transport != nil {
 		tpt = config.HTTPConfig.Transport
-	} else {
-		var err error
-		tpt, err = exthttp.DefaultTransport(config.HTTPConfig)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	client, err := minio.New(config.Endpoint, &minio.Options{

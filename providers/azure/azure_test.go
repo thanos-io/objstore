@@ -4,7 +4,6 @@
 package azure
 
 import (
-	"net/http"
 	"testing"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/go-kit/log"
 	"github.com/pkg/errors"
 
+	"github.com/thanos-io/objstore/errutil"
 	"github.com/thanos-io/objstore/exthttp"
 )
 
@@ -226,20 +226,11 @@ http_config:
 	testutil.Equals(t, true, transport.TLSClientConfig.InsecureSkipVerify)
 }
 
-// ErrorRoundTripper is a custom RoundTripper that always returns an error
-type ErrorRoundTripper struct {
-	Err error
-}
-
-func (ert *ErrorRoundTripper) RoundTrip(*http.Request) (*http.Response, error) {
-	return nil, ert.Err
-}
-
 func TestNewBucketWithErrorRoundTripper(t *testing.T) {
 	cfg, err := parseConfig(validConfig)
 	testutil.Ok(t, err)
 
-	rt := &ErrorRoundTripper{Err: errors.New("RoundTripper error")}
+	rt := &errutil.ErrorRoundTripper{Err: errors.New("RoundTripper error")}
 
 	_, err = NewBucketWithConfig(log.NewNopLogger(), cfg, "test", rt)
 

@@ -171,16 +171,13 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string, rt 
 	if err := validate(config); err != nil {
 		return nil, err
 	}
-	var client *alioss.Client
-	var err error
+	client, err := alioss.New(config.Endpoint, config.AccessKeyID, config.AccessKeySecret)
 	if rt != nil {
 		// custom RoundTripper
 		clientOption := func(client *alioss.Client) {
 			client.HTTPClient = &http.Client{Transport: rt}
 		}
 		client, err = alioss.New(config.Endpoint, config.AccessKeyID, config.AccessKeySecret, clientOption)
-	} else {
-		client, err = alioss.New(config.Endpoint, config.AccessKeyID, config.AccessKeySecret)
 	}
 	if err != nil {
 		return nil, errors.Wrap(err, "create aliyun oss client failed")
