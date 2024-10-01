@@ -154,7 +154,7 @@ type TraceConfig struct {
 type Bucket struct {
 	logger           log.Logger
 	name             string
-	Client           *minio.Client
+	client           *minio.Client
 	defaultSSE       encrypt.ServerSide
 	putUserMetadata  map[string]string
 	storageClass     string
@@ -329,7 +329,7 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string) (*B
 	bkt := &Bucket{
 		logger:           logger,
 		name:             config.Bucket,
-		Client:           client,
+		client:           client,
 		defaultSSE:       sse,
 		putUserMetadata:  config.PutUserMetadata,
 		storageClass:     storageClass,
@@ -400,7 +400,7 @@ func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, opt
 		UseV1:     b.listObjectsV1,
 	}
 
-	for object := range b.Client.ListObjects(ctx, b.name, opts) {
+	for object := range b.client.ListObjects(ctx, b.name, opts) {
 		// Catch the error when failed to list objects.
 		if object.Err != nil {
 			return object.Err
@@ -439,10 +439,10 @@ func (b *Bucket) getRange(ctx context.Context, name string, off, length int64) (
 	}
 
 	// StatObject to see if the object exists and we have permissions to read it
-	if _, err := b.Client.StatObject(ctx, b.name, name, *opts); err != nil {
+	if _, err := b.client.StatObject(ctx, b.name, name, *opts); err != nil {
 		return nil, err
 	}
-	return b.Client.GetObject(ctx, b.name, name, *opts)
+	return b.client.GetObject(ctx, b.name, name, *opts)
 }
 
 // Get returns a reader for the given object name.
@@ -457,7 +457,7 @@ func (b *Bucket) GetRange(ctx context.Context, name string, off, length int64) (
 
 // Exists checks if the given object exists.
 func (b *Bucket) Exists(ctx context.Context, name string) (bool, error) {
-	_, err := b.Client.StatObject(ctx, b.name, name, minio.StatObjectOptions{})
+	_, err := b.client.StatObject(ctx, b.name, name, minio.StatObjectOptions{})
 	if err != nil {
 		if b.IsObjNotFoundErr(err) {
 			return false, nil
@@ -493,7 +493,7 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) error {
 		userMetadata[k] = v
 	}
 
-	if _, err := b.Client.PutObject(
+	if _, err := b.client.PutObject(
 		ctx,
 		b.name,
 		name,
@@ -520,7 +520,7 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) error {
 
 // Attributes returns information about the specified object.
 func (b *Bucket) Attributes(ctx context.Context, name string) (objstore.ObjectAttributes, error) {
-	objInfo, err := b.Client.StatObject(ctx, b.name, name, minio.StatObjectOptions{})
+	objInfo, err := b.client.StatObject(ctx, b.name, name, minio.StatObjectOptions{})
 	if err != nil {
 		return objstore.ObjectAttributes{}, err
 	}
@@ -533,7 +533,7 @@ func (b *Bucket) Attributes(ctx context.Context, name string) (objstore.ObjectAt
 
 // Delete removes the object with the given name.
 func (b *Bucket) Delete(ctx context.Context, name string) error {
-	return b.Client.RemoveObject(ctx, b.name, name, minio.RemoveObjectOptions{})
+	return b.client.RemoveObject(ctx, b.name, name, minio.RemoveObjectOptions{})
 }
 
 // IsObjNotFoundErr returns true if error means that object is not found. Relevant to Get operations.
@@ -622,7 +622,7 @@ func NewTestBucketFromConfig(t testing.TB, location string, c Config, reuseBucke
 		bktToCreate = objstore.CreateTemporaryTestBucketName(t)
 	}
 
-	if err := b.Client.MakeBucket(ctx, bktToCreate, minio.MakeBucketOptions{Region: location}); err != nil {
+	if err := b.client.MakeBucket(ctx, bktToCreate, minio.MakeBucketOptions{Region: location}); err != nil {
 		return nil, nil, err
 	}
 	b.name = bktToCreate
@@ -630,7 +630,7 @@ func NewTestBucketFromConfig(t testing.TB, location string, c Config, reuseBucke
 
 	return b, func() {
 		objstore.EmptyBucket(t, ctx, b)
-		if err := b.Client.RemoveBucket(ctx, bktToCreate); err != nil {
+		if err := b.client.RemoveBucket(ctx, bktToCreate); err != nil {
 			t.Logf("deleting bucket %s failed: %s", bktToCreate, err)
 		}
 	}, nil
