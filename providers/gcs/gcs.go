@@ -52,7 +52,8 @@ type Config struct {
 	// ChunkSizeBytes controls the maximum number of bytes of the object that the
 	// Writer will attempt to send to the server in a single request
 	// Used as storage.Writer.ChunkSize of https://pkg.go.dev/google.golang.org/cloud/storage#Writer
-	ChunkSizeBytes int `yaml:"chunk_size_bytes"`
+	ChunkSizeBytes int  `yaml:"chunk_size_bytes"`
+	noAuth         bool `yaml:"no_auth"`
 }
 
 // Bucket implements the store.Bucket and shipper.Bucket interfaces against GCS.
@@ -102,7 +103,9 @@ func NewBucketWithConfig(ctx context.Context, logger log.Logger, gc Config, comp
 		}
 		opts = append(opts, option.WithCredentials(credentials))
 	}
-
+	if gc.noAuth {
+		opts = append(opts, option.WithoutAuthentication())
+	}
 	opts = append(opts,
 		option.WithUserAgent(fmt.Sprintf("thanos-%s/%s (%s)", component, version.Version, runtime.Version())),
 	)

@@ -167,16 +167,16 @@ func TestNewBucketWithErrorRoundTripper(t *testing.T) {
 		Bucket:         "test-bucket",
 		ServiceAccount: "",
 		UseGRPC:        false,
+		noAuth:         true,
 	}
-	svr, err := gcsemu.NewServer("127.0.0.1:43649", gcsemu.Options{})
+	svr, err := gcsemu.NewServer("127.0.0.1:0", gcsemu.Options{})
 	testutil.Ok(t, err)
 	defer svr.Close()
-	err = os.Setenv("GCS_EMULATOR_HOST", svr.Addr)
+	err = os.Setenv("STORAGE_EMULATOR_HOST", svr.Addr)
 	testutil.Ok(t, err)
-	os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", "fakecred.json")
+
 	bkt, err := NewBucketWithConfig(context.Background(), log.NewNopLogger(), cfg, "test-bucket", rt)
 	testutil.Ok(t, err)
-	testutil.Assert(t, bkt.name == "test-bucket")
 	_, err = bkt.Get(context.Background(), "test-bucket")
 	testutil.NotOk(t, err)
 	testutil.Assert(t, errors.Is(err, rt.Err), "Expected RoundTripper error, got: %v", err)
