@@ -173,7 +173,6 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string, rt 
 	}
 	client, err := alioss.New(config.Endpoint, config.AccessKeyID, config.AccessKeySecret)
 	if rt != nil {
-		// custom RoundTripper
 		clientOption := func(client *alioss.Client) {
 			client.HTTPClient = &http.Client{Transport: rt}
 		}

@@ -161,7 +161,6 @@ http_config:
 }
 
 func TestNewBucketWithErrorRoundTripper(t *testing.T) {
-	// Create an error RoundTripper.
 	rt := &errutil.ErrorRoundTripper{Err: errors.New("RoundTripper error")}
 	cfg := Config{
 		Bucket:         "test-bucket",

@@ -20,8 +20,6 @@ import (
 const DirDelim = "/"
 
 func getContainerClient(conf Config) (*container.Client, error) {
-	// Check if a roundtripper has been set in the config
-	// otherwise build the default transport.
 	var rt http.RoundTripper
 	rt, err := exthttp.DefaultTransport(conf.HTTPConfig)
 	if err != nil {

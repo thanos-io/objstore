@@ -11,8 +11,7 @@ import (
 )
 
 func TestNewBucketWithErrorRoundTripper(t *testing.T) {
-
-	mockPrivateKey := `-----BEGIN RSA PRIVATE KEY-----
+	const mockPrivateKey = `-----BEGIN RSA PRIVATE KEY-----
 MIICXgIBAAKBgQDCFENGw33yGihy92pDjZQhl0C36rPJj+CvfSC8+q28hxA161QF
 NUd13wuCTUcq0Qd2qsBe/2hFyc2DCJJg0h1L78+6Z4UMR7EOcpfdUE9Hf3m/hs+F
 UR45uBJeDK1HSFHD8bHKD6kv8FPGfJTotc+2xjJwoYi+1hqp1fIekaxsyQIDAQAB

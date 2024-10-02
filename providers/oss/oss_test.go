@@ -11,14 +11,12 @@ import (
 )
 
 func TestNewBucketWithErrorRoundTripper(t *testing.T) {
-
-	var config Config
-	config.Endpoint = "http://test.com/"
-	config.AccessKeyID = "123"
-	config.AccessKeySecret = "123"
-	config.Bucket = "test"
-	config.AccessKeySecret = "123"
-
+	config := Config{
+		Endpoint:        "http://test.com/",
+		AccessKeyID:     "123",
+		AccessKeySecret: "123",
+		Bucket:          "test",
+	}
 	rt := &errutil.ErrorRoundTripper{Err: errors.New("RoundTripper error")}
 
 	bkt, err := NewBucketWithConfig(log.NewNopLogger(), config, "test", rt)

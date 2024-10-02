@@ -66,7 +66,7 @@ func parseConfig(conf []byte) (Config, error) {
 
 // NewBucket new bos bucket.
 func NewBucket(logger log.Logger, conf []byte, component string) (*Bucket, error) {
-	//TODO: Add support for custom roundtripper.
+	// TODO(https://github.com/thanos-io/objstore/pull/140): Add support for custom roundtripper.
 	if logger == nil {
 		logger = log.NewNopLogger()
 	}
