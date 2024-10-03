@@ -75,11 +75,11 @@ type Bucket struct {
 }
 
 func NewBucket(logger log.Logger, conf []byte) (*Bucket, error) {
+	// TODO(https://github.com/thanos-io/objstore/pull/140): Add support for custom roundtripper.
 	config, err := parseConfig(conf)
 	if err != nil {
 		return nil, errors.Wrap(err, "parsing cos configuration")
 	}
-
 	return NewBucketWithConfig(logger, config)
 }
 

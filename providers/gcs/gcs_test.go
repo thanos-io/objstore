@@ -15,7 +15,9 @@ import (
 	"github.com/efficientgo/core/testutil"
 	"github.com/fullstorydev/emulators/storage/gcsemu"
 	"github.com/go-kit/log"
+	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
+	"github.com/thanos-io/objstore/errutil"
 	"google.golang.org/api/option"
 )
 
@@ -66,7 +68,7 @@ func TestNewBucketWithConfig_ShouldCreateGRPC(t *testing.T) {
 	err = os.Setenv("STORAGE_EMULATOR_HOST_GRPC", svr.Addr)
 	testutil.Ok(t, err)
 
-	bkt, err := NewBucketWithConfig(context.Background(), log.NewNopLogger(), cfg, "test-bucket")
+	bkt, err := NewBucketWithConfig(context.Background(), log.NewNopLogger(), cfg, "test-bucket", nil)
 	testutil.Ok(t, err)
 
 	// Check if the bucket is created.
@@ -156,4 +158,25 @@ http_config:
 			tc.assertions(cfg)
 		})
 	}
+}
+
+func TestNewBucketWithErrorRoundTripper(t *testing.T) {
+	rt := &errutil.ErrorRoundTripper{Err: errors.New("RoundTripper error")}
+	cfg := Config{
+		Bucket:         "test-bucket",
+		ServiceAccount: "",
+		UseGRPC:        false,
+		noAuth:         true,
+	}
+	svr, err := gcsemu.NewServer("127.0.0.1:0", gcsemu.Options{})
+	testutil.Ok(t, err)
+	defer svr.Close()
+	err = os.Setenv("STORAGE_EMULATOR_HOST", svr.Addr)
+	testutil.Ok(t, err)
+
+	bkt, err := NewBucketWithConfig(context.Background(), log.NewNopLogger(), cfg, "test-bucket", rt)
+	testutil.Ok(t, err)
+	_, err = bkt.Get(context.Background(), "test-bucket")
+	testutil.NotOk(t, err)
+	testutil.Assert(t, errors.Is(err, rt.Err), "Expected RoundTripper error, got: %v", err)
 }
