@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -534,6 +535,15 @@ func (b *Bucket) Attributes(ctx context.Context, name string) (objstore.ObjectAt
 // Delete removes the object with the given name.
 func (b *Bucket) Delete(ctx context.Context, name string) error {
 	return b.client.RemoveObject(ctx, b.name, name, minio.RemoveObjectOptions{})
+}
+
+// Get Presigned URL for uploading tsdb blocks.
+func (b *Bucket) GetPresignedUploadURL(ctx context.Context, name string, expiry time.Duration) (string, error) {
+	presignedUrl, err := b.client.PresignedPutObject(ctx, b.name, name, expiry)
+	if err != nil {
+		return "", err
+	}
+	return presignedUrl.String(), nil
 }
 
 // IsObjNotFoundErr returns true if error means that object is not found. Relevant to Get operations.
