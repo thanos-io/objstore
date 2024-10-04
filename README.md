@@ -653,6 +653,7 @@ config:
     max_conns_per_host: 0         // Optional maximum total number of connections per host.
     disable_compression: false    // Optional. If true, prevents the Transport from requesting compression.
     client_timeout: 90s           // Optional time limit for requests made by the HTTP Client.
+prefix: ""
 ```
 
 #### Instance Principal Provider
@@ -665,6 +666,7 @@ config:
   provider: "instance-principal"
   bucket: ""
   compartment_ocid: ""
+prefix: ""
 ```
 
 You can also include any of the optional configuration just like the example in `Default Provider`.
@@ -685,6 +687,7 @@ config:
   fingerprint: ""
   privatekey: ""
   passphrase: ""         // Optional passphrase to encrypt the private API Signing key
+prefix: ""
 ```
 
 You can also include any of the optional configuration just like the example in `Default Provider`.
@@ -699,6 +702,7 @@ config:
   provider: "oke-workload-identity"
   bucket: ""
   region: ""
+prefix: ""
 ```
 
 The `bucket` and `region` fields are required. The `region` field identifies the bucket region.
