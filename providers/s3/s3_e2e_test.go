@@ -94,6 +94,7 @@ func TestSSECencryption(t *testing.T) {
 		log.NewNopLogger(),
 		cfg,
 		"test-ssec",
+		nil,
 	)
 	testutil.Ok(t, err)
 
