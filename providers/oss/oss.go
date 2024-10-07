@@ -158,22 +158,26 @@ func (b *Bucket) Attributes(ctx context.Context, name string) (objstore.ObjectAt
 }
 
 // NewBucket returns a new Bucket using the provided oss config values.
-func NewBucket(logger log.Logger, conf []byte, component string) (*Bucket, error) {
+func NewBucket(logger log.Logger, conf []byte, component string, rt http.RoundTripper) (*Bucket, error) {
 	var config Config
 	if err := yaml.Unmarshal(conf, &config); err != nil {
 		return nil, errors.Wrap(err, "parse aliyun oss config file failed")
 	}
-
-	return NewBucketWithConfig(logger, config, component)
+	return NewBucketWithConfig(logger, config, component, rt)
 }
 
 // NewBucketWithConfig returns a new Bucket using the provided oss config struct.
-func NewBucketWithConfig(logger log.Logger, config Config, component string) (*Bucket, error) {
+func NewBucketWithConfig(logger log.Logger, config Config, component string, rt http.RoundTripper) (*Bucket, error) {
 	if err := validate(config); err != nil {
 		return nil, err
 	}
-
 	client, err := alioss.New(config.Endpoint, config.AccessKeyID, config.AccessKeySecret)
+	if rt != nil {
+		clientOption := func(client *alioss.Client) {
+			client.HTTPClient = &http.Client{Transport: rt}
+		}
+		client, err = alioss.New(config.Endpoint, config.AccessKeyID, config.AccessKeySecret, clientOption)
+	}
 	if err != nil {
 		return nil, errors.Wrap(err, "create aliyun oss client failed")
 	}
@@ -274,7 +278,7 @@ func NewTestBucketFromConfig(t testing.TB, c Config, reuseBucket bool) (objstore
 		return nil, nil, err
 	}
 
-	b, err := NewBucket(log.NewNopLogger(), bc, "thanos-aliyun-oss-test")
+	b, err := NewBucket(log.NewNopLogger(), bc, "thanos-aliyun-oss-test", nil)
 	if err != nil {
 		return nil, nil, err
 	}

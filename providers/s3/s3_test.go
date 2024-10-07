@@ -16,7 +16,9 @@ import (
 	"github.com/efficientgo/core/testutil"
 	"github.com/go-kit/log"
 	"github.com/minio/minio-go/v7/pkg/encrypt"
+	"github.com/pkg/errors"
 
+	"github.com/thanos-io/objstore/errutil"
 	"github.com/thanos-io/objstore/exthttp"
 )
 
@@ -324,7 +326,7 @@ func TestBucket_getServerSideEncryption(t *testing.T) {
 	// Default config should return no SSE config.
 	cfg := DefaultConfig
 	cfg.Endpoint = endpoint
-	bkt, err := NewBucketWithConfig(log.NewNopLogger(), cfg, "test")
+	bkt, err := NewBucketWithConfig(log.NewNopLogger(), cfg, "test", nil)
 	testutil.Ok(t, err)
 
 	sse, err := bkt.getServerSideEncryption(context.Background())
@@ -335,7 +337,7 @@ func TestBucket_getServerSideEncryption(t *testing.T) {
 	cfg = DefaultConfig
 	cfg.Endpoint = endpoint
 	cfg.SSEConfig = SSEConfig{Type: SSES3}
-	bkt, err = NewBucketWithConfig(log.NewNopLogger(), cfg, "test")
+	bkt, err = NewBucketWithConfig(log.NewNopLogger(), cfg, "test", nil)
 	testutil.Ok(t, err)
 
 	sse, err = bkt.getServerSideEncryption(context.Background())
@@ -351,7 +353,7 @@ func TestBucket_getServerSideEncryption(t *testing.T) {
 		Type:     SSEKMS,
 		KMSKeyID: "key",
 	}
-	bkt, err = NewBucketWithConfig(log.NewNopLogger(), cfg, "test")
+	bkt, err = NewBucketWithConfig(log.NewNopLogger(), cfg, "test", nil)
 	testutil.Ok(t, err)
 
 	sse, err = bkt.getServerSideEncryption(context.Background())
@@ -375,7 +377,7 @@ func TestBucket_getServerSideEncryption(t *testing.T) {
 		KMSKeyID:             "key",
 		KMSEncryptionContext: map[string]string{"foo": "bar"},
 	}
-	bkt, err = NewBucketWithConfig(log.NewNopLogger(), cfg, "test")
+	bkt, err = NewBucketWithConfig(log.NewNopLogger(), cfg, "test", nil)
 	testutil.Ok(t, err)
 
 	sse, err = bkt.getServerSideEncryption(context.Background())
@@ -396,7 +398,7 @@ func TestBucket_getServerSideEncryption(t *testing.T) {
 	override, err := encrypt.NewSSEKMS("test", nil)
 	testutil.Ok(t, err)
 
-	bkt, err = NewBucketWithConfig(log.NewNopLogger(), cfg, "test")
+	bkt, err = NewBucketWithConfig(log.NewNopLogger(), cfg, "test", nil)
 	testutil.Ok(t, err)
 
 	sse, err = bkt.getServerSideEncryption(context.WithValue(context.Background(), sseConfigKey, override))
@@ -423,7 +425,7 @@ func TestBucket_Get_ShouldReturnErrorIfServerTruncateResponse(t *testing.T) {
 	cfg.AccessKey = "test"
 	cfg.SecretKey = "test"
 
-	bkt, err := NewBucketWithConfig(log.NewNopLogger(), cfg, "test")
+	bkt, err := NewBucketWithConfig(log.NewNopLogger(), cfg, "test", nil)
 	testutil.Ok(t, err)
 
 	reader, err := bkt.Get(context.Background(), "test")
@@ -448,7 +450,7 @@ func TestParseConfig_CustomStorageClass(t *testing.T) {
 			cfg.Endpoint = endpoint
 			storageClass := "STANDARD_IA"
 			cfg.PutUserMetadata[testCase.storageClassKey] = storageClass
-			bkt, err := NewBucketWithConfig(log.NewNopLogger(), cfg, "test")
+			bkt, err := NewBucketWithConfig(log.NewNopLogger(), cfg, "test", nil)
 			testutil.Ok(t, err)
 			testutil.Equals(t, storageClass, bkt.storageClass)
 		})
@@ -458,7 +460,20 @@ func TestParseConfig_CustomStorageClass(t *testing.T) {
 func TestParseConfig_DefaultStorageClassIsZero(t *testing.T) {
 	cfg := DefaultConfig
 	cfg.Endpoint = endpoint
-	bkt, err := NewBucketWithConfig(log.NewNopLogger(), cfg, "test")
+	bkt, err := NewBucketWithConfig(log.NewNopLogger(), cfg, "test", nil)
 	testutil.Ok(t, err)
 	testutil.Equals(t, "", bkt.storageClass)
+}
+
+func TestNewBucketWithErrorRoundTripper(t *testing.T) {
+	cfg := DefaultConfig
+	cfg.Endpoint = endpoint
+	cfg.Bucket = "test"
+	rt := &errutil.ErrorRoundTripper{Err: errors.New("RoundTripper error")}
+	bkt, err := NewBucketWithConfig(log.NewNopLogger(), cfg, "test", rt)
+	testutil.Ok(t, err)
+	_, err = bkt.Get(context.Background(), "test")
+	// We expect an error from the RoundTripper
+	testutil.NotOk(t, err)
+	testutil.Assert(t, errors.Is(err, rt.Err), "Expected RoundTripper error, got: %v", err)
 }

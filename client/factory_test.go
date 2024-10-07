@@ -23,7 +23,7 @@ func ExampleBucket() {
 	}
 
 	// Create a new bucket.
-	bucket, err := NewBucket(log.NewNopLogger(), confContentYaml, "example")
+	bucket, err := NewBucket(log.NewNopLogger(), confContentYaml, "example", nil)
 	if err != nil {
 		panic(err)
 	}
@@ -46,7 +46,7 @@ func ExampleTracingBucketUsingOpenTracing() { //nolint:govet
 	}
 
 	// Create a new bucket.
-	bucket, err := NewBucket(log.NewNopLogger(), confContentYaml, "example")
+	bucket, err := NewBucket(log.NewNopLogger(), confContentYaml, "example", nil)
 	if err != nil {
 		panic(err)
 	}
@@ -72,7 +72,7 @@ func ExampleTracingBucketUsingOpenTelemetry() { //nolint:govet
 	}
 
 	// Create a new bucket.
-	bucket, err := NewBucket(log.NewNopLogger(), confContentYaml, "example")
+	bucket, err := NewBucket(log.NewNopLogger(), confContentYaml, "example", nil)
 	if err != nil {
 		panic(err)
 	}
