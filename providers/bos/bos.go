@@ -308,7 +308,7 @@ func (b *Bucket) getRange(_ context.Context, bucketName, objectKey string, off, 
 		return nil, err
 	}
 
-	return obj.Body, nil
+	return objstore.ObjectSizerReadCloser{ReadCloser: obj.Body, Size: obj.ContentLength}, err
 }
 
 func configFromEnv() Config {
