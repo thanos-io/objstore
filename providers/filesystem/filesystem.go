@@ -164,21 +164,29 @@ func (b *Bucket) GetRange(ctx context.Context, name string, off, length int64) (
 		return nil, err
 	}
 
+	var newOffset int64
 	if off > 0 {
-		_, err := f.Seek(off, 0)
+		newOffset, err = f.Seek(off, 0)
 		if err != nil {
 			return nil, errors.Wrapf(err, "seek %v", off)
 		}
 	}
 
+	size := stat.Size() - newOffset
 	if length == -1 {
-		return f, nil
+		return objstore.ObjectSizerReadCloser{
+			ReadCloser: f,
+			Size:       size,
+		}, nil
 	}
 
 	return objstore.ObjectSizerReadCloser{
-		ReadCloser: &rangeReaderCloser{Reader: io.LimitReader(f, length),
-			f: f,
-		}, Size: stat.Size()}, nil
+		ReadCloser: &rangeReaderCloser{
+			Reader: io.LimitReader(f, length),
+			f:      f,
+		},
+		Size: min(length, size),
+	}, nil
 }
 
 // Exists checks if the given directory exists in memory.
