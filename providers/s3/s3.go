@@ -439,10 +439,22 @@ func (b *Bucket) getRange(ctx context.Context, name string, off, length int64) (
 	}
 
 	// StatObject to see if the object exists and we have permissions to read it
-	if _, err := b.client.StatObject(ctx, b.name, name, *opts); err != nil {
+	var stat minio.ObjectInfo
+	if stat, err = b.client.StatObject(ctx, b.name, name, *opts); err != nil {
 		return nil, err
 	}
-	return b.client.GetObject(ctx, b.name, name, *opts)
+
+	o, err := b.client.GetObject(ctx, b.name, name, *opts)
+	if err != nil {
+		return o, err
+	}
+
+	return objstore.ObjectSizerReadCloser{
+		ReadCloser: o,
+		Size: func() (int64, error) {
+			return stat.Size, nil
+		},
+	}, nil
 }
 
 // Get returns a reader for the given object name.

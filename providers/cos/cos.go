@@ -320,18 +320,12 @@ func (b *Bucket) getRange(ctx context.Context, name string, off, length int64) (
 		return nil, err
 	}
 	// Add size info into reader to pass it to Upload function.
-	r := objectSizerReadCloser{ReadCloser: resp.Body, size: resp.ContentLength}
-	return r, nil
-}
-
-type objectSizerReadCloser struct {
-	io.ReadCloser
-	size int64
-}
-
-// ObjectSize implement objstore.ObjectSizer.
-func (o objectSizerReadCloser) ObjectSize() (int64, error) {
-	return o.size, nil
+	return objstore.ObjectSizerReadCloser{
+		ReadCloser: resp.Body,
+		Size: func() (int64, error) {
+			return resp.ContentLength, nil
+		},
+	}, nil
 }
 
 // Get returns a reader for the given object name.

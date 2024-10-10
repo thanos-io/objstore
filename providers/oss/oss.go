@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 	alioss "github.com/aliyun/aliyun-oss-go-sdk/oss"
 	"github.com/go-kit/log"
 	"github.com/pkg/errors"
@@ -342,12 +343,22 @@ func (b *Bucket) getRange(_ context.Context, name string, off, length int64) (io
 		opts = append(opts, opt)
 	}
 
-	resp, err := b.bucket.GetObject(name, opts...)
+	resp, err := b.bucket.DoGetObject(&oss.GetObjectRequest{ObjectKey: name}, opts)
 	if err != nil {
 		return nil, err
 	}
 
-	return resp, nil
+	size, err := clientutil.ParseContentLength(resp.Response.Headers)
+	if err == nil {
+		return objstore.ObjectSizerReadCloser{
+			ReadCloser: resp.Response,
+			Size: func() (int64, error) {
+				return size, nil
+			},
+		}, nil
+	}
+
+	return resp.Response, nil
 }
 
 // Get returns a reader for the given object name.
