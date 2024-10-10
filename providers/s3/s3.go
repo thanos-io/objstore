@@ -449,7 +449,12 @@ func (b *Bucket) getRange(ctx context.Context, name string, off, length int64) (
 		return o, err
 	}
 
-	return objstore.ObjectSizerReadCloser{ReadCloser: o, Size: stat.Size}, nil
+	return objstore.ObjectSizerReadCloser{
+		ReadCloser: o,
+		Size: func() (int64, error) {
+			return stat.Size, nil
+		},
+	}, nil
 }
 
 // Get returns a reader for the given object name.

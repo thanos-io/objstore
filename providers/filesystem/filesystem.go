@@ -176,7 +176,9 @@ func (b *Bucket) GetRange(ctx context.Context, name string, off, length int64) (
 	if length == -1 {
 		return objstore.ObjectSizerReadCloser{
 			ReadCloser: f,
-			Size:       size,
+			Size: func() (int64, error) {
+				return size, nil
+			},
 		}, nil
 	}
 
@@ -185,7 +187,9 @@ func (b *Bucket) GetRange(ctx context.Context, name string, off, length int64) (
 			Reader: io.LimitReader(f, length),
 			f:      f,
 		},
-		Size: min(length, size),
+		Size: func() (int64, error) {
+			return min(length, size), nil
+		},
 	}, nil
 }
 

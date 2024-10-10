@@ -350,7 +350,12 @@ func (b *Bucket) getRange(_ context.Context, name string, off, length int64) (io
 
 	size, err := clientutil.ParseContentLength(resp.Response.Headers)
 	if err == nil {
-		return objstore.ObjectSizerReadCloser{ReadCloser: resp.Response, Size: size}, nil
+		return objstore.ObjectSizerReadCloser{
+			ReadCloser: resp.Response,
+			Size: func() (int64, error) {
+				return size, nil
+			},
+		}, nil
 	}
 
 	return resp.Response, nil

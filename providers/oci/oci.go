@@ -134,7 +134,12 @@ func (b *Bucket) Get(ctx context.Context, name string) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	return objstore.ObjectSizerReadCloser{ReadCloser: response.Content, Size: *response.ContentLength}, nil
+	return objstore.ObjectSizerReadCloser{
+		ReadCloser: response.Content,
+		Size: func() (int64, error) {
+			return *response.ContentLength, nil
+		},
+	}, nil
 }
 
 // GetRange returns a new range reader for the given object name and range.
@@ -164,7 +169,11 @@ func (b *Bucket) GetRange(ctx context.Context, name string, offset, length int64
 	if err != nil {
 		return nil, err
 	}
-	return objstore.ObjectSizerReadCloser{ReadCloser: response.Content, Size: *response.ContentLength}, nil
+	return objstore.ObjectSizerReadCloser{ReadCloser: response.Content,
+		Size: func() (int64, error) {
+			return *response.ContentLength, nil
+		},
+	}, nil
 }
 
 // Upload the contents of the reader as an object into the bucket.
