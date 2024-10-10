@@ -837,5 +837,9 @@ type ObjectSizerReadCloser struct {
 
 // ObjectSize implement ObjectSizer.
 func (o ObjectSizerReadCloser) ObjectSize() (int64, error) {
+	if o.Size == nil {
+		return 0, errors.New("unknown size")
+	}
+
 	return o.Size()
 }
