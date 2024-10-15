@@ -12,6 +12,9 @@ We use *breaking :warning:* to mark changes that are not backward compatible (re
 - [#38](https://github.com/thanos-io/objstore/pull/38) GCS: Upgrade cloud.google.com/go/storage version to `v1.43.0`.
 - [#145](https://github.com/thanos-io/objstore/pull/145) Include content length in the response of Get and GetRange.
 
+### Added
+- [#74](https://github.com/thanos-io/objstore/pull/74) S3: Implementing `ToErrorResponse` function to return the parsed S3 ErrorResponse.
+
 ### Fixed
 - [#117](https://github.com/thanos-io/objstore/pull/117) Metrics: Fix `objstore_bucket_operation_failures_total` incorrectly incremented if context is cancelled while reading object contents.
 - [#115](https://github.com/thanos-io/objstore/pull/115) GCS: Fix creation of bucket with GRPC connections. Also update storage client to `v1.40.0`.
