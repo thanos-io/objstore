@@ -299,7 +299,7 @@ func (b *Bucket) getRange(_ context.Context, name string, off, length int64) (io
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get object")
 	}
-	return output.Body, nil
+	return objstore.ObjectSizerReadCloser{ReadCloser: output.Body, Size: output.ContentLength}, nil
 }
 
 // Exists checks if the given object exists in the bucket.
