@@ -273,7 +273,13 @@ func (b *Bucket) getBlobReader(ctx context.Context, name string, httpRange blob.
 		return nil, errors.Wrapf(err, "cannot download blob, address: %s", blobClient.URL())
 	}
 	retryOpts := azblob.RetryReaderOptions{MaxRetries: int32(b.readerMaxRetries)}
-	return objstore.ObjectSizerReadCloser{ReadCloser: resp.NewRetryReader(ctx, &retryOpts), Size: *resp.ContentLength}, nil
+
+	return objstore.ObjectSizerReadCloser{
+		ReadCloser: resp.NewRetryReader(ctx, &retryOpts),
+		Size: func() (int64, error) {
+			return *resp.ContentLength, nil
+		},
+	}, nil
 }
 
 // Get returns a reader for the given object name.

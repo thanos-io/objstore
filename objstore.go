@@ -832,10 +832,10 @@ func (t *timingReaderWriterTo) WriteTo(w io.Writer) (n int64, err error) {
 
 type ObjectSizerReadCloser struct {
 	io.ReadCloser
-	Size int64
+	Size func() (int64, error)
 }
 
 // ObjectSize implement ObjectSizer.
 func (o ObjectSizerReadCloser) ObjectSize() (int64, error) {
-	return o.Size, nil
+	return o.Size()
 }
