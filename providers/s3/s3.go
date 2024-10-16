@@ -15,6 +15,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/efficientgo/core/logerrcapture"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/minio/minio-go/v7"
@@ -437,12 +438,31 @@ func (b *Bucket) getRange(ctx context.Context, name string, off, length int64) (
 			return nil, err
 		}
 	}
-
-	// StatObject to see if the object exists and we have permissions to read it
-	if _, err := b.client.StatObject(ctx, b.name, name, *opts); err != nil {
+	r, err := b.client.GetObject(ctx, b.name, name, *opts)
+	if err != nil {
 		return nil, err
 	}
-	return b.client.GetObject(ctx, b.name, name, *opts)
+
+	// NotFoundObject error is revealed only after first Read. This does the initial GetRequest. Prefetch this here
+	// for convenience.
+	if _, err := r.Read(nil); err != nil {
+		defer logerrcapture.Do(b.logger, r.Close, "s3 get range obj close")
+
+		// First GET Object request error.
+		return nil, err
+	}
+
+	return objstore.ObjectSizerReadCloser{
+		ReadCloser: r,
+		Size: func() (int64, error) {
+			stat, err := r.Stat()
+			if err != nil {
+				return 0, err
+			}
+
+			return stat.Size, nil
+		},
+	}, nil
 }
 
 // Get returns a reader for the given object name.
