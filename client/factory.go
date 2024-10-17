@@ -48,9 +48,19 @@ type BucketConfig struct {
 	Prefix string      `yaml:"prefix" default:""`
 }
 
+/*
+func(rt http.RoundTripper) http.RoundTripper {
+  if rt == nil {
+    rt = http.DefaultTransport
+  }
+
+  return wrapHedgedRoundtripper(rt)
+}
+*/
+
 // NewBucket initializes and returns new object storage clients.
 // NOTE: confContentYaml can contain secrets.
-func NewBucket(logger log.Logger, confContentYaml []byte, component string, rt http.RoundTripper) (objstore.Bucket, error) {
+func NewBucket(logger log.Logger, confContentYaml []byte, component string, wrapRoundtripper func(http.RoundTripper) http.RoundTripper) (objstore.Bucket, error) {
 	level.Info(logger).Log("msg", "loading bucket configuration")
 	bucketConf := &BucketConfig{}
 	if err := yaml.UnmarshalStrict(confContentYaml, bucketConf); err != nil {
@@ -67,7 +77,7 @@ func NewBucket(logger log.Logger, confContentYaml []byte, component string, rt h
 	case string(GCS):
 		bucket, err = gcs.NewBucket(context.Background(), logger, config, component, rt)
 	case string(S3):
-		bucket, err = s3.NewBucket(logger, config, component, rt)
+		bucket, err = s3.NewBucket(logger, config, component, wrapRoundtripper)
 	case string(AZURE):
 		bucket, err = azure.NewBucket(logger, config, component, rt)
 	case string(SWIFT):
