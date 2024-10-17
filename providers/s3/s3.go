@@ -176,7 +176,7 @@ func parseConfig(conf []byte) (Config, error) {
 }
 
 // NewBucket returns a new Bucket using the provided s3 config values.
-func NewBucket(logger log.Logger, conf []byte, component string, rt http.RoundTripper) (*Bucket, error) {
+func NewBucket(logger log.Logger, conf []byte, component string, wrapRoundtripper func(http.RoundTripper) http.RoundTripper) (*Bucket, error) {
 	config, err := parseConfig(conf)
 	if err != nil {
 		return nil, err
@@ -202,7 +202,7 @@ func (s *overrideSignerType) Retrieve() (credentials.Value, error) {
 }
 
 // NewBucketWithConfig returns a new Bucket using the provided s3 config values.
-func NewBucketWithConfig(logger log.Logger, config Config, component string, rt http.RoundTripper) (*Bucket, error) {
+func NewBucketWithConfig(logger log.Logger, config Config, component string, wrapRoundtripper func(http.RoundTripper) http.RoundTripper) (*Bucket, error) {
 	var chain []credentials.Provider
 
 	// TODO(bwplotka): Don't do flags as they won't scale, use actual params like v2, v4 instead
@@ -242,9 +242,6 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string, rt 
 			}),
 		}
 	}
-	if rt != nil {
-		config.HTTPConfig.Transport = rt
-	}
 	// Check if a roundtripper has been set in the config
 	// otherwise build the default transport.
 	var tpt http.RoundTripper
@@ -255,6 +252,7 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string, rt 
 	if config.HTTPConfig.Transport != nil {
 		tpt = config.HTTPConfig.Transport
 	}
+	tpt = wrapRoundtripper(tpt)
 
 	client, err := minio.New(config.Endpoint, &minio.Options{
 		Creds:        credentials.NewChainCredentials(chain),
