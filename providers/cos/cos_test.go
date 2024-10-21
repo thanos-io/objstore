@@ -150,12 +150,11 @@ func TestNewBucketWithErrorRoundTripper(t *testing.T) {
 		SecretId:  "sid",
 		SecretKey: "skey",
 	}
-	rt := &errutil.ErrorRoundTripper{Err: errors.New("RoundTripper error")}
 
-	bkt, err := NewBucketWithConfig(log.NewNopLogger(), config, "test", rt)
+	bkt, err := NewBucketWithConfig(log.NewNopLogger(), config, "test", errutil.WrapRoundtripper)
 	testutil.Ok(t, err)
 	_, err = bkt.Get(context.Background(), "Test")
 	// We expect an error from the RoundTripper
 	testutil.NotOk(t, err)
-	testutil.Assert(t, errors.Is(err, rt.Err), "Expected RoundTripper error, got: %v", err)
+	testutil.Assert(t, errors.Is(err, errutil.Rt_err), "Expected RoundTripper error, got: %v", err)
 }

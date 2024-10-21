@@ -230,11 +230,9 @@ func TestNewBucketWithErrorRoundTripper(t *testing.T) {
 	cfg, err := parseConfig(validConfig)
 	testutil.Ok(t, err)
 
-	rt := &errutil.ErrorRoundTripper{Err: errors.New("RoundTripper error")}
-
-	_, err = NewBucketWithConfig(log.NewNopLogger(), cfg, "test", rt)
+	_, err = NewBucketWithConfig(log.NewNopLogger(), cfg, "test", errutil.WrapRoundtripper)
 
 	// We expect an error from the RoundTripper
 	testutil.NotOk(t, err)
-	testutil.Assert(t, errors.Is(err, rt.Err), "Expected RoundTripper error, got: %v", err)
+	testutil.Assert(t, errors.Is(err, errutil.Rt_err), "Expected RoundTripper error, got: %v", err)
 }

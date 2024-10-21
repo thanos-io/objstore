@@ -161,7 +161,6 @@ http_config:
 }
 
 func TestNewBucketWithErrorRoundTripper(t *testing.T) {
-	rt := &errutil.ErrorRoundTripper{Err: errors.New("RoundTripper error")}
 	cfg := Config{
 		Bucket:         "test-bucket",
 		ServiceAccount: "",
@@ -174,9 +173,9 @@ func TestNewBucketWithErrorRoundTripper(t *testing.T) {
 	err = os.Setenv("STORAGE_EMULATOR_HOST", svr.Addr)
 	testutil.Ok(t, err)
 
-	bkt, err := NewBucketWithConfig(context.Background(), log.NewNopLogger(), cfg, "test-bucket", rt)
+	bkt, err := NewBucketWithConfig(context.Background(), log.NewNopLogger(), cfg, "test-bucket", errutil.WrapRoundtripper)
 	testutil.Ok(t, err)
 	_, err = bkt.Get(context.Background(), "test-bucket")
 	testutil.NotOk(t, err)
-	testutil.Assert(t, errors.Is(err, rt.Err), "Expected RoundTripper error, got: %v", err)
+	testutil.Assert(t, errors.Is(err, errutil.Rt_err), "Expected RoundTripper error, got: %v", err)
 }

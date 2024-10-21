@@ -50,7 +50,7 @@ type BucketConfig struct {
 
 // NewBucket initializes and returns new object storage clients.
 // NOTE: confContentYaml can contain secrets.
-func NewBucket(logger log.Logger, confContentYaml []byte, component string, rt http.RoundTripper) (objstore.Bucket, error) {
+func NewBucket(logger log.Logger, confContentYaml []byte, component string, wrapRoundtripper func(http.RoundTripper) http.RoundTripper) (objstore.Bucket, error) {
 	level.Info(logger).Log("msg", "loading bucket configuration")
 	bucketConf := &BucketConfig{}
 	if err := yaml.UnmarshalStrict(confContentYaml, bucketConf); err != nil {
@@ -65,23 +65,23 @@ func NewBucket(logger log.Logger, confContentYaml []byte, component string, rt h
 	var bucket objstore.Bucket
 	switch strings.ToUpper(string(bucketConf.Type)) {
 	case string(GCS):
-		bucket, err = gcs.NewBucket(context.Background(), logger, config, component, rt)
+		bucket, err = gcs.NewBucket(context.Background(), logger, config, component, wrapRoundtripper)
 	case string(S3):
-		bucket, err = s3.NewBucket(logger, config, component, rt)
+		bucket, err = s3.NewBucket(logger, config, component, wrapRoundtripper)
 	case string(AZURE):
-		bucket, err = azure.NewBucket(logger, config, component, rt)
+		bucket, err = azure.NewBucket(logger, config, component, wrapRoundtripper)
 	case string(SWIFT):
-		bucket, err = swift.NewContainer(logger, config, rt)
+		bucket, err = swift.NewContainer(logger, config, wrapRoundtripper)
 	case string(COS):
-		bucket, err = cos.NewBucket(logger, config, component, rt)
+		bucket, err = cos.NewBucket(logger, config, component, wrapRoundtripper)
 	case string(ALIYUNOSS):
-		bucket, err = oss.NewBucket(logger, config, component, rt)
+		bucket, err = oss.NewBucket(logger, config, component, wrapRoundtripper)
 	case string(FILESYSTEM):
 		bucket, err = filesystem.NewBucketFromConfig(config)
 	case string(BOS):
 		bucket, err = bos.NewBucket(logger, config, component)
 	case string(OCI):
-		bucket, err = oci.NewBucket(logger, config, rt)
+		bucket, err = oci.NewBucket(logger, config, wrapRoundtripper)
 	case string(OBS):
 		bucket, err = obs.NewBucket(logger, config)
 	default:

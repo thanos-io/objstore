@@ -38,10 +38,8 @@ G6aFKaqQfOXKCyWoUiVknQJAXrlgySFci/2ueKlIE1QqIiLSZ8V8OlpFLRnb1pzI
 	ociConfig, err := yaml.Marshal(config)
 	testutil.Ok(t, err)
 
-	rt := &errutil.ErrorRoundTripper{Err: errors.New("RoundTripper error")}
-
-	_, err = NewBucket(log.NewNopLogger(), ociConfig, rt)
+	_, err = NewBucket(log.NewNopLogger(), ociConfig, errutil.WrapRoundtripper)
 	// We expect an error from the RoundTripper
 	testutil.NotOk(t, err)
-	testutil.Assert(t, errors.Is(err, rt.Err), "Expected RoundTripper error, got: %v", err)
+	testutil.Assert(t, errors.Is(err, errutil.Rt_err), "Expected RoundTripper error, got: %v", err)
 }
