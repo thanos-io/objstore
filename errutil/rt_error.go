@@ -1,8 +1,9 @@
 package errutil
 
 import (
-	"errors"
 	"net/http"
+
+	"github.com/pkg/errors"
 )
 
 var Rt_err = errors.New("RoundTripper error")
