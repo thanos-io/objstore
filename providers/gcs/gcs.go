@@ -55,8 +55,10 @@ type Config struct {
 	ChunkSizeBytes int  `yaml:"chunk_size_bytes"`
 	noAuth         bool `yaml:"no_auth"`
 
-	// gcs client retries idempotent operations by default, this option disables retries.
-	DisableRetries bool `yaml:"disable_retries"`
+	// MaxRetries controls the number of retries for idempotent operations.
+	// Overrides the default gcs storage client behaviour if this value is greater than 0.
+	// Set this to 1 to disable retries.
+	MaxRetries int `yaml:"max_retries"`
 }
 
 // Bucket implements the store.Bucket and shipper.Bucket interfaces against GCS.
@@ -176,8 +178,8 @@ func newBucket(ctx context.Context, logger log.Logger, gc Config, opts []option.
 		chunkSize: gc.ChunkSizeBytes,
 	}
 
-	if gc.DisableRetries {
-		bkt.bkt = bkt.bkt.Retryer(storage.WithPolicy(storage.RetryNever))
+	if gc.MaxRetries > 0 {
+		bkt.bkt = bkt.bkt.Retryer(storage.WithMaxAttempts(gc.MaxRetries))
 	}
 
 	return bkt, nil
