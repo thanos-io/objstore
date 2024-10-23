@@ -46,6 +46,7 @@ type Config struct {
 	Endpoint   string             `yaml:"endpoint"`
 	AccessKey  string             `yaml:"access_key"`
 	SecretKey  string             `yaml:"secret_key"`
+	MaxRetries int                `yaml:"max_retries"`
 	HTTPConfig exthttp.HTTPConfig `yaml:"http_config"`
 }
 
@@ -102,7 +103,13 @@ func NewBucketWithConfig(logger log.Logger, config Config) (*Bucket, error) {
 		return nil, errors.Wrap(err, "get http transport err")
 	}
 
-	client, err := obs.New(config.AccessKey, config.SecretKey, config.Endpoint, obs.WithHttpTransport(rt))
+	var client *obs.ObsClient
+	if config.MaxRetries > 0 {
+		client, err = obs.New(config.AccessKey, config.SecretKey, config.Endpoint, obs.WithHttpTransport(rt), obs.WithMaxRetryCount(config.MaxRetries))
+	} else {
+		client, err = obs.New(config.AccessKey, config.SecretKey, config.Endpoint, obs.WithHttpTransport(rt))
+	}
+
 	if err != nil {
 		return nil, errors.Wrap(err, "initialize obs client err")
 	}
