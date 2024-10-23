@@ -56,7 +56,7 @@ type Config struct {
 	noAuth         bool `yaml:"no_auth"`
 
 	// MaxRetries controls the number of retries for idempotent operations.
-	// Overrides the default gcs storage client behaviour if this value is greater than 0.
+	// Overrides the default gcs storage client behavior if this value is greater than 0.
 	// Set this to 1 to disable retries.
 	MaxRetries int `yaml:"max_retries"`
 }
