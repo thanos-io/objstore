@@ -6,7 +6,11 @@ import (
 	"github.com/pkg/errors"
 )
 
-var Rt_err = errors.New("RoundTripper error")
+var rtErr = errors.New("RoundTripper error")
+
+func IsMockedError(err error) bool {
+	return errors.Is(err, rtErr)
+}
 
 // ErrorRoundTripper is a custom RoundTripper that always returns an error.
 type ErrorRoundTripper struct {
@@ -17,6 +21,6 @@ func (ert *ErrorRoundTripper) RoundTrip(*http.Request) (*http.Response, error) {
 	return nil, ert.Err
 }
 
-func WrapRoundtripper(rt http.RoundTripper) http.RoundTripper {
-	return &ErrorRoundTripper{Err: Rt_err}
+func WrapWithErrRoundtripper(rt http.RoundTripper) http.RoundTripper {
+	return &ErrorRoundTripper{Err: rtErr}
 }
