@@ -23,6 +23,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/thanos-io/objstore/clientutil"
+	"github.com/thanos-io/objstore/exthttp"
 
 	"github.com/thanos-io/objstore"
 )
@@ -159,26 +160,32 @@ func (b *Bucket) Attributes(ctx context.Context, name string) (objstore.ObjectAt
 }
 
 // NewBucket returns a new Bucket using the provided oss config values.
-func NewBucket(logger log.Logger, conf []byte, component string, rt http.RoundTripper) (*Bucket, error) {
+func NewBucket(logger log.Logger, conf []byte, component string, wrapRoundtripper func(http.RoundTripper) http.RoundTripper) (*Bucket, error) {
 	var config Config
 	if err := yaml.Unmarshal(conf, &config); err != nil {
 		return nil, errors.Wrap(err, "parse aliyun oss config file failed")
 	}
-	return NewBucketWithConfig(logger, config, component, rt)
+	return NewBucketWithConfig(logger, config, component, wrapRoundtripper)
 }
 
 // NewBucketWithConfig returns a new Bucket using the provided oss config struct.
-func NewBucketWithConfig(logger log.Logger, config Config, component string, rt http.RoundTripper) (*Bucket, error) {
+func NewBucketWithConfig(logger log.Logger, config Config, component string, wrapRoundtripper func(http.RoundTripper) http.RoundTripper) (*Bucket, error) {
 	if err := validate(config); err != nil {
 		return nil, err
 	}
-	client, err := alioss.New(config.Endpoint, config.AccessKeyID, config.AccessKeySecret)
-	if rt != nil {
-		clientOption := func(client *alioss.Client) {
-			client.HTTPClient = &http.Client{Transport: rt}
+	var clientOptions []alioss.ClientOption
+	if wrapRoundtripper != nil {
+		rt, err := exthttp.DefaultTransport(exthttp.DefaultHTTPConfig)
+		if err != nil {
+			return nil, err
 		}
-		client, err = alioss.New(config.Endpoint, config.AccessKeyID, config.AccessKeySecret, clientOption)
+		clientOptions = append(clientOptions, func(client *alioss.Client) {
+			client.HTTPClient = &http.Client{
+				Transport: wrapRoundtripper(rt),
+			}
+		})
 	}
+	client, err := alioss.New(config.Endpoint, config.AccessKeyID, config.AccessKeySecret, clientOptions...)
 	if err != nil {
 		return nil, errors.Wrap(err, "create aliyun oss client failed")
 	}

@@ -5,7 +5,6 @@ import (
 
 	"github.com/efficientgo/core/testutil"
 	"github.com/go-kit/log"
-	"github.com/pkg/errors"
 	"github.com/thanos-io/objstore/errutil"
 	"gopkg.in/yaml.v2"
 )
@@ -38,10 +37,8 @@ G6aFKaqQfOXKCyWoUiVknQJAXrlgySFci/2ueKlIE1QqIiLSZ8V8OlpFLRnb1pzI
 	ociConfig, err := yaml.Marshal(config)
 	testutil.Ok(t, err)
 
-	rt := &errutil.ErrorRoundTripper{Err: errors.New("RoundTripper error")}
-
-	_, err = NewBucket(log.NewNopLogger(), ociConfig, rt)
+	_, err = NewBucket(log.NewNopLogger(), ociConfig, errutil.WrapWithErrRoundtripper)
 	// We expect an error from the RoundTripper
 	testutil.NotOk(t, err)
-	testutil.Assert(t, errors.Is(err, rt.Err), "Expected RoundTripper error, got: %v", err)
+	testutil.Assert(t, errutil.IsMockedError(err), "Expected RoundTripper error, got: %v", err)
 }

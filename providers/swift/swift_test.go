@@ -9,7 +9,6 @@ import (
 
 	"github.com/efficientgo/core/testutil"
 	"github.com/go-kit/log"
-	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
 	"github.com/thanos-io/objstore/errutil"
 )
@@ -69,13 +68,11 @@ http_config:
 }
 
 func TestNewBucketWithErrorRoundTripper(t *testing.T) {
-	logger := log.NewNopLogger()
-	rt := &errutil.ErrorRoundTripper{Err: errors.New("RoundTripper error")}
 	config := DefaultConfig
 	config.AuthUrl = "http://identity.something.com/v3"
-	_, err := NewContainerFromConfig(logger, &config, false, rt)
+	_, err := NewContainerFromConfig(log.NewNopLogger(), &config, false, errutil.WrapWithErrRoundtripper)
 
 	// We expect an error from the RoundTripper
 	testutil.NotOk(t, err)
-	testutil.Assert(t, errors.Is(err, rt.Err), "Expected RoundTripper error, got: %v", err)
+	testutil.Assert(t, errutil.IsMockedError(err), "Expected RoundTripper error, got: %v", err)
 }
