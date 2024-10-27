@@ -66,6 +66,7 @@ func parseConfig(conf []byte) (Config, error) {
 
 // NewBucket new bos bucket.
 func NewBucket(logger log.Logger, conf []byte, component string) (*Bucket, error) {
+	// TODO(https://github.com/thanos-io/objstore/pull/150): Add support for roundtripper wrapper.
 	if logger == nil {
 		logger = log.NewNopLogger()
 	}
@@ -307,7 +308,12 @@ func (b *Bucket) getRange(_ context.Context, bucketName, objectKey string, off, 
 		return nil, err
 	}
 
-	return obj.Body, nil
+	return objstore.ObjectSizerReadCloser{
+		ReadCloser: obj.Body,
+		Size: func() (int64, error) {
+			return obj.ContentLength, nil
+		},
+	}, err
 }
 
 func configFromEnv() Config {

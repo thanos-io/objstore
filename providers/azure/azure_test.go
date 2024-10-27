@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/efficientgo/core/testutil"
+	"github.com/go-kit/log"
 
+	"github.com/thanos-io/objstore/errutil"
 	"github.com/thanos-io/objstore/exthttp"
 )
 
@@ -20,7 +22,7 @@ type TestCase struct {
 }
 
 var validConfig = []byte(`storage_account: "myStorageAccount"
-storage_account_key: "abc123"
+storage_account_key: "bXlTdXBlclNlY3JldEtleTEyMyFAIw=="
 container: "MyContainer"
 endpoint: "blob.core.windows.net"
 reader_config:
@@ -221,4 +223,15 @@ http_config:
 	transport, err := exthttp.DefaultTransport(cfg.HTTPConfig)
 	testutil.Ok(t, err)
 	testutil.Equals(t, true, transport.TLSClientConfig.InsecureSkipVerify)
+}
+
+func TestNewBucketWithErrorRoundTripper(t *testing.T) {
+	cfg, err := parseConfig(validConfig)
+	testutil.Ok(t, err)
+
+	_, err = NewBucketWithConfig(log.NewNopLogger(), cfg, "test", errutil.WrapWithErrRoundtripper)
+
+	// We expect an error from the RoundTripper
+	testutil.NotOk(t, err)
+	testutil.Assert(t, errutil.IsMockedError(err), "Expected RoundTripper error, got: %v", err)
 }

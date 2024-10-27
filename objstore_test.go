@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/efficientgo/core/testutil"
 	"github.com/go-kit/log"
@@ -23,54 +24,54 @@ import (
 func TestMetricBucket_Close(t *testing.T) {
 	bkt := WrapWithMetrics(NewInMemBucket(), nil, "abc")
 	// Expected initialized metrics.
-	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.ops))
-	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.opsFailures))
-	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.opsDuration))
+	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.metrics.ops))
+	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.metrics.opsFailures))
+	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.metrics.opsDuration))
 
 	AcceptanceTest(t, bkt.WithExpectedErrs(bkt.IsObjNotFoundErr))
-	testutil.Equals(t, float64(9), promtest.ToFloat64(bkt.ops.WithLabelValues(OpIter)))
-	testutil.Equals(t, float64(2), promtest.ToFloat64(bkt.ops.WithLabelValues(OpAttributes)))
-	testutil.Equals(t, float64(3), promtest.ToFloat64(bkt.ops.WithLabelValues(OpGet)))
-	testutil.Equals(t, float64(3), promtest.ToFloat64(bkt.ops.WithLabelValues(OpGetRange)))
-	testutil.Equals(t, float64(2), promtest.ToFloat64(bkt.ops.WithLabelValues(OpExists)))
-	testutil.Equals(t, float64(9), promtest.ToFloat64(bkt.ops.WithLabelValues(OpUpload)))
-	testutil.Equals(t, float64(3), promtest.ToFloat64(bkt.ops.WithLabelValues(OpDelete)))
-	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.ops))
-	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.opsFailures.WithLabelValues(OpIter)))
-	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.opsFailures.WithLabelValues(OpAttributes)))
-	testutil.Equals(t, float64(1), promtest.ToFloat64(bkt.opsFailures.WithLabelValues(OpGet)))
-	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.opsFailures.WithLabelValues(OpGetRange)))
-	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.opsFailures.WithLabelValues(OpExists)))
-	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.opsFailures.WithLabelValues(OpUpload)))
-	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.opsFailures.WithLabelValues(OpDelete)))
-	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.opsFailures))
-	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.opsDuration))
-	lastUpload := promtest.ToFloat64(bkt.lastSuccessfulUploadTime)
+	testutil.Equals(t, float64(9), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpIter)))
+	testutil.Equals(t, float64(2), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpAttributes)))
+	testutil.Equals(t, float64(3), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpGet)))
+	testutil.Equals(t, float64(3), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpGetRange)))
+	testutil.Equals(t, float64(2), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpExists)))
+	testutil.Equals(t, float64(9), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpUpload)))
+	testutil.Equals(t, float64(3), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpDelete)))
+	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.metrics.ops))
+	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpIter)))
+	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpAttributes)))
+	testutil.Equals(t, float64(1), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpGet)))
+	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpGetRange)))
+	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpExists)))
+	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpUpload)))
+	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpDelete)))
+	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.metrics.opsFailures))
+	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.metrics.opsDuration))
+	lastUpload := promtest.ToFloat64(bkt.metrics.lastSuccessfulUploadTime)
 	testutil.Assert(t, lastUpload > 0, "last upload not greater than 0, val: %f", lastUpload)
 
 	// Clear bucket, but don't clear metrics to ensure we use same.
 	bkt.bkt = NewInMemBucket()
 	AcceptanceTest(t, bkt)
-	testutil.Equals(t, float64(18), promtest.ToFloat64(bkt.ops.WithLabelValues(OpIter)))
-	testutil.Equals(t, float64(4), promtest.ToFloat64(bkt.ops.WithLabelValues(OpAttributes)))
-	testutil.Equals(t, float64(6), promtest.ToFloat64(bkt.ops.WithLabelValues(OpGet)))
-	testutil.Equals(t, float64(6), promtest.ToFloat64(bkt.ops.WithLabelValues(OpGetRange)))
-	testutil.Equals(t, float64(4), promtest.ToFloat64(bkt.ops.WithLabelValues(OpExists)))
-	testutil.Equals(t, float64(18), promtest.ToFloat64(bkt.ops.WithLabelValues(OpUpload)))
-	testutil.Equals(t, float64(6), promtest.ToFloat64(bkt.ops.WithLabelValues(OpDelete)))
-	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.ops))
-	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.opsFailures.WithLabelValues(OpIter)))
+	testutil.Equals(t, float64(18), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpIter)))
+	testutil.Equals(t, float64(4), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpAttributes)))
+	testutil.Equals(t, float64(6), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpGet)))
+	testutil.Equals(t, float64(6), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpGetRange)))
+	testutil.Equals(t, float64(4), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpExists)))
+	testutil.Equals(t, float64(18), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpUpload)))
+	testutil.Equals(t, float64(6), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpDelete)))
+	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.metrics.ops))
+	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpIter)))
 	// Not expected not found error here.
-	testutil.Equals(t, float64(1), promtest.ToFloat64(bkt.opsFailures.WithLabelValues(OpAttributes)))
+	testutil.Equals(t, float64(1), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpAttributes)))
 	// Not expected not found errors, this should increment failure metric on get for not found as well, so +2.
-	testutil.Equals(t, float64(3), promtest.ToFloat64(bkt.opsFailures.WithLabelValues(OpGet)))
-	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.opsFailures.WithLabelValues(OpGetRange)))
-	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.opsFailures.WithLabelValues(OpExists)))
-	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.opsFailures.WithLabelValues(OpUpload)))
-	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.opsFailures.WithLabelValues(OpDelete)))
-	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.opsFailures))
-	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.opsDuration))
-	testutil.Assert(t, promtest.ToFloat64(bkt.lastSuccessfulUploadTime) > lastUpload)
+	testutil.Equals(t, float64(3), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpGet)))
+	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpGetRange)))
+	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpExists)))
+	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpUpload)))
+	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpDelete)))
+	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.metrics.opsFailures))
+	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.metrics.opsDuration))
+	testutil.Assert(t, promtest.ToFloat64(bkt.metrics.lastSuccessfulUploadTime) > lastUpload)
 }
 
 // TestMetricBucket_MultipleClients tests that the metrics from two different buckets clients are not conflicting with each other.
@@ -164,8 +165,8 @@ func TestMetricBucket_ReaderClose(t *testing.T) {
 		testutil.Ok(t, reader.Close())
 		testutil.Assert(t, closeCalled)
 
-		testutil.Equals(t, float64(1), promtest.ToFloat64(bucket.ops.WithLabelValues(OpUpload)))
-		testutil.Equals(t, float64(0), promtest.ToFloat64(bucket.opsFailures.WithLabelValues(OpUpload)))
+		testutil.Equals(t, float64(1), promtest.ToFloat64(bucket.metrics.ops.WithLabelValues(OpUpload)))
+		testutil.Equals(t, float64(0), promtest.ToFloat64(bucket.metrics.opsFailures.WithLabelValues(OpUpload)))
 	})
 
 	t.Run("Get() should return a wrapper io.ReadCloser that correctly Close the wrapped one", func(t *testing.T) {
@@ -194,8 +195,8 @@ func TestMetricBucket_ReaderClose(t *testing.T) {
 		testutil.Ok(t, wrappedReader.Close())
 		testutil.Assert(t, closeCalled)
 
-		testutil.Equals(t, float64(1), promtest.ToFloat64(bucket.ops.WithLabelValues(OpGet)))
-		testutil.Equals(t, float64(0), promtest.ToFloat64(bucket.opsFailures.WithLabelValues(OpGet)))
+		testutil.Equals(t, float64(1), promtest.ToFloat64(bucket.metrics.ops.WithLabelValues(OpGet)))
+		testutil.Equals(t, float64(0), promtest.ToFloat64(bucket.metrics.opsFailures.WithLabelValues(OpGet)))
 	})
 
 	t.Run("GetRange() should return a wrapper io.ReadCloser that correctly Close the wrapped one", func(t *testing.T) {
@@ -224,8 +225,8 @@ func TestMetricBucket_ReaderClose(t *testing.T) {
 		testutil.Ok(t, wrappedReader.Close())
 		testutil.Assert(t, closeCalled)
 
-		testutil.Equals(t, float64(1), promtest.ToFloat64(bucket.ops.WithLabelValues(OpGetRange)))
-		testutil.Equals(t, float64(0), promtest.ToFloat64(bucket.opsFailures.WithLabelValues(OpGetRange)))
+		testutil.Equals(t, float64(1), promtest.ToFloat64(bucket.metrics.ops.WithLabelValues(OpGetRange)))
+		testutil.Equals(t, float64(0), promtest.ToFloat64(bucket.metrics.opsFailures.WithLabelValues(OpGetRange)))
 	})
 }
 
@@ -246,8 +247,8 @@ func TestMetricBucket_ReaderCloseError(t *testing.T) {
 
 		testutil.NotOk(t, bucket.Upload(context.Background(), "test", origReader))
 
-		testutil.Equals(t, float64(1), promtest.ToFloat64(bucket.ops.WithLabelValues(OpUpload)))
-		testutil.Equals(t, float64(1), promtest.ToFloat64(bucket.opsFailures.WithLabelValues(OpUpload)))
+		testutil.Equals(t, float64(1), promtest.ToFloat64(bucket.metrics.ops.WithLabelValues(OpUpload)))
+		testutil.Equals(t, float64(1), promtest.ToFloat64(bucket.metrics.opsFailures.WithLabelValues(OpUpload)))
 	})
 
 	t.Run("Get() should track failure if reader Close() returns error", func(t *testing.T) {
@@ -262,8 +263,8 @@ func TestMetricBucket_ReaderCloseError(t *testing.T) {
 		testutil.NotOk(t, reader.Close())
 		testutil.NotOk(t, reader.Close()) // Called twice to ensure metrics are not tracked twice.
 
-		testutil.Equals(t, float64(1), promtest.ToFloat64(bucket.ops.WithLabelValues(OpGet)))
-		testutil.Equals(t, float64(1), promtest.ToFloat64(bucket.opsFailures.WithLabelValues(OpGet)))
+		testutil.Equals(t, float64(1), promtest.ToFloat64(bucket.metrics.ops.WithLabelValues(OpGet)))
+		testutil.Equals(t, float64(1), promtest.ToFloat64(bucket.metrics.opsFailures.WithLabelValues(OpGet)))
 	})
 
 	t.Run("GetRange() should track failure if reader Close() returns error", func(t *testing.T) {
@@ -278,8 +279,8 @@ func TestMetricBucket_ReaderCloseError(t *testing.T) {
 		testutil.NotOk(t, reader.Close())
 		testutil.NotOk(t, reader.Close()) // Called twice to ensure metrics are not tracked twice.
 
-		testutil.Equals(t, float64(1), promtest.ToFloat64(bucket.ops.WithLabelValues(OpGetRange)))
-		testutil.Equals(t, float64(1), promtest.ToFloat64(bucket.opsFailures.WithLabelValues(OpGetRange)))
+		testutil.Equals(t, float64(1), promtest.ToFloat64(bucket.metrics.ops.WithLabelValues(OpGetRange)))
+		testutil.Equals(t, float64(1), promtest.ToFloat64(bucket.metrics.opsFailures.WithLabelValues(OpGetRange)))
 	})
 }
 
@@ -412,9 +413,9 @@ func TestDownloadUploadDirConcurrency(t *testing.T) {
 func TestTimingReader(t *testing.T) {
 	m := WrapWithMetrics(NewInMemBucket(), nil, "")
 	r := bytes.NewReader([]byte("hello world"))
-	tr := newTimingReader(r, true, OpGet, m.opsDuration, m.opsFailures, func(err error) bool {
+	tr := newTimingReader(time.Now(), r, true, OpGet, m.metrics.opsDuration, m.metrics.opsFailures, func(err error) bool {
 		return false
-	}, m.opsFetchedBytes, m.opsTransferredBytes)
+	}, m.metrics.opsFetchedBytes, m.metrics.opsTransferredBytes)
 
 	size, err := TryToGetSize(tr)
 
@@ -439,7 +440,7 @@ func TestTimingReader(t *testing.T) {
 	_, isReaderAt := tr.(io.ReaderAt)
 	testutil.Assert(t, isReaderAt)
 
-	testutil.Equals(t, float64(0), promtest.ToFloat64(m.opsFailures.WithLabelValues(OpGet)))
+	testutil.Equals(t, float64(0), promtest.ToFloat64(m.metrics.opsFailures.WithLabelValues(OpGet)))
 }
 
 func TestTimingReader_ExpectedError(t *testing.T) {
@@ -447,13 +448,13 @@ func TestTimingReader_ExpectedError(t *testing.T) {
 
 	m := WrapWithMetrics(NewInMemBucket(), nil, "")
 	r := dummyReader{readerErr}
-	tr := newTimingReader(r, true, OpGet, m.opsDuration, m.opsFailures, func(err error) bool { return errors.Is(err, readerErr) }, m.opsFetchedBytes, m.opsTransferredBytes)
+	tr := newTimingReader(time.Now(), r, true, OpGet, m.metrics.opsDuration, m.metrics.opsFailures, func(err error) bool { return errors.Is(err, readerErr) }, m.metrics.opsFetchedBytes, m.metrics.opsTransferredBytes)
 
 	buf := make([]byte, 1)
 	_, err := io.ReadFull(tr, buf)
 	testutil.Equals(t, readerErr, err)
 
-	testutil.Equals(t, float64(0), promtest.ToFloat64(m.opsFailures.WithLabelValues(OpGet)))
+	testutil.Equals(t, float64(0), promtest.ToFloat64(m.metrics.opsFailures.WithLabelValues(OpGet)))
 }
 
 func TestTimingReader_UnexpectedError(t *testing.T) {
@@ -461,13 +462,13 @@ func TestTimingReader_UnexpectedError(t *testing.T) {
 
 	m := WrapWithMetrics(NewInMemBucket(), nil, "")
 	r := dummyReader{readerErr}
-	tr := newTimingReader(r, true, OpGet, m.opsDuration, m.opsFailures, func(err error) bool { return false }, m.opsFetchedBytes, m.opsTransferredBytes)
+	tr := newTimingReader(time.Now(), r, true, OpGet, m.metrics.opsDuration, m.metrics.opsFailures, func(err error) bool { return false }, m.metrics.opsFetchedBytes, m.metrics.opsTransferredBytes)
 
 	buf := make([]byte, 1)
 	_, err := io.ReadFull(tr, buf)
 	testutil.Equals(t, readerErr, err)
 
-	testutil.Equals(t, float64(1), promtest.ToFloat64(m.opsFailures.WithLabelValues(OpGet)))
+	testutil.Equals(t, float64(1), promtest.ToFloat64(m.metrics.opsFailures.WithLabelValues(OpGet)))
 }
 
 func TestTimingReader_ContextCancellation(t *testing.T) {
@@ -476,13 +477,13 @@ func TestTimingReader_ContextCancellation(t *testing.T) {
 
 	m := WrapWithMetrics(NewInMemBucket(), nil, "")
 	r := dummyReader{ctx.Err()}
-	tr := newTimingReader(r, true, OpGet, m.opsDuration, m.opsFailures, func(err error) bool { return false }, m.opsFetchedBytes, m.opsTransferredBytes)
+	tr := newTimingReader(time.Now(), r, true, OpGet, m.metrics.opsDuration, m.metrics.opsFailures, func(err error) bool { return false }, m.metrics.opsFetchedBytes, m.metrics.opsTransferredBytes)
 
 	buf := make([]byte, 1)
 	_, err := io.ReadFull(tr, buf)
 	testutil.Equals(t, ctx.Err(), err)
 
-	testutil.Equals(t, float64(0), promtest.ToFloat64(m.opsFailures.WithLabelValues(OpGet)))
+	testutil.Equals(t, float64(0), promtest.ToFloat64(m.metrics.opsFailures.WithLabelValues(OpGet)))
 }
 
 type dummyReader struct {
@@ -506,9 +507,9 @@ func TestTimingReader_ShouldCorrectlyWrapFile(t *testing.T) {
 	})
 
 	m := WrapWithMetrics(NewInMemBucket(), nil, "")
-	r := newTimingReader(file, true, "", m.opsDuration, m.opsFailures, func(err error) bool {
+	r := newTimingReader(time.Now(), file, true, "", m.metrics.opsDuration, m.metrics.opsFailures, func(err error) bool {
 		return false
-	}, m.opsFetchedBytes, m.opsTransferredBytes)
+	}, m.metrics.opsFetchedBytes, m.metrics.opsTransferredBytes)
 
 	// It must both implement io.Seeker and io.ReaderAt.
 	_, isSeeker := r.(io.Seeker)

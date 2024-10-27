@@ -75,11 +75,11 @@ type Bucket struct {
 }
 
 func NewBucket(logger log.Logger, conf []byte) (*Bucket, error) {
+	// TODO(https://github.com/thanos-io/objstore/pull/150): Add support for roundtripper wrapper.
 	config, err := parseConfig(conf)
 	if err != nil {
 		return nil, errors.Wrap(err, "parsing cos configuration")
 	}
-
 	return NewBucketWithConfig(logger, config)
 }
 
@@ -299,7 +299,12 @@ func (b *Bucket) getRange(_ context.Context, name string, off, length int64) (io
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get object")
 	}
-	return output.Body, nil
+	return objstore.ObjectSizerReadCloser{
+		ReadCloser: output.Body,
+		Size: func() (int64, error) {
+			return output.ContentLength, nil
+		},
+	}, nil
 }
 
 // Exists checks if the given object exists in the bucket.

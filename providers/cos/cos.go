@@ -95,7 +95,7 @@ func parseConfig(conf []byte) (Config, error) {
 }
 
 // NewBucket returns a new Bucket using the provided cos configuration.
-func NewBucket(logger log.Logger, conf []byte, component string) (*Bucket, error) {
+func NewBucket(logger log.Logger, conf []byte, component string, wrapRoundtripper func(http.RoundTripper) http.RoundTripper) (*Bucket, error) {
 	if logger == nil {
 		logger = log.NewNopLogger()
 	}
@@ -104,12 +104,11 @@ func NewBucket(logger log.Logger, conf []byte, component string) (*Bucket, error
 	if err != nil {
 		return nil, errors.Wrap(err, "parsing cos configuration")
 	}
-
-	return NewBucketWithConfig(logger, config, component)
+	return NewBucketWithConfig(logger, config, component, wrapRoundtripper)
 }
 
 // NewBucketWithConfig returns a new Bucket using the provided cos config values.
-func NewBucketWithConfig(logger log.Logger, config Config, component string) (*Bucket, error) {
+func NewBucketWithConfig(logger log.Logger, config Config, component string, wrapRoundtripper func(http.RoundTripper) http.RoundTripper) (*Bucket, error) {
 	if err := config.validate(); err != nil {
 		return nil, errors.Wrap(err, "validate cos configuration")
 	}
@@ -128,12 +127,22 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string) (*B
 		}
 	}
 	b := &cos.BaseURL{BucketURL: bucketURL}
-	tpt, _ := exthttp.DefaultTransport(config.HTTPConfig)
+	var rt http.RoundTripper
+	rt, err = exthttp.DefaultTransport(config.HTTPConfig)
+	if err != nil {
+		return nil, err
+	}
+	if config.HTTPConfig.Transport != nil {
+		rt = config.HTTPConfig.Transport
+	}
+	if wrapRoundtripper != nil {
+		rt = wrapRoundtripper(rt)
+	}
 	client := cos.NewClient(b, &http.Client{
 		Transport: &cos.AuthorizationTransport{
 			SecretID:  config.SecretId,
 			SecretKey: config.SecretKey,
-			Transport: tpt,
+			Transport: rt,
 		},
 	})
 
@@ -314,18 +323,12 @@ func (b *Bucket) getRange(ctx context.Context, name string, off, length int64) (
 		return nil, err
 	}
 	// Add size info into reader to pass it to Upload function.
-	r := objectSizerReadCloser{ReadCloser: resp.Body, size: resp.ContentLength}
-	return r, nil
-}
-
-type objectSizerReadCloser struct {
-	io.ReadCloser
-	size int64
-}
-
-// ObjectSize implement objstore.ObjectSizer.
-func (o objectSizerReadCloser) ObjectSize() (int64, error) {
-	return o.size, nil
+	return objstore.ObjectSizerReadCloser{
+		ReadCloser: resp.Body,
+		Size: func() (int64, error) {
+			return resp.ContentLength, nil
+		},
+	}, nil
 }
 
 // Get returns a reader for the given object name.
@@ -485,7 +488,7 @@ func NewTestBucket(t testing.TB) (objstore.Bucket, func(), error) {
 			return nil, nil, err
 		}
 
-		b, err := NewBucket(log.NewNopLogger(), bc, "thanos-e2e-test")
+		b, err := NewBucket(log.NewNopLogger(), bc, "thanos-e2e-test", nil)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -506,7 +509,7 @@ func NewTestBucket(t testing.TB) (objstore.Bucket, func(), error) {
 		return nil, nil, err
 	}
 
-	b, err := NewBucket(log.NewNopLogger(), bc, "thanos-e2e-test")
+	b, err := NewBucket(log.NewNopLogger(), bc, "thanos-e2e-test", nil)
 	if err != nil {
 		return nil, nil, err
 	}
