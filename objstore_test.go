@@ -595,3 +595,11 @@ func (b *mockBucket) GetRange(ctx context.Context, name string, off, length int6
 	}
 	return nil, errors.New("GetRange has not been mocked")
 }
+
+func Test_TryToGetSizeLimitedReader(t *testing.T) {
+	b := &bytes.Buffer{}
+	r := io.LimitReader(b, 1024)
+	size, err := TryToGetSize(r)
+	testutil.Ok(t, err)
+	testutil.Equals(t, int64(1024), size)
+}
