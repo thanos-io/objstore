@@ -211,6 +211,8 @@ func TryToGetSize(r io.Reader) (int64, error) {
 		return f.Size(), nil
 	case ObjectSizer:
 		return f.ObjectSize()
+	case *io.LimitedReader:
+		return f.N, nil
 	}
 	return 0, errors.Errorf("unsupported type of io.Reader: %T", r)
 }
