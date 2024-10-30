@@ -144,7 +144,7 @@ func WithRecursiveIter() IterOption {
 // WithUpdatedAt is an option that can be applied to Iter() to
 // include the last modified time in the attributes.
 // NB: Prefixes may not report last modified time.
-// This option is currently supported for the azure, aws, bos, gcs and filesystem providers.
+// This option is currently supported for the azure, s3, bos, gcs and filesystem providers.
 func WithUpdatedAt() IterOption {
 	return IterOption{
 		Type: UpdatedAt,
