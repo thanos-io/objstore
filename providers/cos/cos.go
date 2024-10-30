@@ -96,7 +96,7 @@ func parseConfig(conf []byte) (Config, error) {
 }
 
 // NewBucket returns a new Bucket using the provided cos configuration.
-func NewBucket(logger log.Logger, conf []byte, component string, rt http.RoundTripper) (*Bucket, error) {
+func NewBucket(logger log.Logger, conf []byte, component string, wrapRoundtripper func(http.RoundTripper) http.RoundTripper) (*Bucket, error) {
 	if logger == nil {
 		logger = log.NewNopLogger()
 	}
@@ -105,11 +105,11 @@ func NewBucket(logger log.Logger, conf []byte, component string, rt http.RoundTr
 	if err != nil {
 		return nil, errors.Wrap(err, "parsing cos configuration")
 	}
-	return NewBucketWithConfig(logger, config, component, rt)
+	return NewBucketWithConfig(logger, config, component, wrapRoundtripper)
 }
 
 // NewBucketWithConfig returns a new Bucket using the provided cos config values.
-func NewBucketWithConfig(logger log.Logger, config Config, component string, rt http.RoundTripper) (*Bucket, error) {
+func NewBucketWithConfig(logger log.Logger, config Config, component string, wrapRoundtripper func(http.RoundTripper) http.RoundTripper) (*Bucket, error) {
 	if err := config.validate(); err != nil {
 		return nil, errors.Wrap(err, "validate cos configuration")
 	}
@@ -128,19 +128,22 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string, rt 
 		}
 	}
 	b := &cos.BaseURL{BucketURL: bucketURL}
-	var tpt http.RoundTripper
-	tpt, err = exthttp.DefaultTransport(config.HTTPConfig)
+	var rt http.RoundTripper
+	rt, err = exthttp.DefaultTransport(config.HTTPConfig)
 	if err != nil {
 		return nil, err
 	}
-	if rt != nil {
-		tpt = rt
+	if config.HTTPConfig.Transport != nil {
+		rt = config.HTTPConfig.Transport
+	}
+	if wrapRoundtripper != nil {
+		rt = wrapRoundtripper(rt)
 	}
 	client := cos.NewClient(b, &http.Client{
 		Transport: &cos.AuthorizationTransport{
 			SecretID:  config.SecretId,
 			SecretKey: config.SecretKey,
-			Transport: tpt,
+			Transport: rt,
 		},
 	})
 

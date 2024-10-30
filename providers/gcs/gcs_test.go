@@ -15,7 +15,6 @@ import (
 	"github.com/efficientgo/core/testutil"
 	"github.com/fullstorydev/emulators/storage/gcsemu"
 	"github.com/go-kit/log"
-	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
 	"github.com/thanos-io/objstore/errutil"
 	"google.golang.org/api/option"
@@ -161,7 +160,6 @@ http_config:
 }
 
 func TestNewBucketWithErrorRoundTripper(t *testing.T) {
-	rt := &errutil.ErrorRoundTripper{Err: errors.New("RoundTripper error")}
 	cfg := Config{
 		Bucket:         "test-bucket",
 		ServiceAccount: "",
@@ -174,9 +172,9 @@ func TestNewBucketWithErrorRoundTripper(t *testing.T) {
 	err = os.Setenv("STORAGE_EMULATOR_HOST", svr.Addr)
 	testutil.Ok(t, err)
 
-	bkt, err := NewBucketWithConfig(context.Background(), log.NewNopLogger(), cfg, "test-bucket", rt)
+	bkt, err := NewBucketWithConfig(context.Background(), log.NewNopLogger(), cfg, "test-bucket", errutil.WrapWithErrRoundtripper)
 	testutil.Ok(t, err)
 	_, err = bkt.Get(context.Background(), "test-bucket")
 	testutil.NotOk(t, err)
-	testutil.Assert(t, errors.Is(err, rt.Err), "Expected RoundTripper error, got: %v", err)
+	testutil.Assert(t, errutil.IsMockedError(err), "Expected RoundTripper error, got: %v", err)
 }

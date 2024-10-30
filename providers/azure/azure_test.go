@@ -9,7 +9,6 @@ import (
 
 	"github.com/efficientgo/core/testutil"
 	"github.com/go-kit/log"
-	"github.com/pkg/errors"
 
 	"github.com/thanos-io/objstore/errutil"
 	"github.com/thanos-io/objstore/exthttp"
@@ -230,11 +229,9 @@ func TestNewBucketWithErrorRoundTripper(t *testing.T) {
 	cfg, err := parseConfig(validConfig)
 	testutil.Ok(t, err)
 
-	rt := &errutil.ErrorRoundTripper{Err: errors.New("RoundTripper error")}
-
-	_, err = NewBucketWithConfig(log.NewNopLogger(), cfg, "test", rt)
+	_, err = NewBucketWithConfig(log.NewNopLogger(), cfg, "test", errutil.WrapWithErrRoundtripper)
 
 	// We expect an error from the RoundTripper
 	testutil.NotOk(t, err)
-	testutil.Assert(t, errors.Is(err, rt.Err), "Expected RoundTripper error, got: %v", err)
+	testutil.Assert(t, errutil.IsMockedError(err), "Expected RoundTripper error, got: %v", err)
 }
