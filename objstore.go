@@ -604,14 +604,15 @@ func (b *metricBucket) Iter(ctx context.Context, dir string, f func(string) erro
 	const op = OpIter
 	b.metrics.ops.WithLabelValues(op).Inc()
 
-	start := time.Now()
+	timer := prometheus.NewTimer(b.metrics.opsDuration.WithLabelValues(op))
+	defer timer.ObserveDuration()
+
 	err := b.bkt.Iter(ctx, dir, f, options...)
 	if err != nil {
 		if !b.metrics.isOpFailureExpected(err) && ctx.Err() != context.Canceled {
 			b.metrics.opsFailures.WithLabelValues(op).Inc()
 		}
 	}
-	b.metrics.opsDuration.WithLabelValues(op).Observe(time.Since(start).Seconds())
 	return err
 }
 
@@ -619,12 +620,16 @@ func (b *metricBucket) IterWithAttributes(ctx context.Context, dir string, f fun
 	const op = OpIter
 	b.metrics.ops.WithLabelValues(op).Inc()
 
+	timer := prometheus.NewTimer(b.metrics.opsDuration.WithLabelValues(op))
+	defer timer.ObserveDuration()
+
 	err := b.bkt.IterWithAttributes(ctx, dir, f, options...)
 	if err != nil {
 		if !b.metrics.isOpFailureExpected(err) && ctx.Err() != context.Canceled {
 			b.metrics.opsFailures.WithLabelValues(op).Inc()
 		}
 	}
+
 	return err
 }
 
