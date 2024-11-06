@@ -38,6 +38,7 @@ type HTTPConfig struct {
 
 	TLSConfig          TLSConfig `yaml:"tls_config"`
 	DisableCompression bool      `yaml:"disable_compression"`
+	MaxHedgedRequests  uint      `yaml:"max_hedged_requests"`
 }
 
 // DefaultTransport - this default transport is based on the Minio

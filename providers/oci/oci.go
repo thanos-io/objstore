@@ -67,6 +67,7 @@ type HTTPConfig struct {
 	DisableCompression    bool              `yaml:"disable_compression"`
 	ClientTimeout         time.Duration     `yaml:"client_timeout"`
 	Transport             http.RoundTripper `yaml:"-"`
+	MaxHedgedRequests     uint               `yaml:"max_hedged_requests"`
 }
 
 // Config stores the configuration for oci bucket.

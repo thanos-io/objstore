@@ -32,10 +32,11 @@ const PartSize = 1024 * 1024 * 128
 
 // Config stores the configuration for oss bucket.
 type Config struct {
-	Endpoint        string `yaml:"endpoint"`
-	Bucket          string `yaml:"bucket"`
-	AccessKeyID     string `yaml:"access_key_id"`
-	AccessKeySecret string `yaml:"access_key_secret"`
+	Endpoint          string `yaml:"endpoint"`
+	Bucket            string `yaml:"bucket"`
+	AccessKeyID       string `yaml:"access_key_id"`
+	AccessKeySecret   string `yaml:"access_key_secret"`
+	MaxHedgedRequests uint   `yaml:"max_hedged_requests"`
 }
 
 // Bucket implements the store.Bucket interface.
