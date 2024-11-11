@@ -59,6 +59,7 @@ type Config struct {
 	Endpoint   string             `yaml:"endpoint"`
 	SecretKey  string             `yaml:"secret_key"`
 	SecretId   string             `yaml:"secret_id"`
+	MaxRetries int                `yaml:"max_retries"`
 	HTTPConfig exthttp.HTTPConfig `yaml:"http_config"`
 }
 
@@ -145,6 +146,10 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string, wra
 			Transport: rt,
 		},
 	})
+
+	if config.MaxRetries > 0 {
+		client.Conf.RetryOpt.Count = config.MaxRetries
+	}
 
 	bkt := &Bucket{
 		logger: logger,
