@@ -21,8 +21,9 @@ import (
 	"github.com/oracle/oci-go-sdk/v65/objectstorage/transfer"
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
-	"github.com/thanos-io/objstore"
 	"gopkg.in/yaml.v2"
+
+	"github.com/thanos-io/objstore"
 )
 
 // DirDelim is the delimiter used to model a directory structure in an object store bucket.
@@ -100,7 +101,11 @@ func (b *Bucket) Name() string {
 	return b.name
 }
 
-// Iter calls f for each entry in the given directory (not recursive). The argument to f is the full
+func (b *Bucket) SupportedIterOptions() []objstore.IterOptionType {
+	return []objstore.IterOptionType{objstore.Recursive}
+}
+
+// Iter calls f for each entry in the given directory. The argument to f is the full
 // object name including the prefix of the inspected directory.
 func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, options ...objstore.IterOption) error {
 	// Ensure the object name actually ends with a dir suffix. Otherwise we'll just iterate the
@@ -120,12 +125,23 @@ func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, opt
 		if objectName == "" || objectName == dir {
 			continue
 		}
+
 		if err := f(objectName); err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+func (b *Bucket) IterWithAttributes(ctx context.Context, dir string, f func(attrs objstore.IterObjectAttributes) error, options ...objstore.IterOption) error {
+	if err := objstore.ValidateIterOptions(b.SupportedIterOptions(), options...); err != nil {
+		return err
+	}
+
+	return b.Iter(ctx, dir, func(name string) error {
+		return f(objstore.IterObjectAttributes{Name: name})
+	}, options...)
 }
 
 // Get returns a reader for the given object name.

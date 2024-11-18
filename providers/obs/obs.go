@@ -46,6 +46,7 @@ type Config struct {
 	Endpoint   string             `yaml:"endpoint"`
 	AccessKey  string             `yaml:"access_key"`
 	SecretKey  string             `yaml:"secret_key"`
+	MaxRetries int                `yaml:"max_retries"`
 	HTTPConfig exthttp.HTTPConfig `yaml:"http_config"`
 }
 
@@ -102,7 +103,13 @@ func NewBucketWithConfig(logger log.Logger, config Config) (*Bucket, error) {
 		return nil, errors.Wrap(err, "get http transport err")
 	}
 
-	client, err := obs.New(config.AccessKey, config.SecretKey, config.Endpoint, obs.WithHttpTransport(rt))
+	var client *obs.ObsClient
+	if config.MaxRetries > 0 {
+		client, err = obs.New(config.AccessKey, config.SecretKey, config.Endpoint, obs.WithHttpTransport(rt), obs.WithMaxRetryCount(config.MaxRetries))
+	} else {
+		client, err = obs.New(config.AccessKey, config.SecretKey, config.Endpoint, obs.WithHttpTransport(rt))
+	}
+
 	if err != nil {
 		return nil, errors.Wrap(err, "initialize obs client err")
 	}
@@ -232,6 +239,10 @@ func (b *Bucket) multipartUpload(size int64, key, uploadId string, body io.Reade
 
 func (b *Bucket) Close() error { return nil }
 
+func (b *Bucket) SupportedIterOptions() []objstore.IterOptionType {
+	return []objstore.IterOptionType{objstore.Recursive}
+}
+
 // Iter calls f for each entry in the given directory (not recursive.)
 func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, options ...objstore.IterOption) error {
 	if dir != "" {
@@ -268,6 +279,16 @@ func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, opt
 		input.Marker = output.NextMarker
 	}
 	return nil
+}
+
+func (b *Bucket) IterWithAttributes(ctx context.Context, dir string, f func(attrs objstore.IterObjectAttributes) error, options ...objstore.IterOption) error {
+	if err := objstore.ValidateIterOptions(b.SupportedIterOptions(), options...); err != nil {
+		return err
+	}
+
+	return b.Iter(ctx, dir, func(name string) error {
+		return f(objstore.IterObjectAttributes{Name: name})
+	}, options...)
 }
 
 // Get returns a reader for the given object name.
@@ -381,7 +402,7 @@ func NewTestBucketFromConfig(t testing.TB, c Config, reuseBucket bool, location 
 
 	bktToCreate := c.Bucket
 	if c.Bucket != "" && reuseBucket {
-		if err := b.Iter(ctx, "", func(f string) error {
+		if err := b.Iter(ctx, "", func(_ string) error {
 			return errors.Errorf("bucket %s is not empty", c.Bucket)
 		}); err != nil {
 			return nil, nil, err
