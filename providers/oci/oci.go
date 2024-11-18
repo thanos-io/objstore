@@ -96,6 +96,8 @@ type Bucket struct {
 	requestMetadata common.RequestMetadata
 }
 
+func (b *Bucket) Provider() objstore.ObjProvider { return objstore.OCI }
+
 // Name returns the bucket name for the provider.
 func (b *Bucket) Name() string {
 	return b.name
