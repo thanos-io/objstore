@@ -149,7 +149,7 @@ container: "MyContainer"`),
 		config: []byte(`storage_account: "myAccount"
 storage_account_key: ""
 tenant_id: "1234-56578678-655"
-user_assigned_id: "1234-56578678-655"
+client_id: "1234-56578678-655"
 client_secret: "1234-56578678-655"
 container: "MyContainer"`),
 		wantFailParse:    false,
@@ -159,7 +159,7 @@ container: "MyContainer"`),
 		name: "Valid ClientID and ClientSecret but missing TenantID",
 		config: []byte(`storage_account: "myAccount"
 storage_account_key: ""
-user_assigned_id: "1234-56578678-655"
+client_id: "1234-56578678-655"
 client_secret: "1234-56578678-655"
 container: "MyContainer"`),
 		wantFailParse:    false,

@@ -89,8 +89,8 @@ func getTokenCredential(conf Config) (azcore.TokenCredential, error) {
 		return azidentity.NewDefaultAzureCredential(nil)
 	}
 
-	if conf.ClientSecret != "" && conf.TenantID != "" {
-		return azidentity.NewClientSecretCredential(conf.TenantID, conf.UserAssignedID, conf.ClientSecret, &azidentity.ClientSecretCredentialOptions{})
+	if conf.ClientSecret != "" && conf.TenantID != "" && conf.ClientID != "" {
+		return azidentity.NewClientSecretCredential(conf.TenantID, conf.ClientID, conf.ClientSecret, &azidentity.ClientSecretCredentialOptions{})
 	}
 
 	msiOpt := &azidentity.ManagedIdentityCredentialOptions{}
