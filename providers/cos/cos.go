@@ -59,6 +59,7 @@ type Config struct {
 	Endpoint   string             `yaml:"endpoint"`
 	SecretKey  string             `yaml:"secret_key"`
 	SecretId   string             `yaml:"secret_id"`
+	MaxRetries int                `yaml:"max_retries"`
 	HTTPConfig exthttp.HTTPConfig `yaml:"http_config"`
 }
 
@@ -145,6 +146,10 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string, wra
 			Transport: rt,
 		},
 	})
+
+	if config.MaxRetries > 0 {
+		client.Conf.RetryOpt.Count = config.MaxRetries
+	}
 
 	bkt := &Bucket{
 		logger: logger,
@@ -276,7 +281,11 @@ func (b *Bucket) Delete(ctx context.Context, name string) error {
 	return nil
 }
 
-// Iter calls f for each entry in the given directory (not recursive.). The argument to f is the full
+func (b *Bucket) SupportedIterOptions() []objstore.IterOptionType {
+	return []objstore.IterOptionType{objstore.Recursive}
+}
+
+// Iter calls f for each entry in the given directory. The argument to f is the full
 // object name including the prefix of the inspected directory.
 func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, options ...objstore.IterOption) error {
 	if dir != "" {
@@ -296,6 +305,16 @@ func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, opt
 	}
 
 	return nil
+}
+
+func (b *Bucket) IterWithAttributes(ctx context.Context, dir string, f func(attrs objstore.IterObjectAttributes) error, options ...objstore.IterOption) error {
+	if err := objstore.ValidateIterOptions(b.SupportedIterOptions(), options...); err != nil {
+		return err
+	}
+
+	return b.Iter(ctx, dir, func(name string) error {
+		return f(objstore.IterObjectAttributes{Name: name})
+	}, options...)
 }
 
 func (b *Bucket) getRange(ctx context.Context, name string, off, length int64) (io.ReadCloser, error) {
@@ -493,7 +512,7 @@ func NewTestBucket(t testing.TB) (objstore.Bucket, func(), error) {
 			return nil, nil, err
 		}
 
-		if err := b.Iter(context.Background(), "", func(f string) error {
+		if err := b.Iter(context.Background(), "", func(_ string) error {
 			return errors.Errorf("bucket %s is not empty", c.Bucket)
 		}); err != nil {
 			return nil, nil, errors.Wrapf(err, "cos check bucket %s", c.Bucket)
