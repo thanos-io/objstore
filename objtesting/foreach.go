@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/thanos-io/objstore"
-	"github.com/thanos-io/objstore/client"
 	"github.com/thanos-io/objstore/providers/azure"
 	"github.com/thanos-io/objstore/providers/bos"
 	"github.com/thanos-io/objstore/providers/cos"
@@ -26,7 +25,7 @@ import (
 
 // IsObjStoreSkipped returns true if given provider ID is found in THANOS_TEST_OBJSTORE_SKIP array delimited by comma e.g:
 // THANOS_TEST_OBJSTORE_SKIP=GCS,S3,AZURE,SWIFT,COS,ALIYUNOSS,BOS,OCI.
-func IsObjStoreSkipped(t *testing.T, provider client.ObjProvider) bool {
+func IsObjStoreSkipped(t *testing.T, provider objstore.ObjProvider) bool {
 	if e, ok := os.LookupEnv("THANOS_TEST_OBJSTORE_SKIP"); ok {
 		obstores := strings.Split(e, ",")
 		for _, objstore := range obstores {
@@ -69,7 +68,7 @@ func ForeachStore(t *testing.T, testFn func(t *testing.T, bkt objstore.Bucket)) 
 	})
 
 	// Optional GCS.
-	if !IsObjStoreSkipped(t, client.GCS) {
+	if !IsObjStoreSkipped(t, objstore.GCS) {
 		t.Run("gcs", func(t *testing.T) {
 			bkt, closeFn, err := gcs.NewTestBucket(t, os.Getenv("GCP_PROJECT"))
 			testutil.Ok(t, err)
@@ -84,7 +83,7 @@ func ForeachStore(t *testing.T, testFn func(t *testing.T, bkt objstore.Bucket)) 
 	}
 
 	// Optional S3.
-	if !IsObjStoreSkipped(t, client.S3) {
+	if !IsObjStoreSkipped(t, objstore.S3) {
 		t.Run("aws s3", func(t *testing.T) {
 			// TODO(bwplotka): Allow taking location from envvar.
 			bkt, closeFn, err := s3.NewTestBucket(t, "us-west-2")
@@ -103,7 +102,7 @@ func ForeachStore(t *testing.T, testFn func(t *testing.T, bkt objstore.Bucket)) 
 	}
 
 	// Optional Azure.
-	if !IsObjStoreSkipped(t, client.AZURE) {
+	if !IsObjStoreSkipped(t, objstore.AZURE) {
 		t.Run("azure", func(t *testing.T) {
 			bkt, closeFn, err := azure.NewTestBucket(t, "e2e-tests")
 			testutil.Ok(t, err)
@@ -117,7 +116,7 @@ func ForeachStore(t *testing.T, testFn func(t *testing.T, bkt objstore.Bucket)) 
 	}
 
 	// Optional SWIFT.
-	if !IsObjStoreSkipped(t, client.SWIFT) {
+	if !IsObjStoreSkipped(t, objstore.SWIFT) {
 		t.Run("swift", func(t *testing.T) {
 			container, closeFn, err := swift.NewTestContainer(t)
 			testutil.Ok(t, err)
@@ -131,7 +130,7 @@ func ForeachStore(t *testing.T, testFn func(t *testing.T, bkt objstore.Bucket)) 
 	}
 
 	// Optional COS.
-	if !IsObjStoreSkipped(t, client.COS) {
+	if !IsObjStoreSkipped(t, objstore.COS) {
 		t.Run("Tencent cos", func(t *testing.T) {
 			bkt, closeFn, err := cos.NewTestBucket(t)
 			testutil.Ok(t, err)
@@ -145,7 +144,7 @@ func ForeachStore(t *testing.T, testFn func(t *testing.T, bkt objstore.Bucket)) 
 	}
 
 	// Optional OSS.
-	if !IsObjStoreSkipped(t, client.ALIYUNOSS) {
+	if !IsObjStoreSkipped(t, objstore.ALIYUNOSS) {
 		t.Run("AliYun oss", func(t *testing.T) {
 			bkt, closeFn, err := oss.NewTestBucket(t)
 			testutil.Ok(t, err)
@@ -159,7 +158,7 @@ func ForeachStore(t *testing.T, testFn func(t *testing.T, bkt objstore.Bucket)) 
 	}
 
 	// Optional BOS.
-	if !IsObjStoreSkipped(t, client.BOS) {
+	if !IsObjStoreSkipped(t, objstore.BOS) {
 		t.Run("Baidu BOS", func(t *testing.T) {
 			bkt, closeFn, err := bos.NewTestBucket(t)
 			testutil.Ok(t, err)
@@ -173,7 +172,7 @@ func ForeachStore(t *testing.T, testFn func(t *testing.T, bkt objstore.Bucket)) 
 	}
 
 	// Optional OCI.
-	if !IsObjStoreSkipped(t, client.OCI) {
+	if !IsObjStoreSkipped(t, objstore.OCI) {
 		t.Run("oci", func(t *testing.T) {
 			bkt, closeFn, err := oci.NewTestBucket(t)
 			testutil.Ok(t, err)
@@ -186,7 +185,7 @@ func ForeachStore(t *testing.T, testFn func(t *testing.T, bkt objstore.Bucket)) 
 	}
 
 	// Optional OBS.
-	if !IsObjStoreSkipped(t, client.OBS) {
+	if !IsObjStoreSkipped(t, objstore.OBS) {
 		t.Run("obs", func(t *testing.T) {
 			bkt, closeFn, err := obs.NewTestBucket(t, "cn-south-1")
 			testutil.Ok(t, err)
