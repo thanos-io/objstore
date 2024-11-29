@@ -85,12 +85,12 @@ func getContainerClient(conf Config, wrapRoundtripper func(http.RoundTripper) ht
 }
 
 func getTokenCredential(conf Config) (azcore.TokenCredential, error) {
-	if conf.UserAssignedID == "" {
-		return azidentity.NewDefaultAzureCredential(nil)
-	}
-
 	if conf.ClientSecret != "" && conf.TenantID != "" && conf.ClientID != "" {
 		return azidentity.NewClientSecretCredential(conf.TenantID, conf.ClientID, conf.ClientSecret, &azidentity.ClientSecretCredentialOptions{})
+	}
+
+	if conf.UserAssignedID == "" {
+		return azidentity.NewDefaultAzureCredential(nil)
 	}
 
 	msiOpt := &azidentity.ManagedIdentityCredentialOptions{}
