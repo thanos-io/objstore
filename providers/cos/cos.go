@@ -159,6 +159,8 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string, wra
 	return bkt, nil
 }
 
+func (b *Bucket) Provider() objstore.ObjProvider { return objstore.COS }
+
 // Name returns the bucket name for COS.
 func (b *Bucket) Name() string {
 	return b.name
