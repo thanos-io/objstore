@@ -6,6 +6,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/thanos-io/objstore"
@@ -26,30 +27,15 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-type ObjProvider string
-
-const (
-	FILESYSTEM ObjProvider = "FILESYSTEM"
-	GCS        ObjProvider = "GCS"
-	S3         ObjProvider = "S3"
-	AZURE      ObjProvider = "AZURE"
-	SWIFT      ObjProvider = "SWIFT"
-	COS        ObjProvider = "COS"
-	ALIYUNOSS  ObjProvider = "ALIYUNOSS"
-	BOS        ObjProvider = "BOS"
-	OCI        ObjProvider = "OCI"
-	OBS        ObjProvider = "OBS"
-)
-
 type BucketConfig struct {
-	Type   ObjProvider `yaml:"type"`
-	Config interface{} `yaml:"config"`
-	Prefix string      `yaml:"prefix" default:""`
+	Type   objstore.ObjProvider `yaml:"type"`
+	Config interface{}          `yaml:"config"`
+	Prefix string               `yaml:"prefix" default:""`
 }
 
 // NewBucket initializes and returns new object storage clients.
 // NOTE: confContentYaml can contain secrets.
-func NewBucket(logger log.Logger, confContentYaml []byte, component string) (objstore.Bucket, error) {
+func NewBucket(logger log.Logger, confContentYaml []byte, component string, wrapRoundtripper func(http.RoundTripper) http.RoundTripper) (objstore.Bucket, error) {
 	level.Info(logger).Log("msg", "loading bucket configuration")
 	bucketConf := &BucketConfig{}
 	if err := yaml.UnmarshalStrict(confContentYaml, bucketConf); err != nil {
@@ -63,25 +49,25 @@ func NewBucket(logger log.Logger, confContentYaml []byte, component string) (obj
 
 	var bucket objstore.Bucket
 	switch strings.ToUpper(string(bucketConf.Type)) {
-	case string(GCS):
-		bucket, err = gcs.NewBucket(context.Background(), logger, config, component)
-	case string(S3):
-		bucket, err = s3.NewBucket(logger, config, component)
-	case string(AZURE):
-		bucket, err = azure.NewBucket(logger, config, component)
-	case string(SWIFT):
-		bucket, err = swift.NewContainer(logger, config)
-	case string(COS):
-		bucket, err = cos.NewBucket(logger, config, component)
-	case string(ALIYUNOSS):
-		bucket, err = oss.NewBucket(logger, config, component)
-	case string(FILESYSTEM):
+	case string(objstore.GCS):
+		bucket, err = gcs.NewBucket(context.Background(), logger, config, component, wrapRoundtripper)
+	case string(objstore.S3):
+		bucket, err = s3.NewBucket(logger, config, component, wrapRoundtripper)
+	case string(objstore.AZURE):
+		bucket, err = azure.NewBucket(logger, config, component, wrapRoundtripper)
+	case string(objstore.SWIFT):
+		bucket, err = swift.NewContainer(logger, config, wrapRoundtripper)
+	case string(objstore.COS):
+		bucket, err = cos.NewBucket(logger, config, component, wrapRoundtripper)
+	case string(objstore.ALIYUNOSS):
+		bucket, err = oss.NewBucket(logger, config, component, wrapRoundtripper)
+	case string(objstore.FILESYSTEM):
 		bucket, err = filesystem.NewBucketFromConfig(config)
-	case string(BOS):
+	case string(objstore.BOS):
 		bucket, err = bos.NewBucket(logger, config, component)
-	case string(OCI):
-		bucket, err = oci.NewBucket(logger, config)
-	case string(OBS):
+	case string(objstore.OCI):
+		bucket, err = oci.NewBucket(logger, config, wrapRoundtripper)
+	case string(objstore.OBS):
 		bucket, err = obs.NewBucket(logger, config)
 	default:
 		return nil, errors.Errorf("bucket with type %s is not supported", bucketConf.Type)

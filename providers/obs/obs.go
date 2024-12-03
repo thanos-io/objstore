@@ -46,6 +46,7 @@ type Config struct {
 	Endpoint   string             `yaml:"endpoint"`
 	AccessKey  string             `yaml:"access_key"`
 	SecretKey  string             `yaml:"secret_key"`
+	MaxRetries int                `yaml:"max_retries"`
 	HTTPConfig exthttp.HTTPConfig `yaml:"http_config"`
 }
 
@@ -75,11 +76,11 @@ type Bucket struct {
 }
 
 func NewBucket(logger log.Logger, conf []byte) (*Bucket, error) {
+	// TODO(https://github.com/thanos-io/objstore/pull/150): Add support for roundtripper wrapper.
 	config, err := parseConfig(conf)
 	if err != nil {
 		return nil, errors.Wrap(err, "parsing cos configuration")
 	}
-
 	return NewBucketWithConfig(logger, config)
 }
 
@@ -102,7 +103,13 @@ func NewBucketWithConfig(logger log.Logger, config Config) (*Bucket, error) {
 		return nil, errors.Wrap(err, "get http transport err")
 	}
 
-	client, err := obs.New(config.AccessKey, config.SecretKey, config.Endpoint, obs.WithHttpTransport(rt))
+	var client *obs.ObsClient
+	if config.MaxRetries > 0 {
+		client, err = obs.New(config.AccessKey, config.SecretKey, config.Endpoint, obs.WithHttpTransport(rt), obs.WithMaxRetryCount(config.MaxRetries))
+	} else {
+		client, err = obs.New(config.AccessKey, config.SecretKey, config.Endpoint, obs.WithHttpTransport(rt))
+	}
+
 	if err != nil {
 		return nil, errors.Wrap(err, "initialize obs client err")
 	}
@@ -114,6 +121,8 @@ func NewBucketWithConfig(logger log.Logger, config Config) (*Bucket, error) {
 	}
 	return bkt, nil
 }
+
+func (b *Bucket) Provider() objstore.ObjProvider { return objstore.OBS }
 
 // Name returns the bucket name for the provider.
 func (b *Bucket) Name() string {
@@ -232,6 +241,10 @@ func (b *Bucket) multipartUpload(size int64, key, uploadId string, body io.Reade
 
 func (b *Bucket) Close() error { return nil }
 
+func (b *Bucket) SupportedIterOptions() []objstore.IterOptionType {
+	return []objstore.IterOptionType{objstore.Recursive}
+}
+
 // Iter calls f for each entry in the given directory (not recursive.)
 func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, options ...objstore.IterOption) error {
 	if dir != "" {
@@ -270,6 +283,16 @@ func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, opt
 	return nil
 }
 
+func (b *Bucket) IterWithAttributes(ctx context.Context, dir string, f func(attrs objstore.IterObjectAttributes) error, options ...objstore.IterOption) error {
+	if err := objstore.ValidateIterOptions(b.SupportedIterOptions(), options...); err != nil {
+		return err
+	}
+
+	return b.Iter(ctx, dir, func(name string) error {
+		return f(objstore.IterObjectAttributes{Name: name})
+	}, options...)
+}
+
 // Get returns a reader for the given object name.
 func (b *Bucket) Get(ctx context.Context, name string) (io.ReadCloser, error) {
 	return b.getRange(ctx, name, 0, -1)
@@ -299,7 +322,12 @@ func (b *Bucket) getRange(_ context.Context, name string, off, length int64) (io
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get object")
 	}
-	return output.Body, nil
+	return objstore.ObjectSizerReadCloser{
+		ReadCloser: output.Body,
+		Size: func() (int64, error) {
+			return output.ContentLength, nil
+		},
+	}, nil
 }
 
 // Exists checks if the given object exists in the bucket.
@@ -376,7 +404,7 @@ func NewTestBucketFromConfig(t testing.TB, c Config, reuseBucket bool, location 
 
 	bktToCreate := c.Bucket
 	if c.Bucket != "" && reuseBucket {
-		if err := b.Iter(ctx, "", func(f string) error {
+		if err := b.Iter(ctx, "", func(_ string) error {
 			return errors.Errorf("bucket %s is not empty", c.Bucket)
 		}); err != nil {
 			return nil, nil, err

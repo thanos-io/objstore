@@ -59,6 +59,7 @@ type Config struct {
 	Endpoint   string             `yaml:"endpoint"`
 	SecretKey  string             `yaml:"secret_key"`
 	SecretId   string             `yaml:"secret_id"`
+	MaxRetries int                `yaml:"max_retries"`
 	HTTPConfig exthttp.HTTPConfig `yaml:"http_config"`
 }
 
@@ -95,7 +96,7 @@ func parseConfig(conf []byte) (Config, error) {
 }
 
 // NewBucket returns a new Bucket using the provided cos configuration.
-func NewBucket(logger log.Logger, conf []byte, component string) (*Bucket, error) {
+func NewBucket(logger log.Logger, conf []byte, component string, wrapRoundtripper func(http.RoundTripper) http.RoundTripper) (*Bucket, error) {
 	if logger == nil {
 		logger = log.NewNopLogger()
 	}
@@ -104,12 +105,11 @@ func NewBucket(logger log.Logger, conf []byte, component string) (*Bucket, error
 	if err != nil {
 		return nil, errors.Wrap(err, "parsing cos configuration")
 	}
-
-	return NewBucketWithConfig(logger, config, component)
+	return NewBucketWithConfig(logger, config, component, wrapRoundtripper)
 }
 
 // NewBucketWithConfig returns a new Bucket using the provided cos config values.
-func NewBucketWithConfig(logger log.Logger, config Config, component string) (*Bucket, error) {
+func NewBucketWithConfig(logger log.Logger, config Config, component string, wrapRoundtripper func(http.RoundTripper) http.RoundTripper) (*Bucket, error) {
 	if err := config.validate(); err != nil {
 		return nil, errors.Wrap(err, "validate cos configuration")
 	}
@@ -128,14 +128,28 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string) (*B
 		}
 	}
 	b := &cos.BaseURL{BucketURL: bucketURL}
-	tpt, _ := exthttp.DefaultTransport(config.HTTPConfig)
+	var rt http.RoundTripper
+	rt, err = exthttp.DefaultTransport(config.HTTPConfig)
+	if err != nil {
+		return nil, err
+	}
+	if config.HTTPConfig.Transport != nil {
+		rt = config.HTTPConfig.Transport
+	}
+	if wrapRoundtripper != nil {
+		rt = wrapRoundtripper(rt)
+	}
 	client := cos.NewClient(b, &http.Client{
 		Transport: &cos.AuthorizationTransport{
 			SecretID:  config.SecretId,
 			SecretKey: config.SecretKey,
-			Transport: tpt,
+			Transport: rt,
 		},
 	})
+
+	if config.MaxRetries > 0 {
+		client.Conf.RetryOpt.Count = config.MaxRetries
+	}
 
 	bkt := &Bucket{
 		logger: logger,
@@ -144,6 +158,8 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string) (*B
 	}
 	return bkt, nil
 }
+
+func (b *Bucket) Provider() objstore.ObjProvider { return objstore.COS }
 
 // Name returns the bucket name for COS.
 func (b *Bucket) Name() string {
@@ -267,7 +283,11 @@ func (b *Bucket) Delete(ctx context.Context, name string) error {
 	return nil
 }
 
-// Iter calls f for each entry in the given directory (not recursive.). The argument to f is the full
+func (b *Bucket) SupportedIterOptions() []objstore.IterOptionType {
+	return []objstore.IterOptionType{objstore.Recursive}
+}
+
+// Iter calls f for each entry in the given directory. The argument to f is the full
 // object name including the prefix of the inspected directory.
 func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, options ...objstore.IterOption) error {
 	if dir != "" {
@@ -287,6 +307,16 @@ func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, opt
 	}
 
 	return nil
+}
+
+func (b *Bucket) IterWithAttributes(ctx context.Context, dir string, f func(attrs objstore.IterObjectAttributes) error, options ...objstore.IterOption) error {
+	if err := objstore.ValidateIterOptions(b.SupportedIterOptions(), options...); err != nil {
+		return err
+	}
+
+	return b.Iter(ctx, dir, func(name string) error {
+		return f(objstore.IterObjectAttributes{Name: name})
+	}, options...)
 }
 
 func (b *Bucket) getRange(ctx context.Context, name string, off, length int64) (io.ReadCloser, error) {
@@ -314,18 +344,12 @@ func (b *Bucket) getRange(ctx context.Context, name string, off, length int64) (
 		return nil, err
 	}
 	// Add size info into reader to pass it to Upload function.
-	r := objectSizerReadCloser{ReadCloser: resp.Body, size: resp.ContentLength}
-	return r, nil
-}
-
-type objectSizerReadCloser struct {
-	io.ReadCloser
-	size int64
-}
-
-// ObjectSize implement objstore.ObjectSizer.
-func (o objectSizerReadCloser) ObjectSize() (int64, error) {
-	return o.size, nil
+	return objstore.ObjectSizerReadCloser{
+		ReadCloser: resp.Body,
+		Size: func() (int64, error) {
+			return resp.ContentLength, nil
+		},
+	}, nil
 }
 
 // Get returns a reader for the given object name.
@@ -485,12 +509,12 @@ func NewTestBucket(t testing.TB) (objstore.Bucket, func(), error) {
 			return nil, nil, err
 		}
 
-		b, err := NewBucket(log.NewNopLogger(), bc, "thanos-e2e-test")
+		b, err := NewBucket(log.NewNopLogger(), bc, "thanos-e2e-test", nil)
 		if err != nil {
 			return nil, nil, err
 		}
 
-		if err := b.Iter(context.Background(), "", func(f string) error {
+		if err := b.Iter(context.Background(), "", func(_ string) error {
 			return errors.Errorf("bucket %s is not empty", c.Bucket)
 		}); err != nil {
 			return nil, nil, errors.Wrapf(err, "cos check bucket %s", c.Bucket)
@@ -506,7 +530,7 @@ func NewTestBucket(t testing.TB) (objstore.Bucket, func(), error) {
 		return nil, nil, err
 	}
 
-	b, err := NewBucket(log.NewNopLogger(), bc, "thanos-e2e-test")
+	b, err := NewBucket(log.NewNopLogger(), bc, "thanos-e2e-test", nil)
 	if err != nil {
 		return nil, nil, err
 	}

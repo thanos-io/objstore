@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/efficientgo/core/testutil"
 	"github.com/go-kit/log"
@@ -412,7 +413,7 @@ func TestDownloadUploadDirConcurrency(t *testing.T) {
 func TestTimingReader(t *testing.T) {
 	m := WrapWithMetrics(NewInMemBucket(), nil, "")
 	r := bytes.NewReader([]byte("hello world"))
-	tr := newTimingReader(r, true, OpGet, m.metrics.opsDuration, m.metrics.opsFailures, func(err error) bool {
+	tr := newTimingReader(time.Now(), r, true, OpGet, m.metrics.opsDuration, m.metrics.opsFailures, func(err error) bool {
 		return false
 	}, m.metrics.opsFetchedBytes, m.metrics.opsTransferredBytes)
 
@@ -447,7 +448,7 @@ func TestTimingReader_ExpectedError(t *testing.T) {
 
 	m := WrapWithMetrics(NewInMemBucket(), nil, "")
 	r := dummyReader{readerErr}
-	tr := newTimingReader(r, true, OpGet, m.metrics.opsDuration, m.metrics.opsFailures, func(err error) bool { return errors.Is(err, readerErr) }, m.metrics.opsFetchedBytes, m.metrics.opsTransferredBytes)
+	tr := newTimingReader(time.Now(), r, true, OpGet, m.metrics.opsDuration, m.metrics.opsFailures, func(err error) bool { return errors.Is(err, readerErr) }, m.metrics.opsFetchedBytes, m.metrics.opsTransferredBytes)
 
 	buf := make([]byte, 1)
 	_, err := io.ReadFull(tr, buf)
@@ -461,7 +462,7 @@ func TestTimingReader_UnexpectedError(t *testing.T) {
 
 	m := WrapWithMetrics(NewInMemBucket(), nil, "")
 	r := dummyReader{readerErr}
-	tr := newTimingReader(r, true, OpGet, m.metrics.opsDuration, m.metrics.opsFailures, func(err error) bool { return false }, m.metrics.opsFetchedBytes, m.metrics.opsTransferredBytes)
+	tr := newTimingReader(time.Now(), r, true, OpGet, m.metrics.opsDuration, m.metrics.opsFailures, func(err error) bool { return false }, m.metrics.opsFetchedBytes, m.metrics.opsTransferredBytes)
 
 	buf := make([]byte, 1)
 	_, err := io.ReadFull(tr, buf)
@@ -476,7 +477,7 @@ func TestTimingReader_ContextCancellation(t *testing.T) {
 
 	m := WrapWithMetrics(NewInMemBucket(), nil, "")
 	r := dummyReader{ctx.Err()}
-	tr := newTimingReader(r, true, OpGet, m.metrics.opsDuration, m.metrics.opsFailures, func(err error) bool { return false }, m.metrics.opsFetchedBytes, m.metrics.opsTransferredBytes)
+	tr := newTimingReader(time.Now(), r, true, OpGet, m.metrics.opsDuration, m.metrics.opsFailures, func(err error) bool { return false }, m.metrics.opsFetchedBytes, m.metrics.opsTransferredBytes)
 
 	buf := make([]byte, 1)
 	_, err := io.ReadFull(tr, buf)
@@ -506,7 +507,7 @@ func TestTimingReader_ShouldCorrectlyWrapFile(t *testing.T) {
 	})
 
 	m := WrapWithMetrics(NewInMemBucket(), nil, "")
-	r := newTimingReader(file, true, "", m.metrics.opsDuration, m.metrics.opsFailures, func(err error) bool {
+	r := newTimingReader(time.Now(), file, true, "", m.metrics.opsDuration, m.metrics.opsFailures, func(err error) bool {
 		return false
 	}, m.metrics.opsFetchedBytes, m.metrics.opsTransferredBytes)
 
@@ -593,4 +594,12 @@ func (b *mockBucket) GetRange(ctx context.Context, name string, off, length int6
 		return b.getRange(ctx, name, off, length)
 	}
 	return nil, errors.New("GetRange has not been mocked")
+}
+
+func Test_TryToGetSizeLimitedReader(t *testing.T) {
+	b := &bytes.Buffer{}
+	r := io.LimitReader(b, 1024)
+	size, err := TryToGetSize(r)
+	testutil.Ok(t, err)
+	testutil.Equals(t, int64(1024), size)
 }

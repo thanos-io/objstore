@@ -23,6 +23,8 @@ func WrapWithTraces(bkt objstore.Bucket, tracer trace.Tracer) objstore.Instrumen
 	return TracingBucket{tracer: tracer, bkt: bkt}
 }
 
+func (t TracingBucket) Provider() objstore.ObjProvider { return t.bkt.Provider() }
+
 func (t TracingBucket) Iter(ctx context.Context, dir string, f func(string) error, options ...objstore.IterOption) (err error) {
 	ctx, span := t.tracer.Start(ctx, "bucket_iter")
 	defer span.End()
@@ -34,6 +36,24 @@ func (t TracingBucket) Iter(ctx context.Context, dir string, f func(string) erro
 		}
 	}()
 	return t.bkt.Iter(ctx, dir, f, options...)
+}
+
+func (t TracingBucket) IterWithAttributes(ctx context.Context, dir string, f func(attrs objstore.IterObjectAttributes) error, options ...objstore.IterOption) (err error) {
+	ctx, span := t.tracer.Start(ctx, "bucket_iter_with_attrs")
+	defer span.End()
+	span.SetAttributes(attribute.String("dir", dir))
+
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+		}
+	}()
+	return t.bkt.IterWithAttributes(ctx, dir, f, options...)
+}
+
+// SupportedIterOptions returns a list of supported IterOptions by the underlying provider.
+func (t TracingBucket) SupportedIterOptions() []objstore.IterOptionType {
+	return t.bkt.SupportedIterOptions()
 }
 
 func (t TracingBucket) Get(ctx context.Context, name string) (io.ReadCloser, error) {

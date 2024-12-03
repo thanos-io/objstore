@@ -74,7 +74,7 @@ func UsesPrefixTest(t *testing.T, bkt Bucket, prefix string) {
 	testutil.Ok(t, pBkt.Iter(context.Background(), "", func(fn string) error {
 		seen = append(seen, fn)
 		return nil
-	}, WithRecursiveIter))
+	}, WithRecursiveIter()))
 	expected := []string{"dir/file1.jpg", "file1.jpg"}
 	sort.Strings(expected)
 	sort.Strings(seen)

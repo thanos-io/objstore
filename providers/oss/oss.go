@@ -16,14 +16,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 	alioss "github.com/aliyun/aliyun-oss-go-sdk/oss"
 	"github.com/go-kit/log"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 
-	"github.com/thanos-io/objstore/clientutil"
-
 	"github.com/thanos-io/objstore"
+	"github.com/thanos-io/objstore/clientutil"
+	"github.com/thanos-io/objstore/exthttp"
 )
 
 // PartSize is a part size for multi part upload.
@@ -66,6 +67,8 @@ func NewTestBucket(t testing.TB) (objstore.Bucket, func(), error) {
 	}
 	return NewTestBucketFromConfig(t, c, false)
 }
+
+func (b *Bucket) Provider() objstore.ObjProvider { return objstore.ALIYUNOSS }
 
 // Upload the contents of the reader as an object into the bucket.
 func (b *Bucket) Upload(_ context.Context, name string, r io.Reader) error {
@@ -158,22 +161,32 @@ func (b *Bucket) Attributes(ctx context.Context, name string) (objstore.ObjectAt
 }
 
 // NewBucket returns a new Bucket using the provided oss config values.
-func NewBucket(logger log.Logger, conf []byte, component string) (*Bucket, error) {
+func NewBucket(logger log.Logger, conf []byte, component string, wrapRoundtripper func(http.RoundTripper) http.RoundTripper) (*Bucket, error) {
 	var config Config
 	if err := yaml.Unmarshal(conf, &config); err != nil {
 		return nil, errors.Wrap(err, "parse aliyun oss config file failed")
 	}
-
-	return NewBucketWithConfig(logger, config, component)
+	return NewBucketWithConfig(logger, config, component, wrapRoundtripper)
 }
 
 // NewBucketWithConfig returns a new Bucket using the provided oss config struct.
-func NewBucketWithConfig(logger log.Logger, config Config, component string) (*Bucket, error) {
+func NewBucketWithConfig(logger log.Logger, config Config, component string, wrapRoundtripper func(http.RoundTripper) http.RoundTripper) (*Bucket, error) {
 	if err := validate(config); err != nil {
 		return nil, err
 	}
-
-	client, err := alioss.New(config.Endpoint, config.AccessKeyID, config.AccessKeySecret)
+	var clientOptions []alioss.ClientOption
+	if wrapRoundtripper != nil {
+		rt, err := exthttp.DefaultTransport(exthttp.DefaultHTTPConfig)
+		if err != nil {
+			return nil, err
+		}
+		clientOptions = append(clientOptions, func(client *alioss.Client) {
+			client.HTTPClient = &http.Client{
+				Transport: wrapRoundtripper(rt),
+			}
+		})
+	}
+	client, err := alioss.New(config.Endpoint, config.AccessKeyID, config.AccessKeySecret, clientOptions...)
 	if err != nil {
 		return nil, errors.Wrap(err, "create aliyun oss client failed")
 	}
@@ -204,7 +217,11 @@ func validate(config Config) error {
 	return nil
 }
 
-// Iter calls f for each entry in the given directory (not recursive). The argument to f is the full
+func (b *Bucket) SupportedIterOptions() []objstore.IterOptionType {
+	return []objstore.IterOptionType{objstore.Recursive}
+}
+
+// Iter calls f for each entry in the given directory. The argument to f is the full
 // object name including the prefix of the inspected directory.
 func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, options ...objstore.IterOption) error {
 	if dir != "" {
@@ -246,6 +263,16 @@ func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, opt
 	return nil
 }
 
+func (b *Bucket) IterWithAttributes(ctx context.Context, dir string, f func(attrs objstore.IterObjectAttributes) error, options ...objstore.IterOption) error {
+	if err := objstore.ValidateIterOptions(b.SupportedIterOptions(), options...); err != nil {
+		return err
+	}
+
+	return b.Iter(ctx, dir, func(name string) error {
+		return f(objstore.IterObjectAttributes{Name: name})
+	}, options...)
+}
+
 func (b *Bucket) Name() string {
 	return b.name
 }
@@ -274,13 +301,13 @@ func NewTestBucketFromConfig(t testing.TB, c Config, reuseBucket bool) (objstore
 		return nil, nil, err
 	}
 
-	b, err := NewBucket(log.NewNopLogger(), bc, "thanos-aliyun-oss-test")
+	b, err := NewBucket(log.NewNopLogger(), bc, "thanos-aliyun-oss-test", nil)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	if reuseBucket {
-		if err := b.Iter(context.Background(), "", func(f string) error {
+		if err := b.Iter(context.Background(), "", func(_ string) error {
 			return errors.Errorf("bucket %s is not empty", c.Bucket)
 		}); err != nil {
 			return nil, nil, errors.Wrapf(err, "oss check bucket %s", c.Bucket)
@@ -338,12 +365,22 @@ func (b *Bucket) getRange(_ context.Context, name string, off, length int64) (io
 		opts = append(opts, opt)
 	}
 
-	resp, err := b.bucket.GetObject(name, opts...)
+	resp, err := b.bucket.DoGetObject(&oss.GetObjectRequest{ObjectKey: name}, opts)
 	if err != nil {
 		return nil, err
 	}
 
-	return resp, nil
+	size, err := clientutil.ParseContentLength(resp.Response.Headers)
+	if err == nil {
+		return objstore.ObjectSizerReadCloser{
+			ReadCloser: resp.Response,
+			Size: func() (int64, error) {
+				return size, nil
+			},
+		}, nil
+	}
+
+	return resp.Response, nil
 }
 
 // Get returns a reader for the given object name.

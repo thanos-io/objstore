@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/efficientgo/core/testutil"
+	"github.com/go-kit/log"
 	"github.com/prometheus/common/model"
+	"github.com/thanos-io/objstore/errutil"
 )
 
 func TestParseConfig(t *testing.T) {
@@ -63,4 +65,14 @@ http_config:
 	testutil.Equals(t, model.Duration(2*time.Minute), cfg.HTTPConfig.ResponseHeaderTimeout)
 	testutil.Equals(t, false, cfg.HTTPConfig.InsecureSkipVerify)
 
+}
+
+func TestNewBucketWithErrorRoundTripper(t *testing.T) {
+	config := DefaultConfig
+	config.AuthUrl = "http://identity.something.com/v3"
+	_, err := NewContainerFromConfig(log.NewNopLogger(), &config, false, errutil.WrapWithErrRoundtripper)
+
+	// We expect an error from the RoundTripper
+	testutil.NotOk(t, err)
+	testutil.Assert(t, errutil.IsMockedError(err), "Expected RoundTripper error, got: %v", err)
 }

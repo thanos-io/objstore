@@ -4,12 +4,15 @@
 package cos
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/efficientgo/core/testutil"
+	"github.com/go-kit/log"
 	"github.com/prometheus/common/model"
 
+	"github.com/thanos-io/objstore/errutil"
 	"github.com/thanos-io/objstore/exthttp"
 )
 
@@ -136,4 +139,21 @@ func TestConfig_validate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNewBucketWithErrorRoundTripper(t *testing.T) {
+	config := Config{
+		Bucket:    "bucket",
+		AppId:     "123",
+		Region:    "test",
+		SecretId:  "sid",
+		SecretKey: "skey",
+	}
+
+	bkt, err := NewBucketWithConfig(log.NewNopLogger(), config, "test", errutil.WrapWithErrRoundtripper)
+	testutil.Ok(t, err)
+	_, err = bkt.Get(context.Background(), "Test")
+	// We expect an error from the RoundTripper
+	testutil.NotOk(t, err)
+	testutil.Assert(t, errutil.IsMockedError(err), "Expected RoundTripper error, got: %v", err)
 }
