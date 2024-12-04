@@ -23,6 +23,8 @@ func WrapWithTraces(bkt objstore.Bucket, tracer trace.Tracer) objstore.Instrumen
 	return TracingBucket{tracer: tracer, bkt: bkt}
 }
 
+func (t TracingBucket) Provider() objstore.ObjProvider { return t.bkt.Provider() }
+
 func (t TracingBucket) Iter(ctx context.Context, dir string, f func(string) error, options ...objstore.IterOption) (err error) {
 	ctx, span := t.tracer.Start(ctx, "bucket_iter")
 	defer span.End()

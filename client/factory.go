@@ -27,25 +27,10 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-type ObjProvider string
-
-const (
-	FILESYSTEM ObjProvider = "FILESYSTEM"
-	GCS        ObjProvider = "GCS"
-	S3         ObjProvider = "S3"
-	AZURE      ObjProvider = "AZURE"
-	SWIFT      ObjProvider = "SWIFT"
-	COS        ObjProvider = "COS"
-	ALIYUNOSS  ObjProvider = "ALIYUNOSS"
-	BOS        ObjProvider = "BOS"
-	OCI        ObjProvider = "OCI"
-	OBS        ObjProvider = "OBS"
-)
-
 type BucketConfig struct {
-	Type   ObjProvider `yaml:"type"`
-	Config interface{} `yaml:"config"`
-	Prefix string      `yaml:"prefix" default:""`
+	Type   objstore.ObjProvider `yaml:"type"`
+	Config interface{}          `yaml:"config"`
+	Prefix string               `yaml:"prefix" default:""`
 }
 
 // NewBucket initializes and returns new object storage clients.
@@ -64,25 +49,25 @@ func NewBucket(logger log.Logger, confContentYaml []byte, component string, wrap
 
 	var bucket objstore.Bucket
 	switch strings.ToUpper(string(bucketConf.Type)) {
-	case string(GCS):
+	case string(objstore.GCS):
 		bucket, err = gcs.NewBucket(context.Background(), logger, config, component, wrapRoundtripper)
-	case string(S3):
+	case string(objstore.S3):
 		bucket, err = s3.NewBucket(logger, config, component, wrapRoundtripper)
-	case string(AZURE):
+	case string(objstore.AZURE):
 		bucket, err = azure.NewBucket(logger, config, component, wrapRoundtripper)
-	case string(SWIFT):
+	case string(objstore.SWIFT):
 		bucket, err = swift.NewContainer(logger, config, wrapRoundtripper)
-	case string(COS):
+	case string(objstore.COS):
 		bucket, err = cos.NewBucket(logger, config, component, wrapRoundtripper)
-	case string(ALIYUNOSS):
+	case string(objstore.ALIYUNOSS):
 		bucket, err = oss.NewBucket(logger, config, component, wrapRoundtripper)
-	case string(FILESYSTEM):
+	case string(objstore.FILESYSTEM):
 		bucket, err = filesystem.NewBucketFromConfig(config)
-	case string(BOS):
+	case string(objstore.BOS):
 		bucket, err = bos.NewBucket(logger, config, component)
-	case string(OCI):
+	case string(objstore.OCI):
 		bucket, err = oci.NewBucket(logger, config, wrapRoundtripper)
-	case string(OBS):
+	case string(objstore.OBS):
 		bucket, err = obs.NewBucket(logger, config)
 	default:
 		return nil, errors.Errorf("bucket with type %s is not supported", bucketConf.Type)
