@@ -638,7 +638,6 @@ func (b *metricBucket) Iter(ctx context.Context, dir string, f func(string) erro
 		} else if ctx.Err() != context.Canceled {
 			b.metrics.opsFailures.WithLabelValues(op).Inc()
 		}
-		return err
 	}
 	return err
 }
@@ -652,7 +651,9 @@ func (b *metricBucket) IterWithAttributes(ctx context.Context, dir string, f fun
 
 	err := b.bkt.IterWithAttributes(ctx, dir, f, options...)
 	if err != nil {
-		if !b.metrics.isOpFailureExpected(err) && ctx.Err() != context.Canceled {
+		if b.metrics.isOpFailureExpected(err) {
+			err = nil
+		} else if ctx.Err() != context.Canceled {
 			b.metrics.opsFailures.WithLabelValues(op).Inc()
 		}
 	}
