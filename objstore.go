@@ -633,7 +633,9 @@ func (b *metricBucket) Iter(ctx context.Context, dir string, f func(string) erro
 
 	err := b.bkt.Iter(ctx, dir, f, options...)
 	if err != nil {
-		if !b.metrics.isOpFailureExpected(err) && ctx.Err() != context.Canceled {
+		if b.metrics.isOpFailureExpected(err) {
+			err = nil
+		} else if ctx.Err() != context.Canceled {
 			b.metrics.opsFailures.WithLabelValues(op).Inc()
 		}
 	}
@@ -649,7 +651,9 @@ func (b *metricBucket) IterWithAttributes(ctx context.Context, dir string, f fun
 
 	err := b.bkt.IterWithAttributes(ctx, dir, f, options...)
 	if err != nil {
-		if !b.metrics.isOpFailureExpected(err) && ctx.Err() != context.Canceled {
+		if b.metrics.isOpFailureExpected(err) {
+			err = nil
+		} else if ctx.Err() != context.Canceled {
 			b.metrics.opsFailures.WithLabelValues(op).Inc()
 		}
 	}
@@ -668,7 +672,9 @@ func (b *metricBucket) Attributes(ctx context.Context, name string) (ObjectAttri
 	start := time.Now()
 	attrs, err := b.bkt.Attributes(ctx, name)
 	if err != nil {
-		if !b.metrics.isOpFailureExpected(err) && ctx.Err() != context.Canceled {
+		if b.metrics.isOpFailureExpected(err) {
+			err = nil
+		} else if ctx.Err() != context.Canceled {
 			b.metrics.opsFailures.WithLabelValues(op).Inc()
 		}
 		return attrs, err
@@ -685,7 +691,9 @@ func (b *metricBucket) Get(ctx context.Context, name string) (io.ReadCloser, err
 
 	rc, err := b.bkt.Get(ctx, name)
 	if err != nil {
-		if !b.metrics.isOpFailureExpected(err) && ctx.Err() != context.Canceled {
+		if b.metrics.isOpFailureExpected(err) {
+			err = nil
+		} else if ctx.Err() != context.Canceled {
 			b.metrics.opsFailures.WithLabelValues(op).Inc()
 		}
 		b.metrics.opsDuration.WithLabelValues(op).Observe(time.Since(start).Seconds())
@@ -712,7 +720,9 @@ func (b *metricBucket) GetRange(ctx context.Context, name string, off, length in
 
 	rc, err := b.bkt.GetRange(ctx, name, off, length)
 	if err != nil {
-		if !b.metrics.isOpFailureExpected(err) && ctx.Err() != context.Canceled {
+		if b.metrics.isOpFailureExpected(err) {
+			err = nil
+		} else if ctx.Err() != context.Canceled {
 			b.metrics.opsFailures.WithLabelValues(op).Inc()
 		}
 		b.metrics.opsDuration.WithLabelValues(op).Observe(time.Since(start).Seconds())
@@ -738,7 +748,9 @@ func (b *metricBucket) Exists(ctx context.Context, name string) (bool, error) {
 	start := time.Now()
 	ok, err := b.bkt.Exists(ctx, name)
 	if err != nil {
-		if !b.metrics.isOpFailureExpected(err) && ctx.Err() != context.Canceled {
+		if b.metrics.isOpFailureExpected(err) {
+			err = nil
+		} else if ctx.Err() != context.Canceled {
 			b.metrics.opsFailures.WithLabelValues(op).Inc()
 		}
 		return false, err
@@ -767,7 +779,9 @@ func (b *metricBucket) Upload(ctx context.Context, name string, r io.Reader) err
 	defer trc.Close()
 	err := b.bkt.Upload(ctx, name, trc)
 	if err != nil {
-		if !b.metrics.isOpFailureExpected(err) && ctx.Err() != context.Canceled {
+		if b.metrics.isOpFailureExpected(err) {
+			err = nil
+		} else if ctx.Err() != context.Canceled {
 			b.metrics.opsFailures.WithLabelValues(op).Inc()
 		}
 		return err
@@ -783,7 +797,9 @@ func (b *metricBucket) Delete(ctx context.Context, name string) error {
 
 	start := time.Now()
 	if err := b.bkt.Delete(ctx, name); err != nil {
-		if !b.metrics.isOpFailureExpected(err) && ctx.Err() != context.Canceled {
+		if b.metrics.isOpFailureExpected(err) {
+			err = nil
+		} else if ctx.Err() != context.Canceled {
 			b.metrics.opsFailures.WithLabelValues(op).Inc()
 		}
 		return err
