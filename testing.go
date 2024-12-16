@@ -80,11 +80,7 @@ func (b noopInstrumentedBucket) ReaderWithExpectedErrs(IsOpFailureExpectedFunc) 
 	return b
 }
 
-func AcceptanceTestWithoutNotFoundErr(t *testing.T, bkt Bucket) {
-	AcceptanceTest(t, bkt, false)
-}
-
-func AcceptanceTest(t *testing.T, bkt Bucket, expectedNotFoundErr bool) {
+func AcceptanceTest(t *testing.T, bkt Bucket) {
 	ctx := context.Background()
 
 	_, err := bkt.Get(ctx, "")
@@ -92,20 +88,16 @@ func AcceptanceTest(t *testing.T, bkt Bucket, expectedNotFoundErr bool) {
 	testutil.Assert(t, !bkt.IsObjNotFoundErr(err), "expected user error got not found %s", err)
 
 	_, err = bkt.Get(ctx, "id1/obj_1.some")
-	if !expectedNotFoundErr {
-		testutil.NotOk(t, err)
-		testutil.Assert(t, bkt.IsObjNotFoundErr(err), "expected not found error got %s", err)
-	}
+	testutil.NotOk(t, err)
+	testutil.Assert(t, bkt.IsObjNotFoundErr(err), "expected not found error got %s", err)
 
 	ok, err := bkt.Exists(ctx, "id1/obj_1.some")
 	testutil.Ok(t, err)
 	testutil.Assert(t, !ok, "expected not exits")
 
 	_, err = bkt.Attributes(ctx, "id1/obj_1.some")
-	if !expectedNotFoundErr {
-		testutil.NotOk(t, err)
-		testutil.Assert(t, bkt.IsObjNotFoundErr(err), "expected not found error got %s", err)
-	}
+	testutil.NotOk(t, err)
+	testutil.Assert(t, bkt.IsObjNotFoundErr(err), "expected not found error but got %s", err)
 
 	// Upload first object.
 	testutil.Ok(t, bkt.Upload(ctx, "id1/obj_1.some", strings.NewReader("@test-data@")))

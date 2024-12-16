@@ -14,5 +14,5 @@ import (
 // NOTE: This test assumes strong consistency, but in the same way it does not guarantee that if it passes, the
 // used object store is strongly consistent.
 func TestObjStore_AcceptanceTest_e2e(t *testing.T) {
-	ForeachStore(t, objstore.AcceptanceTestWithoutNotFoundErr)
+	ForeachStore(t, objstore.AcceptanceTest)
 }
