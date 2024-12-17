@@ -23,7 +23,7 @@ func TestPrefixedBucket_Acceptance(t *testing.T) {
 		"someprefix"}
 
 	for _, prefix := range prefixes {
-		AcceptanceTestWithoutNotFoundErr(t, NewPrefixedBucket(NewInMemBucket(), prefix))
+		AcceptanceTest(t, NewPrefixedBucket(NewInMemBucket(), prefix))
 		UsesPrefixTest(t, NewInMemBucket(), prefix)
 	}
 }
