@@ -355,7 +355,7 @@ func NewBucket(logger log.Logger, ociConfig []byte, wrapRoundtripper func(http.R
 			return nil, errors.Wrapf(err, "unable to create OKE workload identity config provider")
 		}
 	default:
-		return nil, errors.Wrapf(err, fmt.Sprintf("unsupported OCI provider: %s", provider))
+		return nil, fmt.Errorf("unsupported OCI provider: %s", provider)
 	}
 
 	client, err := objectstorage.NewObjectStorageClientWithConfigurationProvider(configurationProvider)
