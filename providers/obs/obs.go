@@ -122,6 +122,8 @@ func NewBucketWithConfig(logger log.Logger, config Config) (*Bucket, error) {
 	return bkt, nil
 }
 
+func (b *Bucket) Provider() objstore.ObjProvider { return objstore.OBS }
+
 // Name returns the bucket name for the provider.
 func (b *Bucket) Name() string {
 	return b.name
