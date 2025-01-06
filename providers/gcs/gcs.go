@@ -58,7 +58,8 @@ type Config struct {
 	// MaxRetries controls the number of retries for idempotent operations.
 	// Overrides the default gcs storage client behavior if this value is greater than 0.
 	// Set this to 1 to disable retries.
-	MaxRetries int `yaml:"max_retries"`
+	MaxRetries int    `yaml:"max_retries"`
+	Endpoint   string `yaml:"endpoint"`
 }
 
 // Bucket implements the store.Bucket and shipper.Bucket interfaces against GCS.
@@ -119,6 +120,10 @@ func NewBucketWithConfig(ctx context.Context, logger log.Logger, gc Config, comp
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	if gc.Endpoint != "" {
+		opts = append(opts, option.WithEndpoint(gc.Endpoint))
 	}
 
 	return newBucket(ctx, logger, gc, opts)
