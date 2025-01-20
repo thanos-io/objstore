@@ -6,13 +6,18 @@ package s3_test
 import (
 	"bytes"
 	"context"
+	"io"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/efficientgo/core/testutil"
 	"github.com/efficientgo/e2e"
+	e2edb "github.com/efficientgo/e2e/db"
 	"github.com/go-kit/log"
+	"github.com/minio/minio-go/v7/pkg/encrypt"
 
+	"github.com/thanos-io/objstore/exthttp"
 	"github.com/thanos-io/objstore/providers/s3"
 	"github.com/thanos-io/objstore/test/e2e/e2ethanos"
 )
@@ -53,4 +58,58 @@ func BenchmarkUpload(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		testutil.Ok(b, bkt.Upload(ctx, "test", strings.NewReader(str)))
 	}
+}
+
+func TestSSECencryption(t *testing.T) {
+	ctx := context.Background()
+	e, err := e2e.NewDockerEnvironment("e2e-ssec", e2e.WithLogger(log.NewNopLogger()))
+	testutil.Ok(t, err)
+	t.Cleanup(e2ethanos.CleanScenario(t, e))
+
+	const bucket = "sse-c-encryption"
+	m := e2ethanos.NewMinio(e, "sse-c-encryption", bucket)
+	testutil.Ok(t, e2e.StartAndWaitReady(m))
+
+	cfg := s3.Config{
+		Bucket:    bucket,
+		AccessKey: e2edb.MinioAccessKey,
+		SecretKey: e2edb.MinioSecretKey,
+		Endpoint:  m.Endpoint("https"),
+		Insecure:  false,
+		HTTPConfig: exthttp.HTTPConfig{
+			TLSConfig: exthttp.TLSConfig{
+				CAFile:   filepath.Join(m.Dir(), "certs", "CAs", "ca.crt"),
+				CertFile: filepath.Join(m.Dir(), "certs", "public.crt"),
+				KeyFile:  filepath.Join(m.Dir(), "certs", "private.key"),
+			},
+		},
+		SSEConfig: s3.SSEConfig{
+			Type:          string(encrypt.SSEC),
+			EncryptionKey: "testdata/encryption_key",
+		},
+		BucketLookupType: s3.AutoLookup,
+	}
+
+	bkt, err := s3.NewBucketWithConfig(
+		log.NewNopLogger(),
+		cfg,
+		"test-ssec",
+		nil,
+	)
+	testutil.Ok(t, err)
+
+	upload := "secret content"
+	testutil.Ok(t, bkt.Upload(ctx, "encrypted", strings.NewReader(upload)))
+
+	exists, err := bkt.Exists(ctx, "encrypted")
+	testutil.Ok(t, err)
+	if !exists {
+		t.Fatalf("upload failed")
+	}
+
+	r, err := bkt.Get(ctx, "encrypted")
+	testutil.Ok(t, err)
+	b, err := io.ReadAll(r)
+	testutil.Ok(t, err)
+	testutil.Equals(t, upload, string(b))
 }
