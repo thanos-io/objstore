@@ -113,12 +113,13 @@ func (b *Bucket) Delete(_ context.Context, name string) error {
 }
 
 // Upload the contents of the reader as an object into the bucket.
-func (b *Bucket) Upload(_ context.Context, name string, r io.Reader) error {
+func (b *Bucket) Upload(_ context.Context, name string, r io.Reader, opts ...objstore.ObjectUploadOption) error {
 	size, err := objstore.TryToGetSize(r)
 	if err != nil {
 		return errors.Wrapf(err, "getting size of %s", name)
 	}
 
+	uploadOpts := objstore.ApplyObjectUploadOptions(opts...)
 	partNums, lastSlice := int(math.Floor(float64(size)/partSize)), size%partSize
 	if partNums == 0 {
 		body, err := bce.NewBodyFromSizedReader(r, lastSlice)
@@ -126,14 +127,14 @@ func (b *Bucket) Upload(_ context.Context, name string, r io.Reader) error {
 			return errors.Wrapf(err, "failed to create SizedReader for %s", name)
 		}
 
-		if _, err := b.client.PutObject(b.name, name, body, nil); err != nil {
+		if _, err := b.client.PutObject(b.name, name, body, &api.PutObjectArgs{ContentType: uploadOpts.ContentType}); err != nil {
 			return errors.Wrapf(err, "failed to upload %s", name)
 		}
 
 		return nil
 	}
 
-	result, err := b.client.BasicInitiateMultipartUpload(b.name, name)
+	result, err := b.client.InitiateMultipartUpload(b.name, name, uploadOpts.ContentType, nil)
 	if err != nil {
 		return errors.Wrapf(err, "failed to initiate MultipartUpload for %s", name)
 	}
