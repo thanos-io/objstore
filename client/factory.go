@@ -42,6 +42,11 @@ func NewBucket(logger log.Logger, confContentYaml []byte, component string, wrap
 		return nil, errors.Wrap(err, "parsing config YAML file")
 	}
 
+	return NewBucketFromConfig(logger, bucketConf, component, wrapRoundtripper)
+}
+
+// NewBucketFromConfig creates an objstore.Bucket from an existing BucketConfig object.
+func NewBucketFromConfig(logger log.Logger, bucketConf *BucketConfig, component string, wrapRoundtripper func(http.RoundTripper) http.RoundTripper) (objstore.Bucket, error) {
 	config, err := yaml.Marshal(bucketConf.Config)
 	if err != nil {
 		return nil, errors.Wrap(err, "marshal content of bucket configuration")
