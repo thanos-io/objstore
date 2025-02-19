@@ -38,7 +38,7 @@ type BucketConfig struct {
 func NewBucket(logger log.Logger, confContentYaml []byte, component string, wrapRoundtripper func(http.RoundTripper) http.RoundTripper) (objstore.Bucket, error) {
 	level.Info(logger).Log("msg", "loading bucket configuration")
 	bucketConf := &BucketConfig{}
-	if err := yaml.UnmarshalStrict(confContentYaml, bucketConf); err != nil {
+	if err := yaml.Unmarshal(confContentYaml, bucketConf); err != nil {
 		return nil, errors.Wrap(err, "parsing config YAML file")
 	}
 
