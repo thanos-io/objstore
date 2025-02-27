@@ -71,24 +71,26 @@ func NewTestBucket(t testing.TB) (objstore.Bucket, func(), error) {
 func (b *Bucket) Provider() objstore.ObjProvider { return objstore.ALIYUNOSS }
 
 // Upload the contents of the reader as an object into the bucket.
-func (b *Bucket) Upload(_ context.Context, name string, r io.Reader) error {
+func (b *Bucket) Upload(_ context.Context, name string, r io.Reader, opts ...objstore.ObjectUploadOption) error {
 	// TODO(https://github.com/thanos-io/thanos/issues/678): Remove guessing length when minio provider will support multipart upload without this.
 	size, err := objstore.TryToGetSize(r)
 	if err != nil {
 		return errors.Wrapf(err, "failed to get size apriori to upload %s", name)
 	}
 
+	uploadOpts := objstore.ApplyObjectUploadOptions(opts...)
+
 	chunksnum, lastslice := int(math.Floor(float64(size)/PartSize)), size%PartSize
 
 	ncloser := io.NopCloser(r)
 	switch chunksnum {
 	case 0:
-		if err := b.bucket.PutObject(name, ncloser); err != nil {
+		if err := b.bucket.PutObject(name, ncloser, oss.ContentType(uploadOpts.ContentType)); err != nil {
 			return errors.Wrap(err, "failed to upload oss object")
 		}
 	default:
 		{
-			init, err := b.bucket.InitiateMultipartUpload(name)
+			init, err := b.bucket.InitiateMultipartUpload(name, oss.ContentType(uploadOpts.ContentType))
 			if err != nil {
 				return errors.Wrap(err, "failed to initiate multi-part upload")
 			}
