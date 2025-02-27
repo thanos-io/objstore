@@ -144,6 +144,27 @@ container: "MyContainer"`),
 		wantFailParse:    false,
 		wantFailValidate: true,
 	},
+	{
+		name: "Valid AzTenantID, ClientID, ClientSecret",
+		config: []byte(`storage_account: "myAccount"
+storage_account_key: ""
+az_tenant_id: "1234-56578678-655"
+client_id: "1234-56578678-655"
+client_secret: "1234-56578678-655"
+container: "MyContainer"`),
+		wantFailParse:    false,
+		wantFailValidate: false,
+	},
+	{
+		name: "Valid ClientID and ClientSecret but missing AzTenantID",
+		config: []byte(`storage_account: "myAccount"
+storage_account_key: ""
+client_id: "1234-56578678-655"
+client_secret: "1234-56578678-655"
+container: "MyContainer"`),
+		wantFailParse:    false,
+		wantFailValidate: true,
+	},
 }
 
 func TestConfig_validate(t *testing.T) {
