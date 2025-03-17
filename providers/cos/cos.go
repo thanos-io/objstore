@@ -213,22 +213,34 @@ func (r fixedLengthReader) Size() int64 {
 }
 
 // Upload the contents of the reader as an object into the bucket.
-func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) error {
+func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, opts ...objstore.ObjectUploadOption) error {
 	size, err := objstore.TryToGetSize(r)
 	if err != nil {
 		return errors.Wrapf(err, "getting size of %s", name)
 	}
+	uploadOpts := objstore.ApplyObjectUploadOptions(opts...)
+
 	// partSize 128MB.
 	const partSize = 1024 * 1024 * 128
 	partNums, lastSlice := int(math.Floor(float64(size)/partSize)), size%partSize
 	if partNums == 0 {
-		if _, err := b.client.Object.Put(ctx, name, r, nil); err != nil {
+		cosOpts := &cos.ObjectPutOptions{
+			ObjectPutHeaderOptions: &cos.ObjectPutHeaderOptions{
+				ContentType: uploadOpts.ContentType,
+			},
+		}
+		if _, err := b.client.Object.Put(ctx, name, r, cosOpts); err != nil {
 			return errors.Wrapf(err, "Put object: %s", name)
 		}
 		return nil
 	}
 	// 1. init.
-	result, _, err := b.client.Object.InitiateMultipartUpload(ctx, name, nil)
+	cosOpts := &cos.InitiateMultipartUploadOptions{
+		ObjectPutHeaderOptions: &cos.ObjectPutHeaderOptions{
+			ContentType: uploadOpts.ContentType,
+		},
+	}
+	result, _, err := b.client.Object.InitiateMultipartUpload(ctx, name, cosOpts)
 	if err != nil {
 		return errors.Wrapf(err, "InitiateMultipartUpload %s", name)
 	}

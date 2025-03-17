@@ -124,7 +124,7 @@ func TestMetricBucket_UploadShouldPreserveReaderFeatures(t *testing.T) {
 
 			m := &mockBucket{
 				Bucket: WrapWithMetrics(NewInMemBucket(), nil, ""),
-				upload: func(ctx context.Context, name string, r io.Reader) error {
+				upload: func(ctx context.Context, name string, r io.Reader, opts ...ObjectUploadOption) error {
 					uploadReader = r
 					return nil
 				},
@@ -570,14 +570,14 @@ func (r *mockReader) Close() error {
 type mockBucket struct {
 	Bucket
 
-	upload   func(ctx context.Context, name string, r io.Reader) error
+	upload   func(ctx context.Context, name string, r io.Reader, opts ...ObjectUploadOption) error
 	get      func(ctx context.Context, name string) (io.ReadCloser, error)
 	getRange func(ctx context.Context, name string, off, length int64) (io.ReadCloser, error)
 }
 
-func (b *mockBucket) Upload(ctx context.Context, name string, r io.Reader) error {
+func (b *mockBucket) Upload(ctx context.Context, name string, r io.Reader, opts ...ObjectUploadOption) error {
 	if b.upload != nil {
-		return b.upload(ctx, name, r)
+		return b.upload(ctx, name, r, opts...)
 	}
 	return errors.New("Upload has not been mocked")
 }

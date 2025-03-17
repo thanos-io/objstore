@@ -137,7 +137,7 @@ func (b *Bucket) Delete(ctx context.Context, name string) error {
 }
 
 // Upload the contents of the reader as an object into the bucket.
-func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) error {
+func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, opts ...objstore.ObjectUploadOption) error {
 	size, err := objstore.TryToGetSize(r)
 
 	if err != nil {
@@ -147,14 +147,16 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) error {
 	if size <= 0 {
 		return errors.New("object size must be provided")
 	}
+
+	uploadOpts := objstore.ApplyObjectUploadOptions(opts...)
 	if size <= MinMultipartUploadSize {
-		err = b.putObjectSingle(name, r)
+		err = b.putObjectSingle(name, r, uploadOpts)
 		if err != nil {
 			return err
 		}
 	} else {
 		var initOutput *obs.InitiateMultipartUploadOutput
-		initOutput, err = b.initiateMultipartUpload(name)
+		initOutput, err = b.initiateMultipartUpload(name, uploadOpts)
 		if err != nil {
 			return err
 		}
@@ -190,11 +192,12 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader) error {
 	return nil
 }
 
-func (b *Bucket) putObjectSingle(key string, body io.Reader) error {
+func (b *Bucket) putObjectSingle(key string, body io.Reader, opts objstore.UploadObjectParams) error {
 	input := &obs.PutObjectInput{}
 	input.Bucket = b.name
 	input.Key = key
 	input.Body = body
+	input.ContentType = opts.ContentType
 	_, err := b.client.PutObject(input)
 	if err != nil {
 		return errors.Wrap(err, "failed to upload object")
@@ -202,10 +205,11 @@ func (b *Bucket) putObjectSingle(key string, body io.Reader) error {
 	return nil
 }
 
-func (b *Bucket) initiateMultipartUpload(key string) (output *obs.InitiateMultipartUploadOutput, err error) {
+func (b *Bucket) initiateMultipartUpload(key string, opts objstore.UploadObjectParams) (output *obs.InitiateMultipartUploadOutput, err error) {
 	initInput := &obs.InitiateMultipartUploadInput{}
 	initInput.Bucket = b.name
 	initInput.Key = key
+	initInput.ContentType = opts.ContentType
 	initOutput, err := b.client.InitiateMultipartUpload(initInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to init multipart upload job")
