@@ -5,17 +5,24 @@ package filesystem
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
-	"io"
-	"os"
-	"path/filepath"
-
 	"github.com/efficientgo/core/errcapture"
 	"github.com/pkg/errors"
+	"github.com/pkg/xattr"
 	"gopkg.in/yaml.v2"
+	"io"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"slices"
 
 	"github.com/thanos-io/objstore"
 )
+
+var errConditionNotMet = errors.New("filesystem: upload condition not met")
+
+const xAttrKey = "user.thanos.objstore.sha256sum"
 
 // Config stores the configuration for storing and accessing blobs in filesystem.
 type Config struct {
@@ -159,7 +166,7 @@ func (r *rangeReaderCloser) Close() error {
 	return r.f.Close()
 }
 
-// Attributes returns information about the specified object.
+// Attributes returns information about the specified object. Only returns the version metadata if the object was written with a supported version.
 func (b *Bucket) Attributes(ctx context.Context, name string) (objstore.ObjectAttributes, error) {
 	if ctx.Err() != nil {
 		return objstore.ObjectAttributes{}, ctx.Err()
@@ -171,9 +178,29 @@ func (b *Bucket) Attributes(ctx context.Context, name string) (objstore.ObjectAt
 		return objstore.ObjectAttributes{}, errors.Wrapf(err, "stat %s", file)
 	}
 
+	if !slices.Contains(b.SupportedObjectUploadOptions(), objstore.IfMatch) && !slices.Contains(b.SupportedObjectUploadOptions(), objstore.IfNotMatch) {
+		return objstore.ObjectAttributes{
+			Size:         stat.Size(),
+			LastModified: stat.ModTime(),
+		}, nil
+	}
+
+	chkSum, err := b.checksum(name)
+	if err != nil {
+		return objstore.ObjectAttributes{}, err
+	}
+	var version *objstore.ObjectVersion
+	if chkSum != "" {
+		version = &objstore.ObjectVersion{
+			Type:  objstore.ETag,
+			Value: chkSum,
+		}
+	}
+
 	return objstore.ObjectAttributes{
 		Size:         stat.Size(),
 		LastModified: stat.ModTime(),
+		Version:      version,
 	}, nil
 }
 
@@ -246,27 +273,131 @@ func (b *Bucket) Exists(ctx context.Context, name string) (bool, error) {
 	return !info.IsDir(), nil
 }
 
+func openSwap(name string) (swf *os.File, err error) {
+	for {
+		swf, err = os.OpenFile(name, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0666)
+		if err == nil {
+			return
+		} else if !errors.Is(err, fs.ErrExist) {
+			return
+		}
+	}
+}
+
+func tryOpenFile(name string, ifNotExists bool) (exists bool, err error) {
+	// First try to open the file with exclusive create, then truncate if permitted
+	flags := os.O_RDWR | os.O_CREATE | os.O_EXCL
+	var f *os.File
+	f, err = os.OpenFile(name, flags, 0666)
+	if errors.Is(err, fs.ErrExist) && !ifNotExists {
+		exists = true
+		flags = os.O_RDWR | os.O_CREATE | os.O_APPEND
+		f, err = os.OpenFile(name, flags, 0666)
+	}
+	if err != nil && f != nil {
+		err = f.Close()
+	}
+	return
+}
+
 // Upload writes the file specified in src to into the memory.
-func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, _ ...objstore.ObjectUploadOption) (err error) {
+func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, opts ...objstore.ObjectUploadOption) (err error) {
+
+	if err := objstore.ValidateUploadOptions(b.SupportedObjectUploadOptions(), opts...); err != nil {
+		return err
+	}
+
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
 
 	file := filepath.Join(b.rootDir, name)
+	swap := filepath.Join(b.rootDir, fmt.Sprintf("%s.swap", name))
 	if err := os.MkdirAll(filepath.Dir(file), os.ModePerm); err != nil {
 		return err
 	}
 
-	f, err := os.Create(file)
+	params := objstore.ApplyObjectUploadOptions(opts...)
+
+	// Filesystem provider for debugging & troubleshooting uses a swap file as a file lock.
+	swf, err := openSwap(swap)
 	if err != nil {
 		return err
 	}
-	defer errcapture.Do(&err, f.Close, "close")
-
-	if _, err := io.Copy(f, r); err != nil {
-		return errors.Wrapf(err, "copy to %s", file)
+	clearSwap := func() error {
+		err := os.Remove(swap)
+		if os.IsNotExist(err) {
+			err = nil
+		}
+		return err
 	}
+	defer errcapture.Do(&err, swf.Close, "close")
+	defer errcapture.Do(&err, clearSwap, "remove swap")
+
+	exists, err := tryOpenFile(file, params.IfNotExists)
+	if err != nil {
+		return err
+	}
+
+	if err := b.checkConditions(name, params, exists); err != nil {
+		return err
+	}
+
+	h := sha256.New()
+	writer := io.MultiWriter(swf, h)
+	if _, err := io.Copy(writer, r); err != nil {
+		return errors.Wrapf(err, "copy to %s", swap)
+	}
+	// Write the checksum into an xattr
+	if err := xattr.Set(swap, xAttrKey, h.Sum(nil)); err != nil {
+		return err
+	}
+
+	// Move swap into target, atomic on unix for which IfNotExists is supported. Will be same mount as is same directory.
+	if err := os.Rename(swap, file); err != nil {
+		return err
+	}
+
+	return
+}
+
+// checksum reads an X-Attr for the checksum property if it was written with the file, or empty string if it was not.
+func (b *Bucket) checksum(name string) (string, error) {
+	file := filepath.Join(b.rootDir, name)
+	bytes, err := xattr.Get(file, xAttrKey)
+	if err != nil {
+		return "", err // Legacy filesystem buckets would just return empty string for the version (until objects updated)
+	}
+	return string(bytes), nil
+}
+
+func (b *Bucket) checkConditions(name string, params objstore.UploadObjectParams, exists bool) error {
+	if params.Condition != nil && !exists && !params.IfNotMatch {
+		return errConditionNotMet
+	}
+	if params.Condition != nil && exists {
+		if params.Condition.Type != objstore.ETag {
+			return errConditionNotMet
+		}
+		chkSum, err := b.checksum(name)
+		if err != nil {
+			return err
+		}
+		if params.IfNotMatch && chkSum == params.Condition.Value {
+			return errConditionNotMet
+		} else if !params.IfNotMatch && chkSum != params.Condition.Value {
+			return errConditionNotMet
+		}
+	}
+	//... if the file doesn't exist, and it's an IfNotMatch, that's always fine
 	return nil
+}
+
+func (b *Bucket) SupportedObjectUploadOptions() []objstore.ObjectUploadOptionType {
+	if xattr.XATTR_SUPPORTED {
+		return []objstore.ObjectUploadOptionType{objstore.IfNotExists, objstore.IfMatch, objstore.IfNotMatch}
+	}
+	return []objstore.ObjectUploadOptionType{}
 }
 
 func isDirEmpty(name string) (ok bool, err error) {
@@ -317,6 +448,11 @@ func (b *Bucket) IsObjNotFoundErr(err error) bool {
 // IsAccessDeniedErr returns true if access to object is denied.
 func (b *Bucket) IsAccessDeniedErr(_ error) bool {
 	return false
+}
+
+// IsConditionNotMetErr returns true if the error is an internal condition not met error or a ErrExist filesystem error
+func (b *Bucket) IsConditionNotMetErr(err error) bool {
+	return errors.Is(err, errConditionNotMet) || errors.Is(err, fs.ErrExist)
 }
 
 func (b *Bucket) Close() error { return nil }

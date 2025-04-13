@@ -66,6 +66,10 @@ func (t TracingBucket) SupportedIterOptions() []objstore.IterOptionType {
 	return t.bkt.SupportedIterOptions()
 }
 
+func (t TracingBucket) SupportedObjectUploadOptions() []objstore.ObjectUploadOptionType {
+	return t.bkt.SupportedObjectUploadOptions()
+}
+
 func (t TracingBucket) Get(ctx context.Context, name string) (io.ReadCloser, error) {
 	span, spanCtx := startSpan(ctx, "bucket_get")
 	span.LogKV("name", name)
@@ -139,6 +143,10 @@ func (t TracingBucket) IsObjNotFoundErr(err error) bool {
 }
 
 func (t TracingBucket) IsAccessDeniedErr(err error) bool {
+	return t.bkt.IsAccessDeniedErr(err)
+}
+
+func (t TracingBucket) IsConditionNotMetErr(err error) bool {
 	return t.bkt.IsAccessDeniedErr(err)
 }
 
