@@ -28,21 +28,21 @@ func TestMetricBucket_Close(t *testing.T) {
 	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.metrics.opsFailures))
 	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.metrics.opsDuration))
 
-	AcceptanceTest(t, bkt.WithExpectedErrs(bkt.IsObjNotFoundErr))
+	stats := AcceptanceTest(t, bkt.WithExpectedErrs(bkt.IsObjNotFoundErr))
 	testutil.Equals(t, float64(9), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpIter)))
-	testutil.Equals(t, float64(2), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpAttributes)))
-	testutil.Equals(t, float64(3), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpGet)))
+	testutil.Equals(t, float64(stats.AttributesCount), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpAttributes)))
+	testutil.Equals(t, float64(stats.GetCount), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpGet)))
 	testutil.Equals(t, float64(3), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpGetRange)))
 	testutil.Equals(t, float64(2), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpExists)))
-	testutil.Equals(t, float64(9), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpUpload)))
-	testutil.Equals(t, float64(3), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpDelete)))
+	testutil.Equals(t, float64(stats.UploadCount), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpUpload)))
+	testutil.Equals(t, float64(stats.DeleteCount), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpDelete)))
 	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.metrics.ops))
 	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpIter)))
 	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpAttributes)))
 	testutil.Equals(t, float64(1), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpGet)))
 	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpGetRange)))
 	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpExists)))
-	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpUpload)))
+	testutil.Equals(t, float64(stats.FailedUploadCount), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpUpload)))
 	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpDelete)))
 	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.metrics.opsFailures))
 	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.metrics.opsDuration))
@@ -51,14 +51,14 @@ func TestMetricBucket_Close(t *testing.T) {
 
 	// Clear bucket, but don't clear metrics to ensure we use same.
 	bkt.bkt = NewInMemBucket()
-	AcceptanceTest(t, bkt)
+	stats2 := AcceptanceTest(t, bkt)
 	testutil.Equals(t, float64(18), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpIter)))
-	testutil.Equals(t, float64(4), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpAttributes)))
-	testutil.Equals(t, float64(6), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpGet)))
+	testutil.Equals(t, float64(stats.AttributesCount+stats2.AttributesCount), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpAttributes)))
+	testutil.Equals(t, float64(stats.GetCount+stats2.GetCount), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpGet)))
 	testutil.Equals(t, float64(6), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpGetRange)))
 	testutil.Equals(t, float64(4), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpExists)))
-	testutil.Equals(t, float64(18), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpUpload)))
-	testutil.Equals(t, float64(6), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpDelete)))
+	testutil.Equals(t, float64(stats.UploadCount+stats2.UploadCount), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpUpload)))
+	testutil.Equals(t, float64(stats.DeleteCount+stats2.DeleteCount), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpDelete)))
 	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.metrics.ops))
 	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpIter)))
 	// Not expected not found error here.
@@ -67,7 +67,7 @@ func TestMetricBucket_Close(t *testing.T) {
 	testutil.Equals(t, float64(3), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpGet)))
 	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpGetRange)))
 	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpExists)))
-	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpUpload)))
+	testutil.Equals(t, float64(stats.FailedUploadCount+stats2.FailedUploadCount), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpUpload)))
 	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpDelete)))
 	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.metrics.opsFailures))
 	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.metrics.opsDuration))
@@ -285,6 +285,7 @@ func TestMetricBucket_ReaderCloseError(t *testing.T) {
 }
 
 func TestDownloadUploadDirConcurrency(t *testing.T) {
+
 	r := prometheus.NewRegistry()
 	m := WrapWithMetrics(NewInMemBucket(), r, "")
 	tempDir := t.TempDir()
@@ -322,15 +323,15 @@ func TestDownloadUploadDirConcurrency(t *testing.T) {
 		`), `objstore_bucket_operations_total`))
 
 	testutil.Ok(t, promtest.GatherAndCompare(r, strings.NewReader(`
-        # HELP objstore_bucket_operation_fetched_bytes_total Total number of bytes fetched from bucket, per operation.
-        # TYPE objstore_bucket_operation_fetched_bytes_total counter
-        objstore_bucket_operation_fetched_bytes_total{bucket="",operation="attributes"} 0
-        objstore_bucket_operation_fetched_bytes_total{bucket="",operation="delete"} 0
-        objstore_bucket_operation_fetched_bytes_total{bucket="",operation="exists"} 0
-        objstore_bucket_operation_fetched_bytes_total{bucket="",operation="get"} 1.048578e+06
-        objstore_bucket_operation_fetched_bytes_total{bucket="",operation="get_range"} 0
-        objstore_bucket_operation_fetched_bytes_total{bucket="",operation="iter"} 0
-        objstore_bucket_operation_fetched_bytes_total{bucket="",operation="upload"} 0
+		# HELP objstore_bucket_operation_fetched_bytes_total Total number of bytes fetched from bucket, per operation.
+		# TYPE objstore_bucket_operation_fetched_bytes_total counter
+		objstore_bucket_operation_fetched_bytes_total{bucket="",operation="attributes"} 0
+		objstore_bucket_operation_fetched_bytes_total{bucket="",operation="delete"} 0
+		objstore_bucket_operation_fetched_bytes_total{bucket="",operation="exists"} 0
+		objstore_bucket_operation_fetched_bytes_total{bucket="",operation="get"} 1.048578e+06
+		objstore_bucket_operation_fetched_bytes_total{bucket="",operation="get_range"} 0
+		objstore_bucket_operation_fetched_bytes_total{bucket="",operation="iter"} 0
+		objstore_bucket_operation_fetched_bytes_total{bucket="",operation="upload"} 0
 		`), `objstore_bucket_operation_fetched_bytes_total`))
 
 	testutil.Ok(t, promtest.GatherAndCompare(r, strings.NewReader(`
