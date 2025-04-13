@@ -185,15 +185,18 @@ func (b *Bucket) Attributes(ctx context.Context, name string) (objstore.ObjectAt
 		}, nil
 	}
 
-	chkSum, err := b.checksum(name)
-	if err != nil {
-		return objstore.ObjectAttributes{}, err
-	}
 	var version *objstore.ObjectVersion
-	if chkSum != "" {
-		version = &objstore.ObjectVersion{
-			Type:  objstore.ETag,
-			Value: chkSum,
+
+	if xattr.XATTR_SUPPORTED {
+		chkSum, err := b.checksum(name)
+		if err != nil {
+			return objstore.ObjectAttributes{}, err
+		}
+		if chkSum != "" {
+			version = &objstore.ObjectVersion{
+				Type:  objstore.ETag,
+				Value: chkSum,
+			}
 		}
 	}
 
@@ -343,14 +346,16 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, opts ...o
 		return err
 	}
 
-	h := sha256.New()
-	writer := io.MultiWriter(swf, h)
-	if _, err := io.Copy(writer, r); err != nil {
-		return errors.Wrapf(err, "copy to %s", swap)
-	}
-	// Write the checksum into an xattr
-	if err := xattr.Set(swap, xAttrKey, h.Sum(nil)); err != nil {
-		return err
+	if xattr.XATTR_SUPPORTED {
+		h := sha256.New()
+		writer := io.MultiWriter(swf, h)
+		if _, err := io.Copy(writer, r); err != nil {
+			return errors.Wrapf(err, "copy to %s", swap)
+		}
+		// Write the checksum into an xattr
+		if err := xattr.Set(swap, xAttrKey, h.Sum(nil)); err != nil {
+			return err
+		}
 	}
 
 	// Move swap into target, atomic on unix for which IfNotExists is supported. Will be same mount as is same directory.
@@ -362,6 +367,7 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, opts ...o
 }
 
 // checksum reads an X-Attr for the checksum property if it was written with the file, or empty string if it was not.
+// Does not check if X-Attrs are supported on the host - this must be done by the caller.
 func (b *Bucket) checksum(name string) (string, error) {
 	file := filepath.Join(b.rootDir, name)
 	bytes, err := xattr.Get(file, xAttrKey)
