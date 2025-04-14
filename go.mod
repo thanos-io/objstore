@@ -1,6 +1,7 @@
 module github.com/thanos-io/objstore
 
 go 1.22.7
+toolchain go1.24.1
 
 require (
 	cloud.google.com/go/storage v1.50.0
@@ -122,5 +123,5 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.5.1
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.3.0
 	github.com/satori/go.uuid v1.2.1-0.20181028125025-b2ce2384e17b // indirect
-	golang.org/x/crypto v0.32.0 // indirect
+	golang.org/x/crypto v0.35.0 // indirect
 )
