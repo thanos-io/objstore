@@ -263,7 +263,7 @@ func applyUploadOptions(options ...UploadOption) uploadParams {
 var ErrUploadOptionNotSupported = errors.New("upload option is not supported")
 var ErrUploadOptionInvalid = errors.New("upload option is invalid")
 
-// ObjectUploadOptionType is used for type-safe option support checking of ObjectUpload options
+// ObjectUploadOptionType is used for type-safe option support checking of ObjectUpload options.
 type ObjectUploadOptionType int
 
 const (
@@ -273,7 +273,7 @@ const (
 	IfNotMatch
 )
 
-// ObjectUploadOption configures UploadObjectParams
+// ObjectUploadOption configures UploadObjectParams.
 type ObjectUploadOption struct {
 	Type  ObjectUploadOptionType
 	Apply func(params *UploadObjectParams)
@@ -288,7 +288,7 @@ type UploadObjectParams struct {
 	Condition   *ObjectVersion
 }
 
-// WithContentType sets the content type of the object upload operation
+// WithContentType sets the content type of the object upload operation.
 func WithContentType(contentType string) ObjectUploadOption {
 	return ObjectUploadOption{
 		Type: ContentType,
