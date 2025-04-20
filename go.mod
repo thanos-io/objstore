@@ -1,6 +1,8 @@
 module github.com/thanos-io/objstore
 
-go 1.22.7
+go 1.23.0
+
+toolchain go1.23.3
 
 require (
 	cloud.google.com/go/storage v1.50.0
@@ -26,7 +28,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.34.0
 	go.uber.org/atomic v1.9.0
 	golang.org/x/oauth2 v0.26.0
-	golang.org/x/sync v0.11.0
+	golang.org/x/sync v0.12.0
 	google.golang.org/api v0.220.0
 	google.golang.org/grpc v1.70.0
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
@@ -109,7 +111,7 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.34.0 // indirect
 	golang.org/x/net v0.34.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
-	golang.org/x/text v0.22.0 // indirect
+	golang.org/x/text v0.23.0 // indirect
 	golang.org/x/time v0.10.0 // indirect
 	google.golang.org/genproto v0.0.0-20250204164813-702378808489 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250204164813-702378808489 // indirect
@@ -123,4 +125,5 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.3.0
 	github.com/satori/go.uuid v1.2.1-0.20181028125025-b2ce2384e17b // indirect
 	golang.org/x/crypto v0.32.0 // indirect
+	golang.org/x/image v0.25.0
 )
