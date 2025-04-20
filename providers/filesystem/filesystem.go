@@ -372,7 +372,7 @@ func (b *Bucket) checksum(name string) (string, error) {
 	file := filepath.Join(b.rootDir, name)
 	bytes, err := xattr.Get(file, xAttrKey)
 	if err != nil {
-		return "", err // Legacy filesystem buckets would just return empty string for the version (until objects updated)
+		return "", err // Legacy filesystem buckets would just return empty string for the version (until objects updated).
 	}
 	return string(bytes), nil
 }
@@ -395,7 +395,7 @@ func (b *Bucket) checkConditions(name string, params objstore.UploadObjectParams
 			return errConditionNotMet
 		}
 	}
-	//... if the file doesn't exist, and it's an IfNotMatch, that's always fine
+	//... if the file doesn't exist, and it's an IfNotMatch, that's always fine.
 	return nil
 }
 
@@ -456,7 +456,7 @@ func (b *Bucket) IsAccessDeniedErr(_ error) bool {
 	return false
 }
 
-// IsConditionNotMetErr returns true if the error is an internal condition not met error or a ErrExist filesystem error
+// IsConditionNotMetErr returns true if the error is an internal condition not met error or a ErrExist filesystem error.
 func (b *Bucket) IsConditionNotMetErr(err error) bool {
 	return errors.Is(err, errConditionNotMet) || errors.Is(err, fs.ErrExist)
 }

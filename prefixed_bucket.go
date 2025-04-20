@@ -98,7 +98,7 @@ func (p *PrefixedBucket) IsAccessDeniedErr(err error) bool {
 	return p.bkt.IsAccessDeniedErr(err)
 }
 
-// IsConditionNotMetErr returns true if err meets is a condition not met error in the underlying provider
+// IsConditionNotMetErr returns true if err meets is a condition not met error in the underlying provider.
 func (p *PrefixedBucket) IsConditionNotMetErr(err error) bool { return p.bkt.IsConditionNotMetErr(err) }
 
 // Attributes returns information about the specified object.
