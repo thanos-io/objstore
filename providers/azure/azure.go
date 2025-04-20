@@ -307,7 +307,7 @@ func (b *Bucket) IsAccessDeniedErr(err error) bool {
 	return bloberror.HasCode(err, bloberror.AuthorizationPermissionMismatch) || bloberror.HasCode(err, bloberror.InsufficientAccountPermissions)
 }
 
-// IsConditionNotMetErr returns true if the error was a blob error nad the code is ConditionNotMet, or BlobAlreadyExists
+// IsConditionNotMetErr returns true if the error was a blob error nad the code is ConditionNotMet, or BlobAlreadyExists.
 func (b *Bucket) IsConditionNotMetErr(err error) bool {
 	return errors.Is(err, errConditionInvalid) ||
 		bloberror.HasCode(err, bloberror.BlobAlreadyExists) ||
@@ -387,7 +387,7 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, uploadOpt
 	if err := objstore.ValidateUploadOptions(b.SupportedObjectUploadOptions(), uploadOpts...); err != nil {
 		return err
 	}
-	
+
 	level.Debug(b.logger).Log("msg", "uploading blob", "blob", name)
 	blobClient := b.containerClient.NewBlockBlobClient(name)
 
