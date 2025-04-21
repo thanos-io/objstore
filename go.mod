@@ -19,6 +19,7 @@ require (
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/oracle/oci-go-sdk/v65 v65.41.1
 	github.com/pkg/errors v0.9.1
+	github.com/pkg/xattr v0.4.10
 	github.com/prometheus/client_golang v1.17.0
 	github.com/prometheus/common v0.44.0
 	github.com/tencentyun/cos-go-sdk-v5 v0.7.40
