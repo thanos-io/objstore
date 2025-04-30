@@ -23,6 +23,7 @@ import (
 	"github.com/prometheus/common/model"
 
 	"github.com/thanos-io/objstore"
+	"github.com/thanos-io/objstore/clientutil"
 	"github.com/thanos-io/objstore/exthttp"
 	"gopkg.in/yaml.v2"
 )
@@ -310,9 +311,11 @@ func (c *Container) Attributes(_ context.Context, name string) (objstore.ObjectA
 	if err != nil {
 		return objstore.ObjectAttributes{}, errors.Wrap(err, "get object attributes")
 	}
+
 	return objstore.ObjectAttributes{
 		Size:         info.Bytes,
 		LastModified: info.LastModified,
+		MD5:          clientutil.ParseMD5(info.Hash),
 	}, nil
 }
 

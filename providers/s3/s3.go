@@ -26,6 +26,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/thanos-io/objstore"
+	"github.com/thanos-io/objstore/clientutil"
 	"github.com/thanos-io/objstore/exthttp"
 )
 
@@ -601,6 +602,7 @@ func (b *Bucket) Attributes(ctx context.Context, name string) (objstore.ObjectAt
 	return objstore.ObjectAttributes{
 		Size:         objInfo.Size,
 		LastModified: objInfo.LastModified,
+		MD5:          clientutil.ParseMD5(objInfo.ETag),
 	}, nil
 }
 
