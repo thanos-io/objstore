@@ -59,6 +59,9 @@ type Config struct {
 	// Overrides the default gcs storage client behavior if this value is greater than 0.
 	// Set this to 1 to disable retries.
 	MaxRetries int `yaml:"max_retries"`
+	// UniverseDomain allows overriding the JSON API endpoint,
+	// e.g. "storage.my-company.internal"
+	UniverseDomain string `yaml:"universe_domain"`
 }
 
 // Bucket implements the store.Bucket and shipper.Bucket interfaces against GCS.
@@ -160,6 +163,10 @@ func newBucket(ctx context.Context, logger log.Logger, gc Config, opts []option.
 		err       error
 		gcsClient *storage.Client
 	)
+	// If a custom universe domain is provided, use it for all JSON API calls.
+	if gc.UniverseDomain != "" {
+		opts = append(opts, option.WithUniverseDomain(gc.UniverseDomain))
+	}
 	if gc.UseGRPC {
 		opts = append(opts,
 			option.WithGRPCConnectionPool(gc.GRPCConnPoolSize),

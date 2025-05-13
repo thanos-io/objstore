@@ -178,3 +178,12 @@ func TestNewBucketWithErrorRoundTripper(t *testing.T) {
 	testutil.NotOk(t, err)
 	testutil.Assert(t, errutil.IsMockedError(err), "Expected RoundTripper error, got: %v", err)
 }
+
+// TestParseConfig_UniverseDomain ensures that the universe_domain field is correctly parsed.
+func TestParseConfig_UniverseDomain(t *testing.T) {
+	input := `bucket: example-bucket
+universe_domain: storage.custom-domain.internal`
+	cfg, err := parseConfig([]byte(input))
+	testutil.Ok(t, err)
+	testutil.Equals(t, "storage.custom-domain.internal", cfg.UniverseDomain)
+}
