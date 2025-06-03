@@ -14,7 +14,6 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/efficientgo/core/logerrcapture"
@@ -442,7 +441,11 @@ func DownloadFile(ctx context.Context, logger log.Logger, bkt BucketReader, src,
 }
 
 // DownloadDir downloads all object found in the directory into the local directory.
-func DownloadDir(ctx context.Context, logger log.Logger, bkt BucketReader, originalSrc, src, dst string, options ...DownloadOption) error {
+func DownloadDir(ctx context.Context, logger log.Logger, bkt BucketReader, src, dst string, options ...DownloadOption) error {
+	return downloadDir(ctx, logger, bkt, src, src, dst, options...)
+}
+
+func downloadDir(ctx context.Context, logger log.Logger, bkt BucketReader, originalSrc, src, dst string, options ...DownloadOption) error {
 	if err := os.MkdirAll(dst, 0750); err != nil {
 		return errors.Wrap(err, "create dir")
 	}
@@ -453,19 +456,13 @@ func DownloadDir(ctx context.Context, logger log.Logger, bkt BucketReader, origi
 	g, ctx := errgroup.WithContext(ctx)
 	g.SetLimit(opts.concurrency)
 
-	var downloadedFiles []string
-	var m sync.Mutex
-
 	err := bkt.Iter(ctx, src, func(name string) error {
 		g.Go(func() error {
 			dst := filepath.Join(dst, filepath.Base(name))
 			if strings.HasSuffix(name, DirDelim) {
-				if err := DownloadDir(ctx, logger, bkt, originalSrc, name, dst, options...); err != nil {
+				if err := downloadDir(ctx, logger, bkt, originalSrc, name, dst, options...); err != nil {
 					return err
 				}
-				m.Lock()
-				downloadedFiles = append(downloadedFiles, dst)
-				m.Unlock()
 				return nil
 			}
 			for _, ignoredPath := range opts.ignoredPaths {
@@ -474,34 +471,14 @@ func DownloadDir(ctx context.Context, logger log.Logger, bkt BucketReader, origi
 					return nil
 				}
 			}
-			if err := DownloadFile(ctx, logger, bkt, name, dst); err != nil {
-				return err
-			}
-
-			m.Lock()
-			downloadedFiles = append(downloadedFiles, dst)
-			m.Unlock()
-			return nil
+			return DownloadFile(ctx, logger, bkt, name, dst)
 		})
 		return nil
 	})
-
-	if err == nil {
-		err = g.Wait()
-	}
-
 	if err != nil {
-		downloadedFiles = append(downloadedFiles, dst) // Last, clean up the root dst directory.
-		// Best-effort cleanup if the download failed.
-		for _, f := range downloadedFiles {
-			if rerr := os.RemoveAll(f); rerr != nil {
-				level.Warn(logger).Log("msg", "failed to remove file on partial dir download error", "file", f, "err", rerr)
-			}
-		}
 		return err
 	}
-
-	return nil
+	return g.Wait()
 }
 
 // IsOpFailureExpectedFunc allows to mark certain errors as expected, so they will not increment objstore_bucket_operation_failures_total metric.
