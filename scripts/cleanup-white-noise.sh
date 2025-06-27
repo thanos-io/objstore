@@ -1,4 +1,4 @@
 #!/bin/bash
 SED_BIN=${SED_BIN:-sed}
 
-${SED_BIN:-sed -i ''} 's/[ \t]*$//' "$@"
+${SED_BIN} -i 's/[ \t]*$//' "$@"
