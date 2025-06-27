@@ -39,13 +39,14 @@ linters:
     - typecheck
     - unparam
     - unused
-    - exportloopref
     - promlinter
 
 linters-settings:
   errcheck:
     exclude-functions:
-      - ./.errcheck_excludes.txt
+      - (github.com/go-kit/log.Logger).Log
+      - fmt.Fprintln
+      - fmt.Fprint
   misspell:
     locale: US
   goconst:
