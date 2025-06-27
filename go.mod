@@ -2,8 +2,6 @@ module github.com/thanos-io/objstore
 
 go 1.23.0
 
-toolchain go1.24.2
-
 require (
 	cloud.google.com/go/storage v1.50.0
 	github.com/aliyun/aliyun-oss-go-sdk v2.2.2+incompatible
