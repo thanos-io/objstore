@@ -1,4 +1,4 @@
-# Auto generated binary variables helper managed by https://github.com/bwplotka/bingo v0.7. DO NOT EDIT.
+# Auto generated binary variables helper managed by https://github.com/bwplotka/bingo v0.9. DO NOT EDIT.
 # All tools are designed to be build inside $GOBIN.
 BINGO_DIR := $(dir $(lastword $(MAKEFILE_LIST)))
 GOPATH ?= $(shell go env GOPATH)
@@ -29,11 +29,11 @@ $(COPYRIGHT): $(BINGO_DIR)/copyright.mod
 	@echo "(re)installing $(GOBIN)/copyright-v0.0.0-20220225185207-fe763185946b"
 	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=copyright.mod -o=$(GOBIN)/copyright-v0.0.0-20220225185207-fe763185946b "github.com/efficientgo/tools/copyright"
 
-FAILLINT := $(GOBIN)/faillint-v1.11.0
+FAILLINT := $(GOBIN)/faillint-v1.15.0
 $(FAILLINT): $(BINGO_DIR)/faillint.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
-	@echo "(re)installing $(GOBIN)/faillint-v1.11.0"
-	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=faillint.mod -o=$(GOBIN)/faillint-v1.11.0 "github.com/fatih/faillint"
+	@echo "(re)installing $(GOBIN)/faillint-v1.15.0"
+	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=faillint.mod -o=$(GOBIN)/faillint-v1.15.0 "github.com/fatih/faillint"
 
 GOIMPORTS := $(GOBIN)/goimports-v0.0.0-20200526224456-8b020aee10d2
 $(GOIMPORTS): $(BINGO_DIR)/goimports.mod
@@ -41,11 +41,11 @@ $(GOIMPORTS): $(BINGO_DIR)/goimports.mod
 	@echo "(re)installing $(GOBIN)/goimports-v0.0.0-20200526224456-8b020aee10d2"
 	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=goimports.mod -o=$(GOBIN)/goimports-v0.0.0-20200526224456-8b020aee10d2 "golang.org/x/tools/cmd/goimports"
 
-GOLANGCI_LINT := $(GOBIN)/golangci-lint-v1.54.1
+GOLANGCI_LINT := $(GOBIN)/golangci-lint-v1.64.5
 $(GOLANGCI_LINT): $(BINGO_DIR)/golangci-lint.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
-	@echo "(re)installing $(GOBIN)/golangci-lint-v1.54.1"
-	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=golangci-lint.mod -o=$(GOBIN)/golangci-lint-v1.54.1 "github.com/golangci/golangci-lint/cmd/golangci-lint"
+	@echo "(re)installing $(GOBIN)/golangci-lint-v1.64.5"
+	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=golangci-lint.mod -o=$(GOBIN)/golangci-lint-v1.64.5 "github.com/golangci/golangci-lint/cmd/golangci-lint"
 
 MDOX := $(GOBIN)/mdox-v0.9.0
 $(MDOX): $(BINGO_DIR)/mdox.mod
