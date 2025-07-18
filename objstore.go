@@ -280,6 +280,9 @@ type ObjectAttributes struct {
 
 	// LastModified is the timestamp the object was last modified.
 	LastModified time.Time `json:"last_modified"`
+
+	// MD5 is the MD5 hash of the object, if available.
+	MD5 []byte `json:"md5,omitempty"`
 }
 
 type IterObjectAttributes struct {

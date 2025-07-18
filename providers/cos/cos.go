@@ -185,6 +185,8 @@ func (b *Bucket) Attributes(ctx context.Context, name string) (objstore.ObjectAt
 		return objstore.ObjectAttributes{}, err
 	}
 
+	// oss does not return md5 and etag is not necessarily md5 of the object content
+	// https://www.tencentcloud.com/document/product/436/7729
 	return objstore.ObjectAttributes{
 		Size:         size,
 		LastModified: mod,

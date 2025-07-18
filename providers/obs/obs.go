@@ -5,6 +5,7 @@ package obs
 
 import (
 	"context"
+	"encoding/base64"
 	"io"
 	"math"
 	"os"
@@ -373,9 +374,15 @@ func (b *Bucket) Attributes(ctx context.Context, name string) (objstore.ObjectAt
 	if err != nil {
 		return objstore.ObjectAttributes{}, errors.Wrap(err, "failed to get object metadata")
 	}
+
+	// obs etag is base64 md5 of the object content for unencrypted objects
+	// https://support.huaweicloud.com/intl/en-us/sdk-go-devg-obs/obs_33_0519.html#section4
+	md5, _ := base64.StdEncoding.DecodeString(output.ETag)
+
 	return objstore.ObjectAttributes{
 		Size:         output.ContentLength,
 		LastModified: output.LastModified,
+		MD5:          md5,
 	}, nil
 }
 

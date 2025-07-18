@@ -312,6 +312,7 @@ func (b *Bucket) Attributes(ctx context.Context, name string) (objstore.ObjectAt
 	return objstore.ObjectAttributes{
 		Size:         attrs.Size,
 		LastModified: attrs.Updated,
+		MD5:          attrs.MD5,
 	}, nil
 }
 
