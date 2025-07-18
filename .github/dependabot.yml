@@ -2,9 +2,8 @@ version: 2
 updates:
   - package-ecosystem: "gomod"
     directory: "/"
-    vendor: false
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     labels: ["dependencies"]
   - package-ecosystem: "github-actions"
     directory: "/"
