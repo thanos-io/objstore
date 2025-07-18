@@ -18,7 +18,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	promtest "github.com/prometheus/client_golang/prometheus/testutil"
-	"go.uber.org/atomic"
 )
 
 func TestMetricBucket_Close(t *testing.T) {
@@ -305,7 +304,7 @@ func TestDownloadUploadDirConcurrency(t *testing.T) {
         objstore_bucket_operations_total{bucket="",operation="upload"} 3
 		`), `objstore_bucket_operations_total`))
 
-	testutil.Ok(t, DownloadDir(context.Background(), log.NewNopLogger(), m, "dir/", "dir/", tempDir, WithFetchConcurrency(10)))
+	testutil.Ok(t, DownloadDir(context.Background(), log.NewNopLogger(), m, "dir/", tempDir, WithFetchConcurrency(10)))
 	i, err := os.ReadDir(tempDir)
 	testutil.Ok(t, err)
 	testutil.Assert(t, len(i) == 3)
@@ -517,39 +516,6 @@ func TestTimingReader_ShouldCorrectlyWrapFile(t *testing.T) {
 
 	_, isReaderAt := r.(io.ReaderAt)
 	testutil.Assert(t, isReaderAt)
-}
-
-func TestDownloadDir_CleanUp(t *testing.T) {
-	b := unreliableBucket{
-		Bucket:  NewInMemBucket(),
-		n:       3,
-		current: atomic.NewInt32(0),
-	}
-	tempDir := t.TempDir()
-
-	testutil.Ok(t, b.Upload(context.Background(), "dir/obj1", bytes.NewReader([]byte("1"))))
-	testutil.Ok(t, b.Upload(context.Background(), "dir/obj2", bytes.NewReader([]byte("2"))))
-	testutil.Ok(t, b.Upload(context.Background(), "dir/obj3", bytes.NewReader([]byte("3"))))
-
-	// We exapect the third Get to fail
-	testutil.NotOk(t, DownloadDir(context.Background(), log.NewNopLogger(), b, "dir/", "dir/", tempDir))
-	_, err := os.Stat(tempDir)
-	testutil.Assert(t, os.IsNotExist(err))
-}
-
-// unreliableBucket implements Bucket and returns an error on every n-th Get.
-type unreliableBucket struct {
-	Bucket
-
-	n       int32
-	current *atomic.Int32
-}
-
-func (b unreliableBucket) Get(ctx context.Context, name string) (io.ReadCloser, error) {
-	if b.current.Inc()%b.n == 0 {
-		return nil, errors.Errorf("some error message")
-	}
-	return b.Bucket.Get(ctx, name)
 }
 
 // mockReader implements io.ReadCloser and allows to mock the functions.
