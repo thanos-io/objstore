@@ -73,6 +73,7 @@ func (b *InMemBucket) genericIter(_ context.Context, dir string, f func(string, 
 		if params.Recursive {
 			// Any object matching the prefix should be included.
 			unique[filename] = struct{}{}
+			lastModified[filename] = b.attrs[filename].LastModified
 			continue
 		}
 
