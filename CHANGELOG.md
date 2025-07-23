@@ -74,5 +74,6 @@ We use *breaking :warning:* to mark changes that are not backward compatible (re
 - [#89](https://github.com/thanos-io/objstore/pull/89) GCS: Upgrade cloud.google.com/go/storage version to `v1.35.1`.
 - [#123](https://github.com/thanos-io/objstore/pull/123) *: Upgrade minio-go version to `v7.0.72`.
 - [#132](https://github.com/thanos-io/objstore/pull/132) s3: Upgrade aws-sdk-go-v2/config version to `v1.27.30`
+- [#182](https://github.com/thanos-io/objstore/pull/182) download: dont cleanup directory after download failed
 
 ### Removed
