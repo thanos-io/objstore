@@ -37,7 +37,7 @@ type Config struct {
 	AccessKeyID     string `yaml:"access_key_id"`
 	AccessKeySecret string `yaml:"access_key_secret"`
 	// If true, use the alibaba SDK credentials provider to retrieve credentials.
-	SdkAuth bool `yaml:"sdk_auth,omitempty"`
+	SdkAuth bool `yaml:"sdk_auth"`
 }
 
 // Bucket implements the store.Bucket interface.
