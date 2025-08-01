@@ -373,6 +373,7 @@ config:
   bucket: ""
   service_account: ""
   use_grpc: false
+  use_zonal_buckets: false
   grpc_conn_pool_size: 0
   http_config:
     idle_conn_timeout: 0s
