@@ -36,6 +36,8 @@ type Config struct {
 	Bucket          string `yaml:"bucket"`
 	AccessKeyID     string `yaml:"access_key_id"`
 	AccessKeySecret string `yaml:"access_key_secret"`
+	// If true, use the alibaba SDK credentials provider to retrieve credentials.
+	SdkAuth bool `yaml:"sdk_auth"`
 }
 
 // Bucket implements the store.Bucket interface.
@@ -188,6 +190,13 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string, wra
 			}
 		})
 	}
+	if config.SdkAuth {
+		credProvider, err := NewCredentialsProvider(logger)
+		if err != nil {
+			return nil, errors.Wrap(err, "create aliyun oss credentials provider failed")
+		}
+		clientOptions = append(clientOptions, alioss.SetCredentialsProvider(credProvider))
+	}
 	client, err := alioss.New(config.Endpoint, config.AccessKeyID, config.AccessKeySecret, clientOptions...)
 	if err != nil {
 		return nil, errors.Wrap(err, "create aliyun oss client failed")
@@ -212,7 +221,7 @@ func validate(config Config) error {
 	if config.Endpoint == "" || config.Bucket == "" {
 		return errors.New("aliyun oss endpoint or bucket is not present in config file")
 	}
-	if config.AccessKeyID == "" || config.AccessKeySecret == "" {
+	if !config.SdkAuth && (config.AccessKeyID == "" || config.AccessKeySecret == "") {
 		return errors.New("aliyun oss access_key_id or access_key_secret is not present in config file")
 	}
 
