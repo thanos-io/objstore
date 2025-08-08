@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
+	"cloud.google.com/go/storage/experimental"
 	"github.com/go-kit/log"
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/version"
@@ -42,6 +43,10 @@ type Config struct {
 	Bucket         string `yaml:"bucket"`
 	ServiceAccount string `yaml:"service_account"`
 	UseGRPC        bool   `yaml:"use_grpc"`
+	// Both upload and download paths will use zonal bucket gRPC APIs by default.
+	// Zonal buckets are currently allowlisted; please contact your Google account
+	// manager if interested.
+	UseZonalBuckets bool `yaml:"use_zonal_buckets"`
 	// GRPCConnPoolSize controls the size of the gRPC connection pool and should only be used
 	// when direct path is not enabled.
 	// See https://pkg.go.dev/cloud.google.com/go/storage#hdr-Experimental_gRPC_API for more details
@@ -164,8 +169,14 @@ func newBucket(ctx context.Context, logger log.Logger, gc Config, opts []option.
 		opts = append(opts,
 			option.WithGRPCConnectionPool(gc.GRPCConnPoolSize),
 		)
+		if gc.UseZonalBuckets {
+			opts = append(opts, experimental.WithZonalBucketAPIs())
+		}
 		gcsClient, err = storage.NewGRPCClient(ctx, opts...)
 	} else {
+		if gc.UseZonalBuckets {
+			return nil, errors.New("Zonal buckets require `use_grpc: true`")
+		}
 		gcsClient, err = storage.NewClient(ctx, opts...)
 	}
 	if err != nil {

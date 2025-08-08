@@ -74,6 +74,45 @@ func TestNewBucketWithConfig_ShouldCreateGRPC(t *testing.T) {
 	testutil.Assert(t, bkt != nil, "expected bucket to be created")
 }
 
+func TestNewBucketWithConfig_ShouldCreateZonalBucket(t *testing.T) {
+	cfg := Config{
+		Bucket:          "test-bucket",
+		ServiceAccount:  "",
+		UseGRPC:         true,
+		UseZonalBuckets: true,
+	}
+
+	// Note, the emulator does not currently have any specific zonal bucket logic.
+	svr, err := gcsemu.NewServer("127.0.0.1:0", gcsemu.Options{})
+	testutil.Ok(t, err)
+	err = os.Setenv("STORAGE_EMULATOR_HOST", svr.Addr)
+	testutil.Ok(t, err)
+	err = os.Setenv("GCS_EMULATOR_HOST", svr.Addr)
+	testutil.Ok(t, err)
+	err = os.Setenv("STORAGE_EMULATOR_HOST_GRPC", svr.Addr)
+	testutil.Ok(t, err)
+
+	bkt, err := NewBucketWithConfig(context.Background(), log.NewNopLogger(), cfg, "test-bucket", nil)
+	testutil.Ok(t, err)
+
+	// Check if the bucket is created.
+	testutil.Assert(t, bkt != nil, "expected bucket to be created")
+}
+
+func TestNewBucketWithConfig_ShouldNotCreateZonalBucketWithoutGRPC(t *testing.T) {
+	cfg := Config{
+		Bucket:          "test-bucket",
+		ServiceAccount:  "",
+		UseGRPC:         false,
+		UseZonalBuckets: true,
+		noAuth:          true,
+	}
+
+	bkt, err := NewBucketWithConfig(context.Background(), log.NewNopLogger(), cfg, "test-bucket", nil)
+	testutil.Assert(t, bkt == nil, "did not expect bucket to be created")
+	testutil.Equals(t, err.Error(), "Zonal buckets require `use_grpc: true`")
+}
+
 func TestParseConfig_ChunkSize(t *testing.T) {
 	for _, tc := range []struct {
 		name       string
