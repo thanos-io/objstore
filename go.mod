@@ -11,7 +11,7 @@ require (
 	github.com/efficientgo/core v1.0.0-rc.0.0.20221201130417-ba593f67d2a4
 	github.com/efficientgo/e2e v0.13.1-0.20220922081603-45de9fc588a8
 	github.com/fatih/structtag v1.2.0
-	github.com/fullstorydev/emulators/storage v0.0.0-20240401123056-edc69752f474
+	github.com/fullstorydev/emulators/storage v1.0.0
 	github.com/go-kit/log v0.2.1
 	github.com/huaweicloud/huaweicloud-sdk-go-obs v3.23.3+incompatible
 	github.com/minio/minio-go/v7 v7.0.95
@@ -78,7 +78,7 @@ require (
 	github.com/gofrs/flock v0.8.1 // indirect
 	github.com/golang-jwt/jwt/v5 v5.2.2 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
-	github.com/google/btree v1.1.2 // indirect
+	github.com/google/btree v1.1.3 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/google/uuid v1.6.0 // indirect
