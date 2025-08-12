@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/efficientgo/core/logerrcapture"
 	"github.com/go-kit/log"
@@ -713,4 +714,17 @@ func NewTestBucketFromConfig(t testing.TB, location string, c Config, reuseBucke
 // provided to S3 objstore client functions to override the default SSE config.
 func ContextWithSSEConfig(ctx context.Context, value encrypt.ServerSide) context.Context {
 	return context.WithValue(ctx, sseConfigKey, value)
+}
+
+// SignedPUT Returns a presigned URL to upload an object without credentials. URL can have a maximum expiry of upto 7days or a minimum of 1sec.
+func (b *Bucket) SignedPUT(
+	ctx context.Context,
+	objectKey string,
+	expiry time.Time,
+) (string, error) {
+	u, err := b.client.PresignedPutObject(ctx, b.name, objectKey, expiry.Sub(time.Now()))
+	if err != nil {
+		return "", err
+	}
+	return u.String(), nil
 }
