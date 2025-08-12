@@ -13,7 +13,7 @@ require (
 	github.com/fatih/structtag v1.2.0
 	github.com/fullstorydev/emulators/storage v1.0.0
 	github.com/go-kit/log v0.2.1
-	github.com/huaweicloud/huaweicloud-sdk-go-obs v3.23.3+incompatible
+	github.com/huaweicloud/huaweicloud-sdk-go-obs v3.25.4+incompatible
 	github.com/minio/minio-go/v7 v7.0.95
 	github.com/ncw/swift v1.0.53
 	github.com/opentracing/opentracing-go v1.2.0
