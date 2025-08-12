@@ -24,6 +24,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/thanos-io/objstore"
+	"github.com/thanos-io/objstore/clientutil"
 )
 
 // DirDelim is the delimiter used to model a directory structure in an object store bucket.
@@ -289,9 +290,16 @@ func (b *Bucket) Attributes(ctx context.Context, name string) (objstore.ObjectAt
 	if err != nil {
 		return objstore.ObjectAttributes{}, err
 	}
+
+	var md5 []byte
+	if response.ContentMd5 != nil {
+		md5 = clientutil.ParseMD5(*response.ContentMd5)
+	}
+
 	return objstore.ObjectAttributes{
 		Size:         *response.ContentLength,
 		LastModified: response.LastModified.Time,
+		MD5:          md5,
 	}, nil
 }
 

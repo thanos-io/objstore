@@ -4,6 +4,8 @@
 package clientutil
 
 import (
+	"bytes"
+	"fmt"
 	"net/http"
 	"testing"
 	"time"
@@ -105,6 +107,52 @@ func TestParseContentLength(t *testing.T) {
 				testutil.Ok(t, err)
 				testutil.Equals(t, testData.expectedVal, actual)
 			}
+		})
+	}
+}
+
+func TestParseMD5(t *testing.T) {
+	for _, tc := range []struct {
+		label string
+		in    string
+		out   []byte
+	}{
+		{
+			label: "valid md5",
+			in:    "b1946ac92492d2347c6235b4d2611184",
+			out:   []byte{0xb1, 0x94, 0x6a, 0xc9, 0x24, 0x92, 0xd2, 0x34, 0x7c, 0x62, 0x35, 0xb4, 0xd2, 0x61, 0x11, 0x84},
+		},
+		{
+			label: "invalid hex string",
+			in:    "not-a-hex-string",
+		},
+		{
+			label: "odd length hex string",
+			in:    "abc",
+		},
+		{
+			label: "empty string",
+			in:    "",
+			out:   []byte{},
+		},
+		{
+			label: "valid md5 with quotes",
+			in:    "\"b1946ac92492d2347c6235b4d2611184\"",
+			out:   []byte{0xb1, 0x94, 0x6a, 0xc9, 0x24, 0x92, 0xd2, 0x34, 0x7c, 0x62, 0x35, 0xb4, 0xd2, 0x61, 0x11, 0x84},
+		},
+		{
+			label: "invalid hex string with quotes",
+			in:    "\"not-a-hex-string\"",
+		},
+		{
+			label: "only quotes",
+			in:    "\"\"",
+			out:   []byte{},
+		},
+	} {
+		t.Run(tc.label, func(t *testing.T) {
+			out := ParseMD5(tc.in)
+			testutil.Assert(t, bytes.Equal(out, tc.out), fmt.Sprintf("output mismatch: %v != %v", out, tc.out))
 		})
 	}
 }
