@@ -115,6 +115,10 @@ func (conf *Config) validate() error {
 		errMsg = append(errMsg, "The value of max_retry_requests must be greater than or equal to 0 in the config file")
 	}
 
+	if conf.Endpoint == "" {
+		conf.Endpoint = DefaultConfig.Endpoint
+	}
+
 	if len(errMsg) > 0 {
 		return errors.New(strings.Join(errMsg, ", "))
 	}
