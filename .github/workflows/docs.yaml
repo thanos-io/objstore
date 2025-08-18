@@ -15,14 +15,14 @@ jobs:
       GOBIN: /tmp/.bin
     steps:
       - name: Checkout code into the Go module directory.
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install Go
         uses: actions/setup-go@8e57b58e57be52ac95949151e2777ffda8501267 # v5.0.2
         with:
           go-version: 1.21.x
 
-      - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684
+      - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
         with:
           path: ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
