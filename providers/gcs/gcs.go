@@ -244,7 +244,7 @@ func (b *Bucket) IterWithAttributes(ctx context.Context, dir string, f func(attr
 			return err
 		}
 
-		objAttrs := objstore.IterObjectAttributes{Name: attrs.Prefix + attrs.Name}
+		objAttrs := objstore.IterObjectAttributes{Name: attrs.Prefix + attrs.Name, Size: attrs.Size}
 		if appliedOpts.LastModified {
 			objAttrs.SetLastModified(attrs.Updated)
 		}

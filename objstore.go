@@ -284,6 +284,7 @@ type ObjectAttributes struct {
 
 type IterObjectAttributes struct {
 	Name         string
+	Size         int64
 	lastModified time.Time
 }
 

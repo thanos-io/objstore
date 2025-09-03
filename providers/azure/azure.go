@@ -232,6 +232,7 @@ func (b *Bucket) IterWithAttributes(ctx context.Context, dir string, f func(attr
 			for _, blob := range resp.Segment.BlobItems {
 				attrs := objstore.IterObjectAttributes{
 					Name: *blob.Name,
+					Size: *blob.Properties.ContentLength,
 				}
 				if params.LastModified {
 					attrs.SetLastModified(*blob.Properties.LastModified)
