@@ -223,17 +223,17 @@ func (b *Bucket) multipartUpload(size int64, key, uploadId string, body io.Reade
 	parts := make([]obs.Part, 0, partSum)
 	for i := 1; i <= partSum; i++ {
 		partSize := PartSize
-		if i == partSum {
+		if i == partSum && lastPart > 0 {
 			partSize = lastPart
 		}
+		partReader := io.LimitReader(body, partSize)
 		output, err := b.client.UploadPart(&obs.UploadPartInput{
 			Bucket:     b.name,
 			Key:        key,
 			UploadId:   uploadId,
-			Body:       body,
+			Body:       partReader,
 			PartNumber: i,
 			PartSize:   partSize,
-			Offset:     int64(i-1) * PartSize,
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to multipart upload")
