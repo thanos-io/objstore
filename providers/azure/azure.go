@@ -63,6 +63,9 @@ type Config struct {
 
 	// Deprecated: Is automatically set by the Azure SDK.
 	MSIResource string `yaml:"msi_resource"`
+
+	// IsAzureDataLakeGen2 indicates whether the provided storage account is an Azure Data Lake Gen2 account.
+	IsAzureDataLakeGen2 bool `yaml:"is_azure_data_lake_gen2"`
 }
 
 type ReaderConfig struct {
@@ -157,7 +160,7 @@ type Bucket struct {
 }
 
 // NewBucket returns a new Bucket using the provided Azure config.
-func NewBucket(logger log.Logger, azureConfig []byte, component string, wrapRoundtripper func(http.RoundTripper) http.RoundTripper) (*Bucket, error) {
+func NewBucket(logger log.Logger, azureConfig []byte, component string, wrapRoundtripper func(http.RoundTripper) http.RoundTripper) (objstore.Bucket, error) {
 	level.Debug(logger).Log("msg", "creating new Azure bucket connection", "component", component)
 	conf, err := parseConfig(azureConfig)
 	if err != nil {
@@ -170,9 +173,13 @@ func NewBucket(logger log.Logger, azureConfig []byte, component string, wrapRoun
 }
 
 // NewBucketWithConfig returns a new Bucket using the provided Azure config struct.
-func NewBucketWithConfig(logger log.Logger, conf Config, component string, wrapRoundtripper func(http.RoundTripper) http.RoundTripper) (*Bucket, error) {
+func NewBucketWithConfig(logger log.Logger, conf Config, component string, wrapRoundtripper func(http.RoundTripper) http.RoundTripper) (objstore.Bucket, error) {
 	if err := conf.validate(); err != nil {
 		return nil, err
+	}
+
+	if conf.IsAzureDataLakeGen2 {
+		return NewDataLakeGen2Bucket(logger, conf, component, wrapRoundtripper)
 	}
 
 	containerClient, err := getContainerClient(conf, wrapRoundtripper)
@@ -423,7 +430,7 @@ func NewTestBucket(t testing.TB, component string) (objstore.Bucket, func(), err
 	ctx := context.Background()
 	return bkt, func() {
 		objstore.EmptyBucket(t, ctx, bkt)
-		_, err := bkt.containerClient.Delete(ctx, &container.DeleteOptions{})
+		_, err := bkt.(*Bucket).containerClient.Delete(ctx, &container.DeleteOptions{})
 		if err != nil {
 			t.Logf("deleting bucket failed: %s", err)
 		}
