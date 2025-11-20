@@ -4,7 +4,9 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"os"
 	"strings"
+	"testing"
 	"time"
 
 	azdatalakeerror "github.com/Azure/azure-sdk-for-go/sdk/storage/azdatalake/datalakeerror"
@@ -14,6 +16,7 @@ import (
 	"github.com/go-kit/log/level"
 	"github.com/pkg/errors"
 	"github.com/thanos-io/objstore"
+	"gopkg.in/yaml.v2"
 )
 
 type DataLakeGen2Bucket struct {
@@ -81,20 +84,42 @@ func (b *DataLakeGen2Bucket) IterWithAttributes(ctx context.Context,
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
-			return err
+			// azdatalake will complain if the prefix path doesn't
+			// exist, we need to handle that properly.
+			if b.IsObjNotFoundErr(err) {
+				return nil
+			} else {
+				return err
+			}
 		}
 
 		for _, path := range page.Paths {
-			if path.IsDirectory != nil && *path.IsDirectory {
+			if path.Name == nil {
 				continue
 			}
 
-			attrs := objstore.IterObjectAttributes{
-				Name: *path.Name,
+			name := *path.Name
+
+			if path.IsDirectory != nil && *path.IsDirectory {
+				if params.Recursive {
+					continue
+				}
+
+				if !strings.HasSuffix(name, DirDelim) {
+					name += DirDelim
+				}
 			}
 
-			if path.LastModified != nil {
-				attrs.SetLastModified(*page.LastModified)
+			attrs := objstore.IterObjectAttributes{
+				Name: name,
+			}
+
+			if params.LastModified && path.LastModified != nil {
+				parsedTime, err := time.Parse(time.RFC1123, *path.LastModified)
+				if err != nil {
+					return errors.Wrapf(err, "cannot parse last modified time for blob: %s", *path.Name)
+				}
+				attrs.SetLastModified(parsedTime)
 			}
 
 			if err := f(attrs); err != nil {
@@ -126,8 +151,8 @@ func (b *DataLakeGen2Bucket) IsObjNotFoundErr(err error) bool {
 		return false
 	}
 
-	return azdatalakeerror.HasCode(err, azdatalakeerror.BlobNotFound) ||
-		azdatalakeerror.HasCode(err, azdatalakeerror.InvalidURI)
+	return azdatalakeerror.HasCode(err,
+		azdatalakeerror.PathNotFound, azdatalakeerror.InvalidURI)
 }
 
 func (b *DataLakeGen2Bucket) IsAccessDeniedErr(err error) bool {
@@ -135,8 +160,8 @@ func (b *DataLakeGen2Bucket) IsAccessDeniedErr(err error) bool {
 		return false
 	}
 
-	return azdatalakeerror.HasCode(err, azdatalakeerror.AuthorizationPermissionMismatch) ||
-		azdatalakeerror.HasCode(err, azdatalakeerror.InsufficientAccountPermissions)
+	return azdatalakeerror.HasCode(err,
+		azdatalakeerror.AuthorizationPermissionMismatch, azdatalakeerror.InsufficientAccountPermissions)
 }
 
 func (b *DataLakeGen2Bucket) getBlobReader(ctx context.Context, name string, httpRange azfile.HTTPRange) (io.ReadCloser, error) {
@@ -148,7 +173,7 @@ func (b *DataLakeGen2Bucket) getBlobReader(ctx context.Context, name string, htt
 	fileClient := b.filesystemClient.NewFileClient(name)
 	resp, err := fileClient.DownloadStream(ctx, &azfile.DownloadStreamOptions{Range: &httpRange})
 	if err != nil {
-		return nil, errors.Wrapf(err, "cannot download blob, address: %s", fileClient.BlobURL())
+		return nil, err
 	}
 
 	return objstore.ObjectSizerReadCloser{
@@ -160,14 +185,21 @@ func (b *DataLakeGen2Bucket) getBlobReader(ctx context.Context, name string, htt
 }
 
 func (b *DataLakeGen2Bucket) Get(ctx context.Context, name string) (io.ReadCloser, error) {
+	// for azure data lake gen 2, the folder name doesn't have '/' in the suffix.
+	name = strings.TrimSuffix(name, DirDelim)
 	return b.getBlobReader(ctx, name, azfile.HTTPRange{})
 }
 
 func (b *DataLakeGen2Bucket) GetRange(ctx context.Context, name string, offset, length int64) (io.ReadCloser, error) {
+	// for azure data lake gen 2, the folder name doesn't have '/' in the suffix.
+	name = strings.TrimSuffix(name, DirDelim)
 	return b.getBlobReader(ctx, name, azfile.HTTPRange{Offset: offset, Count: length})
 }
 
 func (b *DataLakeGen2Bucket) Attributes(ctx context.Context, name string) (objstore.ObjectAttributes, error) {
+	// for azure data lake gen 2, the folder name doesn't have '/' in the suffix.
+	name = strings.TrimSuffix(name, DirDelim)
+
 	level.Debug(b.logger).Log("msg", "Getting blob attributes", "blob", name)
 	fileClient := b.filesystemClient.NewFileClient(name)
 
@@ -196,6 +228,9 @@ func (b *DataLakeGen2Bucket) Attributes(ctx context.Context, name string) (objst
 }
 
 func (b *DataLakeGen2Bucket) Exists(ctx context.Context, name string) (bool, error) {
+	// for azure data lake gen 2, the folder name doesn't have '/' in the suffix.
+	name = strings.TrimSuffix(name, DirDelim)
+
 	level.Debug(b.logger).Log("msg", "checking if blob exists", "blob", name)
 	fileClient := b.filesystemClient.NewFileClient(name)
 
@@ -211,8 +246,25 @@ func (b *DataLakeGen2Bucket) Exists(ctx context.Context, name string) (bool, err
 }
 
 func (b *DataLakeGen2Bucket) Upload(ctx context.Context, name string, r io.Reader, uploadOpts ...objstore.ObjectUploadOption) error {
+	// for azure data lake gen 2, the folder name doesn't have '/' in the suffix.
+	name = strings.TrimSuffix(name, DirDelim)
+
 	level.Debug(b.logger).Log("msg", "uploading blob", "blob", name)
 	fileClient := b.filesystemClient.NewFileClient(name)
+
+	exists, err := b.Exists(ctx, name)
+	if err != nil {
+		return errors.Wrapf(err, "cannot check existence of blob before upload, address: %s", name)
+	}
+
+	if !exists {
+		// unlike azblob sdk, azdatalake in the Go SDK
+		// requires you to explicitly create the file before you can upload data to it.
+		_, err := fileClient.Create(ctx, nil)
+		if err != nil {
+			return errors.Wrapf(err, "cannot create blob before upload, address: %s", name)
+		}
+	}
 
 	uploadOptions := objstore.ApplyObjectUploadOptions(uploadOpts...)
 	opts := &azfile.UploadStreamOptions{
@@ -231,6 +283,9 @@ func (b *DataLakeGen2Bucket) Upload(ctx context.Context, name string, r io.Reade
 }
 
 func (b *DataLakeGen2Bucket) Delete(ctx context.Context, name string) error {
+	// for azure data lake gen 2, the folder name doesn't have '/' in the suffix.
+	name = strings.TrimSuffix(name, DirDelim)
+
 	level.Debug(b.logger).Log("msg", "deleting blob", "blob", name)
 	fileClient := b.filesystemClient.NewFileClient(name)
 
@@ -251,4 +306,34 @@ func (b *DataLakeGen2Bucket) Name() string {
 
 func (b *DataLakeGen2Bucket) Close() error {
 	return nil
+}
+
+// NewTestDataLakeGen2Bucket creates test bkt client that before returning creates temporary bucket.
+// In a close function it empties and deletes the bucket.
+func NewTestDataLakeGen2Bucket(t testing.TB, component string) (objstore.Bucket, func(), error) {
+	t.Log("Using test Azure data lake gen 2 bucket.")
+
+	conf := &DefaultConfig
+	conf.StorageAccountName = os.Getenv("AZURE_STORAGE_ACCOUNT")
+	conf.StorageAccountKey = os.Getenv("AZURE_STORAGE_ACCESS_KEY")
+	conf.ContainerName = objstore.CreateTemporaryTestBucketName(t)
+	conf.IsAzureDataLakeGen2 = true
+
+	bc, err := yaml.Marshal(conf)
+	if err != nil {
+		return nil, nil, err
+	}
+	bkt, err := NewBucket(log.NewNopLogger(), bc, component, nil)
+	if err != nil {
+		t.Errorf("Cannot create Azure storage container:")
+		return nil, nil, err
+	}
+	ctx := context.Background()
+	return bkt, func() {
+		objstore.EmptyBucket(t, ctx, bkt)
+		_, err := bkt.(*DataLakeGen2Bucket).filesystemClient.Delete(ctx, nil)
+		if err != nil {
+			t.Logf("deleting bucket failed: %s", err)
+		}
+	}, nil
 }

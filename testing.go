@@ -257,6 +257,13 @@ func AcceptanceTest(t *testing.T, bkt Bucket) {
 
 	testutil.Ok(t, bkt.Delete(ctx, "id2/obj_4.some"))
 
+	// for azure data lake gen 2, the folder is also a file
+	exists, err := bkt.Exists(ctx, "id2/")
+	testutil.Ok(t, err)
+	if exists {
+		testutil.Ok(t, bkt.Delete(ctx, "id2/"))
+	}
+
 	seen = []string{}
 	testutil.Ok(t, bkt.Iter(ctx, "", func(fn string) error {
 		seen = append(seen, fn)
