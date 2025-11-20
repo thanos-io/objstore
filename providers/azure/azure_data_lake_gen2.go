@@ -20,9 +20,7 @@ type DataLakeGen2Bucket struct {
 	logger           log.Logger
 	containerName    string
 	readerMaxRetries int
-
-	isAzureDataLakeGen2 bool
-	filesystemClient    *azfilesystem.Client
+	filesystemClient *azfilesystem.Client
 }
 
 func NewDataLakeGen2Bucket(logger log.Logger, conf Config, component string, wrapRoundtripper func(http.RoundTripper) http.RoundTripper) (*DataLakeGen2Bucket, error) {
@@ -49,11 +47,10 @@ func NewDataLakeGen2Bucket(logger log.Logger, conf Config, component string, wra
 	}
 
 	bkt := &DataLakeGen2Bucket{
-		logger:              logger,
-		containerName:       conf.ContainerName,
-		readerMaxRetries:    conf.ReaderConfig.MaxRetryRequests,
-		isAzureDataLakeGen2: true,
-		filesystemClient:    filesystemClient,
+		logger:           logger,
+		containerName:    conf.ContainerName,
+		readerMaxRetries: conf.ReaderConfig.MaxRetryRequests,
+		filesystemClient: filesystemClient,
 	}
 
 	return bkt, nil
