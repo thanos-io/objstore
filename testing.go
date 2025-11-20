@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -257,19 +258,16 @@ func AcceptanceTest(t *testing.T, bkt Bucket) {
 
 	testutil.Ok(t, bkt.Delete(ctx, "id2/obj_4.some"))
 
-	// for azure data lake gen 2, the folder is also a file
-	exists, err := bkt.Exists(ctx, "id2/")
-	testutil.Ok(t, err)
-	if exists {
-		testutil.Ok(t, bkt.Delete(ctx, "id2/"))
-	}
-
 	seen = []string{}
 	testutil.Ok(t, bkt.Iter(ctx, "", func(fn string) error {
 		seen = append(seen, fn)
 		return nil
 	}))
 	expected = []string{"obj_5.some", "id1/"}
+	if os.Getenv("IS_AZURE_DATA_LAKE_GEN2") == "true" && bkt.Provider() == AZURE {
+		expected = []string{"obj_5.some", "id1/", "id2/"} // Azure Data Lake Gen2 keeps empty dirs.
+	}
+
 	sort.Strings(expected)
 	sort.Strings(seen)
 	testutil.Equals(t, expected, seen)
