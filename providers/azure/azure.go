@@ -179,6 +179,7 @@ func NewBucketWithConfig(logger log.Logger, conf Config, component string, wrapR
 	}
 
 	if conf.IsAzureDataLakeGen2 {
+		level.Debug(logger).Log("msg", "using azure data lake gen 2 storage")
 		return NewDataLakeGen2Bucket(logger, conf, component, wrapRoundtripper)
 	}
 
