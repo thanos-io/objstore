@@ -317,7 +317,6 @@ func NewTestDataLakeGen2Bucket(t testing.TB, component string) (objstore.Bucket,
 	conf.StorageAccountName = os.Getenv("AZURE_STORAGE_ACCOUNT")
 	conf.StorageAccountKey = os.Getenv("AZURE_STORAGE_ACCESS_KEY")
 	conf.ContainerName = objstore.CreateTemporaryTestBucketName(t)
-	conf.IsAzureDataLakeGen2 = true
 
 	bc, err := yaml.Marshal(conf)
 	if err != nil {

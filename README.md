@@ -497,7 +497,6 @@ config:
       insecure_skip_verify: false
     disable_compression: false
   msi_resource: ""
-  is_azure_data_lake_gen2: false
 prefix: ""
 ```
 
@@ -506,8 +505,6 @@ If `msi_resource` is used, authentication is done via system-assigned managed id
 If `user_assigned_id` is used, authentication is done via user-assigned managed identity. When using `user_assigned_id` the `msi_resource` defaults to `https://<storage_account>.<endpoint>`
 
 If `storage_connection_string` is set, the values of `storage_account` and `endpoint` values will not be used. Use this method over `storage_account_key` if you need to authenticate via a SAS token.
-
-If using one azure data lake gen 2 storage with `Hierarchical Namespace` enabled, set `is_azure_data_lake_gen2` to `true`.
 
 The generic `max_retries` will be used as value for the `pipeline_config`'s `max_tries` and `reader_config`'s `max_retry_requests`. For more control, `max_retries` could be ignored (0) and one could set specific retry values.
 

@@ -63,9 +63,6 @@ type Config struct {
 
 	// Deprecated: Is automatically set by the Azure SDK.
 	MSIResource string `yaml:"msi_resource"`
-
-	// IsAzureDataLakeGen2 indicates whether the provided storage account is an Azure Data Lake Gen2 account.
-	IsAzureDataLakeGen2 bool `yaml:"is_azure_data_lake_gen2"`
 }
 
 type ReaderConfig struct {
@@ -178,19 +175,24 @@ func NewBucketWithConfig(logger log.Logger, conf Config, component string, wrapR
 		return nil, err
 	}
 
-	if conf.IsAzureDataLakeGen2 {
-		level.Debug(logger).Log("msg", "using azure data lake gen 2 storage")
-		return NewDataLakeGen2Bucket(logger, conf, component, wrapRoundtripper)
-	}
-
 	containerClient, err := getContainerClient(conf, wrapRoundtripper)
 	if err != nil {
 		return nil, err
 	}
 
+	ctx := context.Background()
+	accountInfo, err := containerClient.GetAccountInfo(ctx, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to get Azure storage account info")
+	}
+
+	if accountInfo.IsHierarchicalNamespaceEnabled != nil && *accountInfo.IsHierarchicalNamespaceEnabled {
+		level.Debug(logger).Log("msg", "using azure data lake gen 2 storage")
+		return NewDataLakeGen2Bucket(logger, conf, component, wrapRoundtripper)
+	}
+
 	// Check if storage account container already exists, and create one if it does not.
 	if conf.StorageCreateContainer {
-		ctx := context.Background()
 		_, err = containerClient.GetProperties(ctx, &container.GetPropertiesOptions{})
 		if err != nil {
 			if !bloberror.HasCode(err, bloberror.ContainerNotFound) {
