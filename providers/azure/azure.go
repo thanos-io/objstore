@@ -200,7 +200,7 @@ func NewBucketWithConfig(logger log.Logger, conf Config, component string, wrapR
 		// Autodetect the storage account type by connecting with the gen1 (azblob) sdk and
 		// querying the account properties.
 		var err error
-		conf.StorageAccountType, err = autodiscoverStorageAccountType(containerClient, logger, conf, wrapRoundtripper)
+		conf.StorageAccountType, err = autodiscoverStorageAccountType(containerClient, logger, conf)
 		if err != nil {
 			return nil, errors.Wrap(err, "when auto-discovering Azure Storage account type")
 		}

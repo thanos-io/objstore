@@ -27,7 +27,7 @@ const DirDelim = "/"
 
 // If the Azure Storage Account type is not known, we use the gen1 (azblob) SDK to query the account properties
 // then discard the client. If the account supports hierarchical namespaces, it is a Data Lake Gen2 account.
-func autodiscoverStorageAccountType(containerClient *container.Client, logger log.Logger, conf Config, wrapRoundtripper func(http.RoundTripper) http.RoundTripper) (AzStorageAccountType, error) {
+func autodiscoverStorageAccountType(containerClient *container.Client, logger log.Logger, conf Config) (AzStorageAccountType, error) {
 	ctx := context.Background()
 	accountProps, err := containerClient.GetAccountInfo(ctx, nil)
 	if err != nil {
