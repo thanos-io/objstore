@@ -495,6 +495,7 @@ config:
       key_file: ""
       server_name: ""
       insecure_skip_verify: false
+      #azure_storage_account_type: blob
     disable_compression: false
   msi_resource: ""
 prefix: ""
@@ -507,6 +508,8 @@ If `user_assigned_id` is used, authentication is done via user-assigned managed 
 If `storage_connection_string` is set, the values of `storage_account` and `endpoint` values will not be used. Use this method over `storage_account_key` if you need to authenticate via a SAS token.
 
 The generic `max_retries` will be used as value for the `pipeline_config`'s `max_tries` and `reader_config`'s `max_retry_requests`. For more control, `max_retries` could be ignored (0) and one could set specific retry values.
+
+The provider will automatically detect an [Azure Data Lake (a.k.a. Generation 2, or heirachical namespace) Azure Storage account](https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction) and switch from the generation 1 `azblob` SDK to the generation 2 `azdatalake` SDK, so the same provider supports both Azure Storage account types. To override autodetection and force use of a specific client, set `azure_storage_account_type` to `blob` to force use the `azblob` sdk, or `datalake` to use the `datalake` sdk. The datalake sdk may not work on gen1 blob accounts, and there are known issues with using the azblob sdk on datalake accounts, so this setting should generally be left unconfigured to allow autodetection.
 
 ##### OpenStack Swift
 

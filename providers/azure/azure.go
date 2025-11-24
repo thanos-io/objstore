@@ -28,6 +28,17 @@ import (
 	"github.com/thanos-io/objstore/exthttp"
 )
 
+type AzStorageAccountType string
+
+const (
+	// Autodiscover storage account type. Default.
+	AzStorageAccountType_Unset AzStorageAccountType = ""
+	// Azure Blob Storage (generation 1) account type.
+	AzStorageAccountType_Blob AzStorageAccountType = "blob"
+	// Azure Data Lake Storage (generation 2) account type.
+	AzStorageAccountType_DataLake AzStorageAccountType = "datalake"
+)
+
 // DefaultConfig for Azure objstore client.
 var DefaultConfig = Config{
 	Endpoint:               "blob.core.windows.net",
@@ -63,6 +74,10 @@ type Config struct {
 
 	// Deprecated: Is automatically set by the Azure SDK.
 	MSIResource string `yaml:"msi_resource"`
+
+	// Azure Storage Account type - blob (gen1) for Azure Blob Storage, or datalake (gen2)
+	// for Azure Data Lake Storage. Autodetected if not set.
+	StorageAccountType AzStorageAccountType `yaml:"azure_storage_account_type"`
 }
 
 type ReaderConfig struct {
@@ -180,19 +195,28 @@ func NewBucketWithConfig(logger log.Logger, conf Config, component string, wrapR
 		return nil, err
 	}
 
-	ctx := context.Background()
-	accountInfo, err := containerClient.GetAccountInfo(ctx, nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to get Azure storage account info")
+	if conf.StorageAccountType == AzStorageAccountType_Unset {
+		level.Info(logger).Log("msg", "azure_storage_account_type not set, attempting to autodetect storage account type")
+		// Autodetect the storage account type by connecting with the gen1 (azblob) sdk and
+		// querying the account properties.
+		var err error
+		conf.StorageAccountType, err = autodiscoverStorageAccountType(containerClient, logger, conf, wrapRoundtripper)
+		if err != nil {
+			return nil, errors.Wrap(err, "when auto-discovering Azure Storage account type")
+		}
 	}
 
-	if accountInfo.IsHierarchicalNamespaceEnabled != nil && *accountInfo.IsHierarchicalNamespaceEnabled {
-		level.Debug(logger).Log("msg", "using azure data lake gen 2 storage")
+	switch conf.StorageAccountType {
+	case AzStorageAccountType_DataLake:
+		level.Debug(logger).Log("msg", "using azure data lake gen 2 storage (azdatalake)")
 		return NewDataLakeGen2Bucket(logger, conf, component, wrapRoundtripper)
+	case AzStorageAccountType_Blob:
+		// Continue to create a gen1 client
 	}
 
 	// Check if storage account container already exists, and create one if it does not.
 	if conf.StorageCreateContainer {
+		ctx := context.Background()
 		_, err = containerClient.GetProperties(ctx, &container.GetPropertiesOptions{})
 		if err != nil {
 			if !bloberror.HasCode(err, bloberror.ContainerNotFound) {

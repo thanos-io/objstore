@@ -4,6 +4,7 @@
 package azure
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"time"
@@ -14,12 +15,38 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azdatalake"
 	azfilesystem "github.com/Azure/azure-sdk-for-go/sdk/storage/azdatalake/filesystem"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
+	"github.com/pkg/errors"
 
 	"github.com/thanos-io/objstore/exthttp"
 )
 
 // DirDelim is the delimiter used to model a directory structure in an object store bucket.
 const DirDelim = "/"
+
+// If the Azure Storage Account type is not known, we use the gen1 (azblob) SDK to query the account properties
+// then discard the client. If the account supports hierarchical namespaces, it is a Data Lake Gen2 account.
+func autodiscoverStorageAccountType(containerClient *container.Client, logger log.Logger, conf Config, wrapRoundtripper func(http.RoundTripper) http.RoundTripper) (AzStorageAccountType, error) {
+	ctx := context.Background()
+	accountProps, err := containerClient.GetAccountInfo(ctx, nil)
+	if err != nil {
+		return AzStorageAccountType_Unset, errors.Wrapf(err, "error autodiscovering Azure storage account type for account: %s", conf.StorageAccountName)
+	}
+
+	if accountProps.IsHierarchicalNamespaceEnabled == nil {
+		level.Warn(logger).Log("msg", "unable to autodiscover Azure storage account type: IsHierarchicalNamespaceEnabled is nil; assuming gen1 blob", "account", conf.StorageAccountName)
+		return AzStorageAccountType_Blob, nil
+	}
+
+	if *accountProps.IsHierarchicalNamespaceEnabled {
+		level.Info(logger).Log("msg", "autodiscovered Azure Data Lake Storage Gen2 account type", "account", conf.StorageAccountName)
+		return AzStorageAccountType_DataLake, nil
+	}
+
+	level.Info(logger).Log("msg", "autodiscovered Azure Blob Storage account type", "account", conf.StorageAccountName)
+	return AzStorageAccountType_Blob, nil
+}
 
 func getDataLakeGen2FilesystemClient(conf Config, wrapRoundtripper func(http.RoundTripper) http.RoundTripper) (*azfilesystem.Client, error) {
 	var rt http.RoundTripper
