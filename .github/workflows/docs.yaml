@@ -22,7 +22,7 @@ jobs:
         with:
           go-version: 1.21.x
 
-      - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
+      - uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb
         with:
           path: ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
