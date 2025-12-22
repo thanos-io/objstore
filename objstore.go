@@ -347,7 +347,7 @@ func ValidateUploadOptions(supportedOptions []ObjectUploadOptionType, opts ...Ob
 			}
 		}
 		if opt.Type == IfNotExists {
-			// IfNotExists provided alongside IfMatch or IfNotMatch
+			// If IfNotExists provided alongside IfMatch or IfNotMatch.
 			if slices.ContainsFunc(opts, func(opt ObjectUploadOption) bool {
 				return opt.Type == IfMatch || opt.Type == IfNotMatch
 			}) {
