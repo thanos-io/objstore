@@ -332,7 +332,7 @@ func WithIfNotMatch(ver *ObjectVersion) ObjectUploadOption {
 	}
 }
 
-// ValidateUploadOptions ensures that only supported options are passed as options, and that options used simultaneously are valid
+// ValidateUploadOptions ensures that only supported options are passed as options, and that options used simultaneously are valid.
 func ValidateUploadOptions(supportedOptions []ObjectUploadOptionType, opts ...ObjectUploadOption) error {
 
 	for _, opt := range opts {
