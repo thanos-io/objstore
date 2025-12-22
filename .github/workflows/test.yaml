@@ -18,7 +18,7 @@ jobs:
       contents: read
     steps:
       - id: skip-check
-        uses: fkirc/skip-duplicate-actions@v4
+        uses: fkirc/skip-duplicate-actions@v5
         with:
           do_not_skip: '["schedule", "workflow_dispatch"]'
           paths: |-
@@ -38,10 +38,10 @@ jobs:
       GOBIN: /tmp/.bin
     steps:
       - name: Checkout code into the Go module directory.
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
 
       - name: Install Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
           go-version-file: .go-version
           cache: true
@@ -58,10 +58,10 @@ jobs:
       GOBIN: /tmp/.bin
     steps:
       - name: Check out code into the Go module directory.
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
 
       - name: Install Go.
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
           go-version-file: .go-version
           cache: true
