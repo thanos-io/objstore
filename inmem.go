@@ -260,6 +260,10 @@ func (b *InMemBucket) Attributes(_ context.Context, name string) (ObjectAttribut
 
 // Upload writes the file specified in src to into the memory.
 func (b *InMemBucket) Upload(_ context.Context, name string, r io.Reader, opts ...ObjectUploadOption) error {
+	if err := ValidateUploadOptions(b.SupportedObjectUploadOptions(), opts...); err != nil {
+		return err
+	}
+
 	b.mtx.Lock()
 	defer b.mtx.Unlock()
 

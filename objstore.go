@@ -332,8 +332,9 @@ func WithIfNotMatch(ver *ObjectVersion) ObjectUploadOption {
 	}
 }
 
-// ValidateUploadOptions ensures that only supported options are passed as options.
+// ValidateUploadOptions ensures that only supported options are passed as options, and that options used simultaneously are valid
 func ValidateUploadOptions(supportedOptions []ObjectUploadOptionType, opts ...ObjectUploadOption) error {
+
 	for _, opt := range opts {
 		if !slices.Contains(supportedOptions, opt.Type) {
 			return fmt.Errorf("%w: %d", ErrUploadOptionNotSupported, opt.Type)
@@ -343,6 +344,14 @@ func ValidateUploadOptions(supportedOptions []ObjectUploadOptionType, opts ...Ob
 			opt.Apply(candidate)
 			if candidate.Condition == nil {
 				return fmt.Errorf("%w: Condition nil", ErrUploadOptionInvalid)
+			}
+		}
+		if opt.Type == IfNotExists {
+			// IfNotExists provided alongside IfMatch or IfNotMatch
+			if slices.ContainsFunc(opts, func(opt ObjectUploadOption) bool {
+				return opt.Type == IfMatch || opt.Type == IfNotMatch
+			}) {
+				return fmt.Errorf("%w: IfNotExists not valid with IfMatch or IfNotMatch", ErrUploadOptionInvalid)
 			}
 		}
 	}

@@ -7,15 +7,16 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"github.com/efficientgo/core/errcapture"
-	"github.com/pkg/errors"
-	"github.com/pkg/xattr"
-	"gopkg.in/yaml.v2"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
+
+	"github.com/efficientgo/core/errcapture"
+	"github.com/pkg/errors"
+	"github.com/pkg/xattr"
+	"gopkg.in/yaml.v2"
 
 	"github.com/thanos-io/objstore"
 )
@@ -297,9 +298,10 @@ func tryOpenFile(name string, ifNotExists bool) (exists bool, err error) {
 		flags = os.O_RDWR | os.O_CREATE | os.O_APPEND
 		f, err = os.OpenFile(name, flags, 0666)
 	}
-	if err != nil && f != nil {
-		err = f.Close()
+	if f == nil {
+		return
 	}
+	err = f.Close()
 	return
 }
 
