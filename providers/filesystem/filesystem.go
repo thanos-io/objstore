@@ -5,6 +5,7 @@ package filesystem
 
 import (
 	"context"
+	"crypto/md5"
 	"fmt"
 	"io"
 	"os"
@@ -171,9 +172,21 @@ func (b *Bucket) Attributes(ctx context.Context, name string) (objstore.ObjectAt
 		return objstore.ObjectAttributes{}, errors.Wrapf(err, "stat %s", file)
 	}
 
+	f, err := os.Open(filepath.Clean(file))
+	if err != nil {
+		return objstore.ObjectAttributes{}, errors.Wrapf(err, "open file %s for md5 calculation", file)
+	}
+	defer f.Close()
+
+	h := md5.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return objstore.ObjectAttributes{}, errors.Wrapf(err, "copy file content for md5 calculation %s", file)
+	}
+
 	return objstore.ObjectAttributes{
 		Size:         stat.Size(),
 		LastModified: stat.ModTime(),
+		MD5:          h.Sum(nil),
 	}, nil
 }
 

@@ -156,9 +156,17 @@ func (b *Bucket) Attributes(ctx context.Context, name string) (objstore.ObjectAt
 		return objstore.ObjectAttributes{}, err
 	}
 
+	// etag is md5 of the object, if an object is created by calling the PutObject operation
+	// https://www.alibabacloud.com/help/en/oss/developer-reference/getobjectmeta
+	var md5 []byte
+	if etag := m.Get("ETag"); etag != "" {
+		md5 = clientutil.ParseMD5(etag)
+	}
+
 	return objstore.ObjectAttributes{
 		Size:         size,
 		LastModified: mod,
+		MD5:          md5,
 	}, nil
 }
 

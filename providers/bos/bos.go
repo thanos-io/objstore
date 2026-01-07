@@ -23,6 +23,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/thanos-io/objstore"
+	"github.com/thanos-io/objstore/clientutil"
 )
 
 // partSize 128MB.
@@ -313,6 +314,7 @@ func (b *Bucket) Attributes(_ context.Context, name string) (objstore.ObjectAttr
 	return objstore.ObjectAttributes{
 		Size:         objMeta.ContentLength,
 		LastModified: lastModified,
+		MD5:          clientutil.ParseMD5(objMeta.ContentMD5),
 	}, nil
 }
 

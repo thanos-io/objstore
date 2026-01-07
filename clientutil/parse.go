@@ -4,8 +4,10 @@
 package clientutil
 
 import (
+	"encoding/hex"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -62,4 +64,17 @@ func ParseLastModified(m http.Header, f string) (time.Time, error) {
 	}
 
 	return mod, nil
+}
+
+// ParseMD5 returns the bytes parsed from the hex-encoded MD5 string
+// It trims potential surrounding double quotes before decoding.
+// It returns nil if the MD5 string is not valid.
+func ParseMD5(md5Hex string) []byte {
+	// Trim surrounding double quotes if present.
+	trimmed := strings.Trim(md5Hex, "\"")
+	decoded, _ := hex.DecodeString(trimmed)
+	if len(decoded) != 16 {
+		return nil
+	}
+	return decoded
 }
