@@ -324,12 +324,8 @@ func TestDownloadUploadDirConcurrency(t *testing.T) {
 	testutil.Ok(t, promtest.GatherAndCompare(r, strings.NewReader(`
         # HELP objstore_bucket_operation_fetched_bytes_total Total number of bytes fetched from bucket, per operation.
         # TYPE objstore_bucket_operation_fetched_bytes_total counter
-        objstore_bucket_operation_fetched_bytes_total{bucket="",operation="attributes"} 0
-        objstore_bucket_operation_fetched_bytes_total{bucket="",operation="delete"} 0
-        objstore_bucket_operation_fetched_bytes_total{bucket="",operation="exists"} 0
         objstore_bucket_operation_fetched_bytes_total{bucket="",operation="get"} 1.048578e+06
         objstore_bucket_operation_fetched_bytes_total{bucket="",operation="get_range"} 0
-        objstore_bucket_operation_fetched_bytes_total{bucket="",operation="iter"} 0
         objstore_bucket_operation_fetched_bytes_total{bucket="",operation="upload"} 0
 		`), `objstore_bucket_operation_fetched_bytes_total`))
 
