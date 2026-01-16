@@ -467,6 +467,7 @@ config:
   client_secret: ""
   storage_account: ""
   storage_account_key: ""
+  storage_account_type: ""
   storage_connection_string: ""
   storage_create_container: false
   container: ""
@@ -495,7 +496,6 @@ config:
       key_file: ""
       server_name: ""
       insecure_skip_verify: false
-      #azure_storage_account_type: blob
     disable_compression: false
   msi_resource: ""
 prefix: ""
@@ -509,7 +509,7 @@ If `storage_connection_string` is set, the values of `storage_account` and `endp
 
 The generic `max_retries` will be used as value for the `pipeline_config`'s `max_tries` and `reader_config`'s `max_retry_requests`. For more control, `max_retries` could be ignored (0) and one could set specific retry values.
 
-The provider automatically detects [Azure Data Lake Storage (Gen2/hierarchical namespace) accounts](https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction) and switches from the Gen1 `azblob` SDK to the Gen2 `azdatalake` SDK accordingly, supporting both Azure Storage account types seamlessly. To override auto-detection and force a specific client, set `azure_storage_account_type` to `blob` for the `azblob` SDK or `datalake` for the `azdatalake` SDK. Note that the Data Lake SDK may not work with Gen1 blob accounts, and there are known issues using the `azblob` SDK with Data Lake accounts. Therefore, it's recommended to leave this setting unconfigured to allow auto-detection.
+The provider automatically detects [Azure Data Lake Storage (Gen2/hierarchical namespace) accounts](https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction) and switches from the Gen1 `azblob` SDK to the Gen2 `azdatalake` SDK accordingly, supporting both Azure Storage account types seamlessly. To override auto-detection and force a specific client, set `storage_account_type` to `blob` for the `azblob` SDK or `datalake` for the `azdatalake` SDK. Note that the Data Lake SDK may not work with Gen1 blob accounts, and there are known issues using the `azblob` SDK with Data Lake accounts. Therefore, it's recommended to leave this setting unconfigured to allow auto-detection.
 
 ##### OpenStack Swift
 

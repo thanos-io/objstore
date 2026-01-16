@@ -77,7 +77,7 @@ type Config struct {
 
 	// Azure Storage Account type - blob (gen1) for Azure Blob Storage, or datalake (gen2)
 	// for Azure Data Lake Storage. Autodetected if not set.
-	StorageAccountType AzStorageAccountType `yaml:"azure_storage_account_type"`
+	StorageAccountType AzStorageAccountType `yaml:"storage_account_type"`
 }
 
 type ReaderConfig struct {
@@ -196,7 +196,7 @@ func NewBucketWithConfig(logger log.Logger, conf Config, component string, wrapR
 	}
 
 	if conf.StorageAccountType == AzStorageAccountType_Unset {
-		level.Info(logger).Log("msg", "azure_storage_account_type not set, attempting to autodetect storage account type")
+		level.Info(logger).Log("msg", "storage_account_type not set, attempting to autodetect storage account type")
 		// Autodetect the storage account type by connecting with the gen1 (azblob) sdk and
 		// querying the account properties.
 		var err error
