@@ -392,7 +392,7 @@ func ValidateForTests(conf Config) error {
 }
 
 func (b *Bucket) SupportedIterOptions() []objstore.IterOptionType {
-	return []objstore.IterOptionType{objstore.Recursive, objstore.UpdatedAt}
+	return []objstore.IterOptionType{objstore.Recursive, objstore.UpdatedAt, objstore.StartAfter}
 }
 
 func (b *Bucket) IterWithAttributes(ctx context.Context, dir string, f func(attrs objstore.IterObjectAttributes) error, options ...objstore.IterOption) error {
@@ -409,9 +409,10 @@ func (b *Bucket) IterWithAttributes(ctx context.Context, dir string, f func(attr
 	appliedOpts := objstore.ApplyIterOptions(options...)
 
 	opts := minio.ListObjectsOptions{
-		Prefix:    dir,
-		Recursive: appliedOpts.Recursive,
-		UseV1:     b.listObjectsV1,
+		Prefix:     dir,
+		Recursive:  appliedOpts.Recursive,
+		UseV1:      b.listObjectsV1,
+		StartAfter: appliedOpts.StartAfter,
 	}
 
 	for object := range b.client.ListObjects(ctx, b.name, opts) {
@@ -444,12 +445,12 @@ func (b *Bucket) IterWithAttributes(ctx context.Context, dir string, f func(attr
 }
 
 func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, opts ...objstore.IterOption) error {
-	// Only include recursive option since attributes are not used in this method.
+	// Only include supported options since attributes are not used in this method.
 	var filteredOpts []objstore.IterOption
 	for _, opt := range opts {
-		if opt.Type == objstore.Recursive {
+		switch opt.Type {
+		case objstore.Recursive, objstore.StartAfter:
 			filteredOpts = append(filteredOpts, opt)
-			break
 		}
 	}
 

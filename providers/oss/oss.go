@@ -220,7 +220,7 @@ func validate(config Config) error {
 }
 
 func (b *Bucket) SupportedIterOptions() []objstore.IterOptionType {
-	return []objstore.IterOptionType{objstore.Recursive}
+	return []objstore.IterOptionType{objstore.Recursive, objstore.StartAfter}
 }
 
 // Iter calls f for each entry in the given directory. The argument to f is the full
@@ -230,12 +230,13 @@ func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, opt
 		dir = strings.TrimSuffix(dir, objstore.DirDelim) + objstore.DirDelim
 	}
 
+	params := objstore.ApplyIterOptions(options...)
 	delimiter := alioss.Delimiter(objstore.DirDelim)
-	if objstore.ApplyIterOptions(options...).Recursive {
+	if params.Recursive {
 		delimiter = nil
 	}
 
-	marker := alioss.Marker("")
+	marker := alioss.Marker(params.StartAfter)
 	for {
 		if err := ctx.Err(); err != nil {
 			return errors.Wrap(err, "context closed while iterating bucket")

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -232,6 +233,31 @@ func AcceptanceTest(t *testing.T, bkt Bucket) {
 		return nil
 	}, WithRecursiveIter()))
 	testutil.Equals(t, []string{"id1/obj_1.some", "id1/obj_2.some", "id1/obj_3.some", "id1/sub/subobj_1.some", "id1/sub/subobj_2.some"}, seen)
+
+	// Can we iter with StartAfter?
+	if slices.Contains(bkt.SupportedIterOptions(), StartAfter) {
+		// Non-recursive: start after "id1/" should skip id1/ prefix.
+		seen = []string{}
+		testutil.Ok(t, bkt.Iter(ctx, "", func(fn string) error {
+			seen = append(seen, fn)
+			return nil
+		}, WithStartAfter("id1/")))
+		expected = []string{"id2/", "obj_5.some"}
+		sort.Strings(expected)
+		sort.Strings(seen)
+		testutil.Equals(t, expected, seen)
+
+		// Recursive: start after "id1/obj_2.some" should skip the first two objects.
+		seen = []string{}
+		testutil.Ok(t, bkt.Iter(ctx, "", func(fn string) error {
+			seen = append(seen, fn)
+			return nil
+		}, WithRecursiveIter(), WithStartAfter("id1/obj_2.some")))
+		expected = []string{"id1/obj_3.some", "id1/sub/subobj_1.some", "id1/sub/subobj_2.some", "id2/obj_4.some", "obj_5.some"}
+		sort.Strings(expected)
+		sort.Strings(seen)
+		testutil.Equals(t, expected, seen)
+	}
 
 	// Can we iter over items from not existing dir?
 	testutil.Ok(t, bkt.Iter(ctx, "id0", func(fn string) error {

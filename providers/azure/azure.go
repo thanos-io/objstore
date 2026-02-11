@@ -274,12 +274,12 @@ func (b *Bucket) IterWithAttributes(ctx context.Context, dir string, f func(attr
 // Iter calls f for each entry in the given directory. The argument to f is the full
 // object name including the prefix of the inspected directory.
 func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, opts ...objstore.IterOption) error {
-	// Only include recursive option since attributes are not used in this method.
+	// Only include options that are relevant when attributes are not used.
 	var filteredOpts []objstore.IterOption
 	for _, opt := range opts {
-		if opt.Type == objstore.Recursive {
+		switch opt.Type {
+		case objstore.Recursive, objstore.StartAfter:
 			filteredOpts = append(filteredOpts, opt)
-			break
 		}
 	}
 

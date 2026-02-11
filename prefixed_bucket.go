@@ -53,7 +53,7 @@ func (p *PrefixedBucket) Iter(ctx context.Context, dir string, f func(string) er
 
 	return p.bkt.Iter(ctx, pdir, func(s string) error {
 		return f(strings.TrimPrefix(s, p.prefix+DirDelim))
-	}, options...)
+	}, p.prefixIterOptions(options)...)
 }
 
 func (p *PrefixedBucket) IterWithAttributes(ctx context.Context, dir string, f func(IterObjectAttributes) error, options ...IterOption) error {
@@ -62,7 +62,28 @@ func (p *PrefixedBucket) IterWithAttributes(ctx context.Context, dir string, f f
 	return p.bkt.IterWithAttributes(ctx, pdir, func(attrs IterObjectAttributes) error {
 		attrs.Name = strings.TrimPrefix(attrs.Name, p.prefix+DirDelim)
 		return f(attrs)
-	}, options...)
+	}, p.prefixIterOptions(options)...)
+}
+
+// prefixIterOptions adjusts any StartAfter option to include the bucket prefix.
+func (p *PrefixedBucket) prefixIterOptions(options []IterOption) []IterOption {
+	adjusted := make([]IterOption, len(options))
+	copy(adjusted, options)
+	for i, opt := range adjusted {
+		if opt.Type == StartAfter {
+			orig := opt.Apply
+			adjusted[i] = IterOption{
+				Type: StartAfter,
+				Apply: func(params *IterParams) {
+					orig(params)
+					if params.StartAfter != "" {
+						params.StartAfter = withPrefix(p.prefix, params.StartAfter)
+					}
+				},
+			}
+		}
+	}
+	return adjusted
 }
 
 func (p *PrefixedBucket) SupportedIterOptions() []IterOptionType {
