@@ -70,9 +70,22 @@ func getObject(ctx context.Context, bkt Bucket, objectName string, byteRange str
 }
 
 func listAllObjects(ctx context.Context, bkt Bucket, prefix string, options ...objstore.IterOption) (objectNames []string, err error) {
+	params := objstore.ApplyIterOptions(options...)
+
 	var allObjectNames []string
-	var nextStartWith *string = nil
+	var nextStartWith *string
+	if params.StartAfter != "" {
+		nextStartWith = &params.StartAfter
+	}
 	init := true
+
+	// Filter out StartAfter so recursive subdirectory calls don't reapply it.
+	var subOpts []objstore.IterOption
+	for _, opt := range options {
+		if opt.Type != objstore.StartAfter {
+			subOpts = append(subOpts, opt)
+		}
+	}
 
 	for init || nextStartWith != nil {
 		init = false
@@ -81,10 +94,10 @@ func listAllObjects(ctx context.Context, bkt Bucket, prefix string, options ...o
 			return nil, err
 		}
 
-		if objstore.ApplyIterOptions(options...).Recursive {
+		if params.Recursive {
 			for _, objectName := range objectNames {
 				if strings.HasSuffix(objectName, DirDelim) {
-					subObjectNames, err := listAllObjects(ctx, bkt, objectName, options...)
+					subObjectNames, err := listAllObjects(ctx, bkt, objectName, subOpts...)
 					if err != nil {
 						return nil, err
 					}

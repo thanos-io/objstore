@@ -104,7 +104,7 @@ func (b *Bucket) Name() string {
 }
 
 func (b *Bucket) SupportedIterOptions() []objstore.IterOptionType {
-	return []objstore.IterOptionType{objstore.Recursive}
+	return []objstore.IterOptionType{objstore.Recursive, objstore.StartAfter}
 }
 
 // Iter calls f for each entry in the given directory. The argument to f is the full

@@ -29,6 +29,7 @@ We use *breaking :warning:* to mark changes that are not backward compatible (re
 - [#79](https://github.com/thanos-io/objstore/pull/79) Metrics: Fix `objstore_bucket_operation_duration_seconds` for `iter` operations.
 
 ### Added
+- [#256](https://github.com/thanos-io/objstore/pull/256) Add `WithStartAfter` `IterOption` for listing objects after a given key. Supported by S3, GCS, BOS, COS, OSS, OBS, OCI, and Swift providers.
 - [#15](https://github.com/thanos-io/objstore/pull/15) Add Oracle Cloud Infrastructure Object Storage Bucket support.
 - [#25](https://github.com/thanos-io/objstore/pull/25) S3: Support specifying S3 storage class.
 - [#32](https://github.com/thanos-io/objstore/pull/32) Swift: Support authentication using application credentials.

@@ -140,6 +140,7 @@ type IterOptionType int
 const (
 	Recursive IterOptionType = iota
 	UpdatedAt
+	StartAfter
 )
 
 // IterOption configures the provided params.
@@ -176,6 +177,20 @@ func WithUpdatedAt() IterOption {
 type IterParams struct {
 	Recursive    bool
 	LastModified bool
+	StartAfter   string
+}
+
+// WithStartAfter is an option that can be applied to Iter() to only list objects
+// with keys lexicographically after the specified key.
+// Supported by: s3, gcs, bos, cos, oss, obs, oci, swift.
+// Note: GCS (StartOffset) and OCI (Start) use inclusive (>=) semantics; all others are exclusive (>).
+func WithStartAfter(startAfter string) IterOption {
+	return IterOption{
+		Type: StartAfter,
+		Apply: func(params *IterParams) {
+			params.StartAfter = startAfter
+		},
+	}
 }
 
 func ValidateIterOptions(supportedOptions []IterOptionType, options ...IterOption) error {

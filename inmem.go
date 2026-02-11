@@ -125,6 +125,9 @@ func (b *InMemBucket) genericIter(_ context.Context, dir string, f func(string, 
 	})
 
 	for _, k := range keys {
+		if params.StartAfter != "" && k <= params.StartAfter {
+			continue
+		}
 		var modifiedTS time.Time
 		if params.LastModified {
 			modifiedTS = lastModified[k]
@@ -145,7 +148,7 @@ func (b *InMemBucket) Iter(_ context.Context, dir string, f func(string) error, 
 }
 
 func (i *InMemBucket) SupportedIterOptions() []IterOptionType {
-	return []IterOptionType{Recursive, UpdatedAt}
+	return []IterOptionType{Recursive, UpdatedAt, StartAfter}
 }
 
 func (b *InMemBucket) IterWithAttributes(ctx context.Context, dir string, f func(attrs IterObjectAttributes) error, options ...IterOption) error {

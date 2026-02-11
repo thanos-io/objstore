@@ -246,7 +246,7 @@ func (b *Bucket) multipartUpload(size int64, key, uploadId string, body io.Reade
 func (b *Bucket) Close() error { return nil }
 
 func (b *Bucket) SupportedIterOptions() []objstore.IterOptionType {
-	return []objstore.IterOptionType{objstore.Recursive}
+	return []objstore.IterOptionType{objstore.Recursive, objstore.StartAfter}
 }
 
 // Iter calls f for each entry in the given directory (not recursive.)
@@ -255,11 +255,13 @@ func (b *Bucket) Iter(ctx context.Context, dir string, f func(string) error, opt
 		dir = strings.TrimSuffix(dir, DirDelim) + DirDelim
 	}
 
+	params := objstore.ApplyIterOptions(options...)
 	input := &obs.ListObjectsInput{}
 	input.Bucket = b.name
 	input.Prefix = dir
 	input.Delimiter = DirDelim
-	if objstore.ApplyIterOptions(options...).Recursive {
+	input.Marker = params.StartAfter
+	if params.Recursive {
 		input.Delimiter = ""
 	}
 	for {

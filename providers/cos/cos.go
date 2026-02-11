@@ -296,7 +296,7 @@ func (b *Bucket) Delete(ctx context.Context, name string) error {
 }
 
 func (b *Bucket) SupportedIterOptions() []objstore.IterOptionType {
-	return []objstore.IterOptionType{objstore.Recursive}
+	return []objstore.IterOptionType{objstore.Recursive, objstore.StartAfter}
 }
 
 // Iter calls f for each entry in the given directory. The argument to f is the full
@@ -416,14 +416,15 @@ func (b *Bucket) listObjects(ctx context.Context, objectPrefix string, options .
 	objectsCh := make(chan objectInfo, 1)
 
 	// If recursive iteration is enabled we should pass an empty delimiter.
+	params := objstore.ApplyIterOptions(options...)
 	delimiter := dirDelim
-	if objstore.ApplyIterOptions(options...).Recursive {
+	if params.Recursive {
 		delimiter = ""
 	}
 
 	go func(objectsCh chan<- objectInfo) {
 		defer close(objectsCh)
-		var marker string
+		marker := params.StartAfter
 		for {
 			result, _, err := b.client.Bucket.Get(ctx, &cos.BucketGetOptions{
 				Prefix:    objectPrefix,
