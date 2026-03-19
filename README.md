@@ -392,6 +392,7 @@ config:
     disable_compression: false
   chunk_size_bytes: 0
   max_retries: 0
+  endpoint: ""
 prefix: ""
 ```
 

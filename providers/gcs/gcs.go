@@ -59,6 +59,11 @@ type Config struct {
 	// Overrides the default gcs storage client behavior if this value is greater than 0.
 	// Set this to 1 to disable retries.
 	MaxRetries int `yaml:"max_retries"`
+
+	// Endpoint specifies the GCS API endpoint to use.
+	// This can be used to point to GCS regional endpoints or GCS-compatible storage backends.
+	// See https://cloud.google.com/storage/docs/regional-endpoints for more details.
+	Endpoint string `yaml:"endpoint"`
 }
 
 // Bucket implements the store.Bucket and shipper.Bucket interfaces against GCS.
@@ -112,6 +117,10 @@ func NewBucketWithConfig(ctx context.Context, logger log.Logger, gc Config, comp
 	opts = append(opts,
 		option.WithUserAgent(fmt.Sprintf("thanos-%s/%s (%s)", component, version.Version, runtime.Version())),
 	)
+
+	if gc.Endpoint != "" {
+		opts = append(opts, option.WithEndpoint(gc.Endpoint))
+	}
 
 	if !gc.UseGRPC {
 		var err error
