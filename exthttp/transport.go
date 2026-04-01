@@ -75,5 +75,8 @@ func DefaultTransport(config HTTPConfig) (*http.Transport, error) {
 		//
 		// Refer: https://golang.org/src/net/http/transport.go?h=roundTrip#L1843.
 		TLSClientConfig: tlsConfig,
+		// Re-enable HTTP/2 back after TLSClientConfig is provided
+		// https://pkg.go.dev/net/http#Transport
+		ForceAttemptHTTP2: true,
 	}, nil
 }
