@@ -101,10 +101,26 @@ func ForeachStore(t *testing.T, testFn func(t *testing.T, bkt objstore.Bucket)) 
 		})
 	}
 
+	isAzureDataLakeGen2 := (os.Getenv("IS_AZURE_DATA_LAKE_GEN2") == "true")
+
 	// Optional Azure.
-	if !IsObjStoreSkipped(t, objstore.AZURE) {
+	if !IsObjStoreSkipped(t, objstore.AZURE) && !isAzureDataLakeGen2 {
 		t.Run("azure", func(t *testing.T) {
 			bkt, closeFn, err := azure.NewTestBucket(t, "e2e-tests")
+			testutil.Ok(t, err)
+
+			t.Parallel()
+			defer closeFn()
+
+			testFn(t, bkt)
+			testFn(t, objstore.NewPrefixedBucket(bkt, "some_prefix"))
+		})
+	}
+
+	// Optional Azure Data Lake Gen 2
+	if !IsObjStoreSkipped(t, objstore.AZURE) && isAzureDataLakeGen2 {
+		t.Run("azure", func(t *testing.T) {
+			bkt, closeFn, err := azure.NewTestDataLakeGen2Bucket(t, "e2e-tests")
 			testutil.Ok(t, err)
 
 			t.Parallel()

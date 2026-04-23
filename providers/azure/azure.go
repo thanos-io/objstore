@@ -28,6 +28,17 @@ import (
 	"github.com/thanos-io/objstore/exthttp"
 )
 
+type AzStorageAccountType string
+
+const (
+	// Autodiscover storage account type. Default.
+	AzStorageAccountType_Unset AzStorageAccountType = ""
+	// Azure Blob Storage (generation 1) account type.
+	AzStorageAccountType_Blob AzStorageAccountType = "blob"
+	// Azure Data Lake Storage (generation 2) account type.
+	AzStorageAccountType_DataLake AzStorageAccountType = "datalake"
+)
+
 // DefaultConfig for Azure objstore client.
 var DefaultConfig = Config{
 	Endpoint:               "blob.core.windows.net",
@@ -63,6 +74,10 @@ type Config struct {
 
 	// Deprecated: Is automatically set by the Azure SDK.
 	MSIResource string `yaml:"msi_resource"`
+
+	// Azure Storage Account type - blob (gen1) for Azure Blob Storage, or datalake (gen2)
+	// for Azure Data Lake Storage. Autodetected if not set.
+	StorageAccountType AzStorageAccountType `yaml:"storage_account_type"`
 }
 
 type ReaderConfig struct {
@@ -157,7 +172,7 @@ type Bucket struct {
 }
 
 // NewBucket returns a new Bucket using the provided Azure config.
-func NewBucket(logger log.Logger, azureConfig []byte, component string, wrapRoundtripper func(http.RoundTripper) http.RoundTripper) (*Bucket, error) {
+func NewBucket(logger log.Logger, azureConfig []byte, component string, wrapRoundtripper func(http.RoundTripper) http.RoundTripper) (objstore.Bucket, error) {
 	level.Debug(logger).Log("msg", "creating new Azure bucket connection", "component", component)
 	conf, err := parseConfig(azureConfig)
 	if err != nil {
@@ -170,7 +185,7 @@ func NewBucket(logger log.Logger, azureConfig []byte, component string, wrapRoun
 }
 
 // NewBucketWithConfig returns a new Bucket using the provided Azure config struct.
-func NewBucketWithConfig(logger log.Logger, conf Config, component string, wrapRoundtripper func(http.RoundTripper) http.RoundTripper) (*Bucket, error) {
+func NewBucketWithConfig(logger log.Logger, conf Config, component string, wrapRoundtripper func(http.RoundTripper) http.RoundTripper) (objstore.Bucket, error) {
 	if err := conf.validate(); err != nil {
 		return nil, err
 	}
@@ -178,6 +193,25 @@ func NewBucketWithConfig(logger log.Logger, conf Config, component string, wrapR
 	containerClient, err := getContainerClient(conf, wrapRoundtripper)
 	if err != nil {
 		return nil, err
+	}
+
+	if conf.StorageAccountType == AzStorageAccountType_Unset {
+		level.Info(logger).Log("msg", "storage_account_type not set, attempting to autodetect storage account type")
+		// Autodetect the storage account type by connecting with the gen1 (azblob) sdk and
+		// querying the account properties.
+		var err error
+		conf.StorageAccountType, err = autodiscoverStorageAccountType(containerClient, logger, conf)
+		if err != nil {
+			return nil, errors.Wrap(err, "when auto-discovering Azure Storage account type")
+		}
+	}
+
+	switch conf.StorageAccountType {
+	case AzStorageAccountType_DataLake:
+		level.Debug(logger).Log("msg", "using azure data lake gen 2 storage (azdatalake)")
+		return NewDataLakeGen2Bucket(logger, conf, component, wrapRoundtripper)
+	case AzStorageAccountType_Blob:
+		// Continue to create a gen1 client
 	}
 
 	// Check if storage account container already exists, and create one if it does not.
@@ -423,7 +457,7 @@ func NewTestBucket(t testing.TB, component string) (objstore.Bucket, func(), err
 	ctx := context.Background()
 	return bkt, func() {
 		objstore.EmptyBucket(t, ctx, bkt)
-		_, err := bkt.containerClient.Delete(ctx, &container.DeleteOptions{})
+		_, err := bkt.(*Bucket).containerClient.Delete(ctx, &container.DeleteOptions{})
 		if err != nil {
 			t.Logf("deleting bucket failed: %s", err)
 		}
