@@ -399,7 +399,7 @@ func (b *Bucket) IsAccessDeniedErr(err error) bool {
 	return false
 }
 
-// IsConditionNotMetErr returns true if the response status code was Precondition Failed or Not Modified.
+// IsConditionNotMetErr returns true if error means a conditional upload condition was not met.
 func (b *Bucket) IsConditionNotMetErr(err error) bool {
 	var gapiErr *googleapi.Error
 	// See https://cloud.google.com/storage/docs/json_api/v1/status-codes

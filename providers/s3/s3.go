@@ -579,9 +579,10 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, opts ...o
 		putOpts.SetMatchETagExcept("*")
 	} else if uploadOpts.Condition != nil {
 		// If-None-Match with header values other than "*" is not supported by AWS yet.
-		if !uploadOpts.IfNotMatch {
-			putOpts.SetMatchETag(uploadOpts.Condition.Value)
+		if uploadOpts.IfNotMatch {
+			return fmt.Errorf("%w: IfNotMatch with a specific ETag is not supported by S3", objstore.ErrUploadOptionNotSupported)
 		}
+		putOpts.SetMatchETag(uploadOpts.Condition.Value)
 	}
 
 	if _, err := b.client.PutObject(
@@ -646,7 +647,7 @@ func (b *Bucket) IsAccessDeniedErr(err error) bool {
 	return minio.ToErrorResponse(errors.Cause(err)).Code == "AccessDenied"
 }
 
-// IsConditionNotMetErr returns true if the error err or the cause of the error err (if available) has a PreconditionFailed minio code.
+// IsConditionNotMetErr returns true if the given conditions (e.g. the given ETag matches) were not met.
 func (b *Bucket) IsConditionNotMetErr(err error) bool {
 	if minio.ToErrorResponse(err).Code == "PreconditionFailed" {
 		return true

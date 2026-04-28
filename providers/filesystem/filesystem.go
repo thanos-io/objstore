@@ -458,7 +458,7 @@ func (b *Bucket) IsAccessDeniedErr(_ error) bool {
 	return false
 }
 
-// IsConditionNotMetErr returns true if the error is an internal condition not met error or a ErrExist filesystem error.
+// IsConditionNotMetErr returns true if the given conditions (e.g. the given ETag matches) were not met.
 func (b *Bucket) IsConditionNotMetErr(err error) bool {
 	return errors.Is(err, errConditionNotMet) || errors.Is(err, fs.ErrExist)
 }
