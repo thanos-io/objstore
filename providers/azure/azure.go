@@ -307,7 +307,7 @@ func (b *Bucket) IsAccessDeniedErr(err error) bool {
 	return bloberror.HasCode(err, bloberror.AuthorizationPermissionMismatch) || bloberror.HasCode(err, bloberror.InsufficientAccountPermissions)
 }
 
-// IsConditionNotMetErr returns true if the error was a blob error nad the code is ConditionNotMet, or BlobAlreadyExists.
+// IsConditionNotMetErr returns true if the given conditions (e.g. the given ETag matches) were not met.
 func (b *Bucket) IsConditionNotMetErr(err error) bool {
 	return errors.Is(err, errConditionInvalid) ||
 		bloberror.HasCode(err, bloberror.BlobAlreadyExists) ||
