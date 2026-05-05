@@ -60,8 +60,8 @@ type Bucket interface {
 	// Upload the contents of the reader as an object into the bucket.
 	// Upload should be idempotent.
 	Upload(ctx context.Context, name string, r io.Reader, options ...ObjectUploadOption) error
-	
-	// SupportedObjectUploadOptions returns a list of ObjectUploadOptions supported by the underlying provider. 
+
+	// SupportedObjectUploadOptions returns a list of ObjectUploadOptions supported by the underlying provider.
 	SupportedObjectUploadOptions() []ObjectUploadOptionType
 
 	// Delete removes the object with the given name.

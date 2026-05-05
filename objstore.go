@@ -275,8 +275,8 @@ const (
 
 // ObjectUploadOption configures UploadObjectParams.
 type ObjectUploadOption struct {
-	Type  ObjectUploadOptionType
-	Apply func(params *UploadObjectParams)
+	optType ObjectUploadOptionType
+	apply   func(params *UploadObjectParams)
 }
 
 // UploadObjectParams hold content-type and conditional write attribute metadata for upload operations that are
@@ -291,8 +291,8 @@ type UploadObjectParams struct {
 // WithContentType sets the content type of the object upload operation.
 func WithContentType(contentType string) ObjectUploadOption {
 	return ObjectUploadOption{
-		Type: ContentType,
-		Apply: func(params *UploadObjectParams) {
+		optType: ContentType,
+		apply: func(params *UploadObjectParams) {
 			params.ContentType = contentType
 		},
 	}
@@ -302,8 +302,8 @@ func WithContentType(contentType string) ObjectUploadOption {
 // When supported by providers this operation is usually atomic, however this is dependent on the provider.
 func WithIfNotExists() ObjectUploadOption {
 	return ObjectUploadOption{
-		Type: IfNotExists,
-		Apply: func(params *UploadObjectParams) {
+		optType: IfNotExists,
+		apply: func(params *UploadObjectParams) {
 			params.IfNotExists = true
 		},
 	}
@@ -313,8 +313,8 @@ func WithIfNotExists() ObjectUploadOption {
 // otherwise, the operation fails.
 func WithIfMatch(ver *ObjectVersion) ObjectUploadOption {
 	return ObjectUploadOption{
-		Type: IfMatch,
-		Apply: func(params *UploadObjectParams) {
+		optType: IfMatch,
+		apply: func(params *UploadObjectParams) {
 			params.Condition = ver
 		},
 	}
@@ -324,8 +324,8 @@ func WithIfMatch(ver *ObjectVersion) ObjectUploadOption {
 // otherwise, the operation fails.
 func WithIfNotMatch(ver *ObjectVersion) ObjectUploadOption {
 	return ObjectUploadOption{
-		Type: IfNotMatch,
-		Apply: func(params *UploadObjectParams) {
+		optType: IfNotMatch,
+		apply: func(params *UploadObjectParams) {
 			params.Condition = ver
 			params.IfNotMatch = true
 		},
@@ -334,22 +334,21 @@ func WithIfNotMatch(ver *ObjectVersion) ObjectUploadOption {
 
 // ValidateUploadOptions ensures that only supported options are passed as options, and that options used simultaneously are valid.
 func ValidateUploadOptions(supportedOptions []ObjectUploadOptionType, opts ...ObjectUploadOption) error {
-
 	for _, opt := range opts {
-		if !slices.Contains(supportedOptions, opt.Type) {
-			return fmt.Errorf("%w: %d", ErrUploadOptionNotSupported, opt.Type)
+		if !slices.Contains(supportedOptions, opt.optType) {
+			return fmt.Errorf("%w: %d", ErrUploadOptionNotSupported, opt.optType)
 		}
-		if opt.Type == IfMatch || opt.Type == IfNotMatch {
+		if opt.optType == IfMatch || opt.optType == IfNotMatch {
 			candidate := &UploadObjectParams{}
-			opt.Apply(candidate)
+			opt.apply(candidate)
 			if candidate.Condition == nil {
 				return fmt.Errorf("%w: Condition nil", ErrUploadOptionInvalid)
 			}
 		}
-		if opt.Type == IfNotExists {
+		if opt.optType == IfNotExists {
 			// If IfNotExists provided alongside IfMatch or IfNotMatch.
 			if slices.ContainsFunc(opts, func(opt ObjectUploadOption) bool {
-				return opt.Type == IfMatch || opt.Type == IfNotMatch
+				return opt.optType == IfMatch || opt.optType == IfNotMatch
 			}) {
 				return fmt.Errorf("%w: IfNotExists not valid with IfMatch or IfNotMatch", ErrUploadOptionInvalid)
 			}
@@ -362,7 +361,7 @@ func ValidateUploadOptions(supportedOptions []ObjectUploadOptionType, opts ...Ob
 func ApplyObjectUploadOptions(opts ...ObjectUploadOption) UploadObjectParams {
 	out := UploadObjectParams{}
 	for _, opt := range opts {
-		opt.Apply(&out)
+		opt.apply(&out)
 	}
 	return out
 }

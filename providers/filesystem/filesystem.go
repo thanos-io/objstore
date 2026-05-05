@@ -289,7 +289,6 @@ func openSwap(name string) (swf *os.File, err error) {
 }
 
 func tryOpenFile(name string, ifNotExists bool) (exists bool, err error) {
-	// First try to open the file with exclusive create, then truncate if permitted
 	flags := os.O_RDWR | os.O_CREATE | os.O_EXCL
 	var f *os.File
 	f, err = os.OpenFile(name, flags, 0666)
@@ -305,9 +304,8 @@ func tryOpenFile(name string, ifNotExists bool) (exists bool, err error) {
 	return
 }
 
-// Upload writes the file specified in src to into the memory.
+// Upload writes the contents of r to the object with the given name.
 func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, opts ...objstore.ObjectUploadOption) (err error) {
-
 	if err := objstore.ValidateUploadOptions(b.SupportedObjectUploadOptions(), opts...); err != nil {
 		return err
 	}
@@ -348,13 +346,15 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, opts ...o
 		return err
 	}
 
+	var writer io.Writer = swf
+	h := sha256.New()
 	if xattr.XATTR_SUPPORTED {
-		h := sha256.New()
-		writer := io.MultiWriter(swf, h)
-		if _, err := io.Copy(writer, r); err != nil {
-			return errors.Wrapf(err, "copy to %s", swap)
-		}
-		// Write the checksum into an xattr
+		writer = io.MultiWriter(swf, h)
+	}
+	if _, err := io.Copy(writer, r); err != nil {
+		return errors.Wrapf(err, "copy to %s", swap)
+	}
+	if xattr.XATTR_SUPPORTED {
 		if err := xattr.Set(swap, xAttrKey, h.Sum(nil)); err != nil {
 			return err
 		}
