@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	alioss "github.com/aliyun/aliyun-oss-go-sdk/oss"
 	"github.com/efficientgo/core/testutil"
 )
 
@@ -54,7 +53,7 @@ func TestParseLastModified(t *testing.T) {
 		t.Run(testName, func(t *testing.T) {
 			meta := http.Header{}
 			if testData.headerValue != "" {
-				meta.Add(alioss.HTTPHeaderLastModified, testData.headerValue)
+				meta.Add("Last-Modified", testData.headerValue)
 			}
 
 			actual, err := ParseLastModified(meta, testData.format)
@@ -93,7 +92,7 @@ func TestParseContentLength(t *testing.T) {
 		t.Run(testName, func(t *testing.T) {
 			meta := http.Header{}
 			if testData.headerValue != "" {
-				meta.Add(alioss.HTTPHeaderContentLength, testData.headerValue)
+				meta.Add("Content-Length", testData.headerValue)
 			}
 
 			actual, err := ParseContentLength(meta)
