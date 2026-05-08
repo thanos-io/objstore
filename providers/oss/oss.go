@@ -190,14 +190,13 @@ func (b *Bucket) Attributes(ctx context.Context, name string) (objstore.ObjectAt
 		return objstore.ObjectAttributes{}, err
 	}
 
-	var mod time.Time
-	if resp.LastModified != nil {
-		mod = *resp.LastModified
+	if resp.LastModified == nil {
+		return objstore.ObjectAttributes{}, errors.Errorf("Last-Modified header not found for %s", name)
 	}
 
 	return objstore.ObjectAttributes{
 		Size:         resp.ContentLength,
-		LastModified: mod,
+		LastModified: *resp.LastModified,
 	}, nil
 }
 
