@@ -15,6 +15,7 @@ We use *breaking :warning:* to mark changes that are not backward compatible (re
 - [#157](https://github.com/thanos-io/objstore/pull/157) Azure: Add `az_tenant_id`, `client_id` and `client_secret` configs.
 
 ### Fixed
+- [#261](https://github.com/thanos-io/objstore/pull/261) GCS: retry Delete on transient 5xx, and cap all operations at MaxRetries (default 3 when unset).
 - [#196](https://github.com/thanos-io/objstore/pull/196) GCS: fix error check in Exists method when object does not exist.
 - [#153](https://github.com/thanos-io/objstore/pull/153) Metrics: Fix `objstore_bucket_operation_duration_seconds_*` for `get` and `get_range` operations.
 - [#141](https://github.com/thanos-io/objstore/pull/142) S3: Fix missing encryption configuration for `Bucket.Exists()` and `Bucket.Attributes()` calls.
