@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -177,4 +179,31 @@ func TestNewBucketWithErrorRoundTripper(t *testing.T) {
 	_, err = bkt.Get(context.Background(), "test-bucket")
 	testutil.NotOk(t, err)
 	testutil.Assert(t, errutil.IsMockedError(err), "Expected RoundTripper error, got: %v", err)
+}
+
+func TestBucket_Delete_RetriesOnTransient5xx(t *testing.T) {
+	var deleteAttempts atomic.Int32
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete && strings.Contains(r.URL.Path, "/o/") {
+			n := deleteAttempts.Add(1)
+			if n < 3 {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				_, _ = w.Write([]byte(`{"error":{"code":503,"message":"backendError"}}`))
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	t.Setenv("STORAGE_EMULATOR_HOST", srv.Listener.Addr().String())
+
+	bkt, err := newBucket(context.Background(), log.NewNopLogger(), Config{Bucket: "test-bucket"}, []option.ClientOption{})
+	testutil.Ok(t, err)
+
+	testutil.Ok(t, bkt.Delete(context.Background(), "test-object"))
+	testutil.Equals(t, int32(3), deleteAttempts.Load())
 }
