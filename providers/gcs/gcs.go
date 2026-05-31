@@ -37,6 +37,7 @@ const DirDelim = "/"
 
 var DefaultConfig = Config{
 	HTTPConfig: exthttp.DefaultHTTPConfig,
+	MaxRetries: 3,
 }
 
 // Config stores the configuration for gcs bucket.
@@ -57,9 +58,8 @@ type Config struct {
 	ChunkSizeBytes int  `yaml:"chunk_size_bytes"`
 	noAuth         bool `yaml:"no_auth"`
 
-	// MaxRetries controls the number of retries for idempotent operations.
-	// Overrides the default gcs storage client behavior if this value is greater than 0.
-	// Set this to 1 to disable retries.
+	// MaxRetries controls the number of attempts for retryable operations.
+	// Defaults to 3 when unset (see DefaultConfig). Set this to 1 to disable retries.
 	MaxRetries int `yaml:"max_retries"`
 }
 
@@ -183,9 +183,14 @@ func newBucket(ctx context.Context, logger log.Logger, gc Config, opts []option.
 		chunkSize: gc.ChunkSizeBytes,
 	}
 
-	if gc.MaxRetries > 0 {
-		bkt.bkt = bkt.bkt.Retryer(storage.WithMaxAttempts(gc.MaxRetries))
+	// Cap retries on transient errors. See
+	// https://docs.cloud.google.com/storage/docs/retry-strategy for what
+	// counts as transient and how the SDK handles backoff.
+	maxAttempts := gc.MaxRetries
+	if maxAttempts == 0 {
+		maxAttempts = DefaultConfig.MaxRetries
 	}
+	bkt.bkt = bkt.bkt.Retryer(storage.WithMaxAttempts(maxAttempts))
 
 	return bkt, nil
 }
@@ -381,9 +386,11 @@ func (b *Bucket) SupportedObjectUploadOptions() []objstore.ObjectUploadOptionTyp
 	return []objstore.ObjectUploadOptionType{objstore.ContentType, objstore.IfNotExists, objstore.IfMatch, objstore.IfNotMatch}
 }
 
-// Delete removes the object with the given name.
+// Delete removes the object with the given name. RetryAlways overrides the
+// default RetryIdempotent policy, which would otherwise exclude Delete because
+// we don't pass IfGenerationMatch.
 func (b *Bucket) Delete(ctx context.Context, name string) error {
-	return b.bkt.Object(name).Delete(ctx)
+	return b.bkt.Object(name).Retryer(storage.WithPolicy(storage.RetryAlways)).Delete(ctx)
 }
 
 // IsObjNotFoundErr returns true if error means that object is not found. Relevant to Get operations.
