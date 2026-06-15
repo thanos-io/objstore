@@ -43,7 +43,7 @@ func IsObjStoreSkipped(t *testing.T, provider objstore.ObjProvider) bool {
 // For each it creates a new bucket with a random name and a cleanup function
 // that deletes it after test was run.
 // Use THANOS_TEST_OBJSTORE_SKIP to skip explicitly certain object storages.
-func ForeachStore(t *testing.T, testFn func(t *testing.T, bkt objstore.Bucket)) {
+func ForeachStore[R any](t *testing.T, testFn func(t *testing.T, bkt objstore.Bucket) R) {
 	t.Parallel()
 
 	// Mandatory Inmem. Not parallel, to detect problem early.
