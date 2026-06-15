@@ -189,10 +189,7 @@ func (b *Bucket) Attributes(ctx context.Context, name string) (objstore.ObjectAt
 	var version *objstore.ObjectVersion
 
 	if xattr.XATTR_SUPPORTED {
-		chkSum, err := b.checksum(name)
-		if err != nil {
-			return objstore.ObjectAttributes{}, err
-		}
+		chkSum := b.checksum(name)
 		if chkSum != "" {
 			version = &objstore.ObjectVersion{
 				Type:  objstore.ETag,
@@ -277,33 +274,6 @@ func (b *Bucket) Exists(ctx context.Context, name string) (bool, error) {
 	return !info.IsDir(), nil
 }
 
-func openSwap(name string) (swf *os.File, err error) {
-	for {
-		swf, err = os.OpenFile(name, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0666)
-		if err == nil {
-			return
-		} else if !errors.Is(err, fs.ErrExist) {
-			return
-		}
-	}
-}
-
-func tryOpenFile(name string, ifNotExists bool) (exists bool, err error) {
-	flags := os.O_RDWR | os.O_CREATE | os.O_EXCL
-	var f *os.File
-	f, err = os.OpenFile(name, flags, 0666)
-	if errors.Is(err, fs.ErrExist) && !ifNotExists {
-		exists = true
-		flags = os.O_RDWR | os.O_CREATE | os.O_APPEND
-		f, err = os.OpenFile(name, flags, 0666)
-	}
-	if f == nil {
-		return
-	}
-	err = f.Close()
-	return
-}
-
 // Upload writes the contents of r to the object with the given name.
 func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, opts ...objstore.ObjectUploadOption) (err error) {
 	if err := objstore.ValidateUploadOptions(b.SupportedObjectUploadOptions(), opts...); err != nil {
@@ -314,34 +284,36 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, opts ...o
 		return ctx.Err()
 	}
 
+	params := objstore.ApplyObjectUploadOptions(opts...)
+
 	file := filepath.Join(b.rootDir, name)
 	swap := filepath.Join(b.rootDir, fmt.Sprintf("%s.swap", name))
 	if err := os.MkdirAll(filepath.Dir(file), os.ModePerm); err != nil {
 		return err
 	}
 
-	params := objstore.ApplyObjectUploadOptions(opts...)
-
-	// Filesystem provider for debugging & troubleshooting uses a swap file as a file lock.
-	swf, err := openSwap(swap)
+	swf, err := os.OpenFile(swap, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0666)
 	if err != nil {
-		return err
+		return fmt.Errorf("upload already in progress for %s, retry, creating swap file failed: %w", name, err)
 	}
-	clearSwap := func() error {
+	defer errcapture.Do(&err, func() error {
 		err := os.Remove(swap)
-		if os.IsNotExist(err) {
-			err = nil
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
 		}
 		return err
-	}
+	}, "remove swap")
 	defer errcapture.Do(&err, swf.Close, "close")
-	defer errcapture.Do(&err, clearSwap, "remove swap")
 
-	exists, err := tryOpenFile(file, params.IfNotExists)
-	if err != nil {
-		return err
+	// Evaluate the conditional write options against the current state of the target
+	// object while holding the swap lock.
+	exists := true
+	if _, statErr := os.Stat(file); statErr != nil {
+		if !errors.Is(statErr, fs.ErrNotExist) {
+			return statErr
+		}
+		exists = false
 	}
-
 	if err := b.checkConditions(name, params, exists); err != nil {
 		return err
 	}
@@ -360,7 +332,19 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, opts ...o
 		}
 	}
 
-	// Move swap into target, atomic on unix for which IfNotExists is supported. Will be same mount as is same directory.
+	if params.IfNotExists {
+		// Use a hard link so the move fails atomically if the target already exists,
+		// guaranteeing IfNotExists semantics.
+		if err := os.Link(swap, file); err != nil {
+			if errors.Is(err, fs.ErrExist) {
+				return errConditionNotMet
+			}
+			return err
+		}
+		return
+	}
+
+	// Atomic on unix; replaces any existing object.
 	if err := os.Rename(swap, file); err != nil {
 		return err
 	}
@@ -370,16 +354,19 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, opts ...o
 
 // checksum reads an X-Attr for the checksum property if it was written with the file, or empty string if it was not.
 // Does not check if X-Attrs are supported on the host - this must be done by the caller.
-func (b *Bucket) checksum(name string) (string, error) {
+func (b *Bucket) checksum(name string) string {
 	file := filepath.Join(b.rootDir, name)
 	bytes, err := xattr.Get(file, xAttrKey)
 	if err != nil {
-		return "", err // Legacy filesystem buckets would just return empty string for the version (until objects updated).
+		return "" // Legacy filesystem buckets would just return empty string for the version (until objects updated).
 	}
-	return string(bytes), nil
+	return string(bytes)
 }
 
 func (b *Bucket) checkConditions(name string, params objstore.UploadObjectParams, exists bool) error {
+	if params.IfNotExists && exists {
+		return errConditionNotMet
+	}
 	if params.Condition != nil && !exists && !params.IfNotMatch {
 		return errConditionNotMet
 	}
@@ -387,9 +374,9 @@ func (b *Bucket) checkConditions(name string, params objstore.UploadObjectParams
 		if params.Condition.Type != objstore.ETag {
 			return errConditionNotMet
 		}
-		chkSum, err := b.checksum(name)
-		if err != nil {
-			return err
+		chkSum := b.checksum(name)
+		if chkSum == "" {
+			return nil
 		}
 		if params.IfNotMatch && chkSum == params.Condition.Value {
 			return errConditionNotMet

@@ -147,7 +147,7 @@ func (t TracingBucket) IsAccessDeniedErr(err error) bool {
 }
 
 func (t TracingBucket) IsConditionNotMetErr(err error) bool {
-	return t.bkt.IsAccessDeniedErr(err)
+	return t.bkt.IsConditionNotMetErr(err)
 }
 
 func (t TracingBucket) WithExpectedErrs(expectedFunc objstore.IsOpFailureExpectedFunc) objstore.Bucket {
