@@ -138,6 +138,9 @@ func (b *Bucket) Delete(ctx context.Context, name string) error {
 
 // Upload the contents of the reader as an object into the bucket.
 func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, opts ...objstore.ObjectUploadOption) error {
+	if err := objstore.ValidateUploadOptions(b.SupportedObjectUploadOptions(), opts...); err != nil {
+		return err
+	}
 	size, err := objstore.TryToGetSize(r)
 
 	if err != nil {
@@ -190,6 +193,10 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, opts ...o
 		}
 	}
 	return nil
+}
+
+func (b *Bucket) SupportedObjectUploadOptions() []objstore.ObjectUploadOptionType {
+	return []objstore.ObjectUploadOptionType{objstore.ContentType}
 }
 
 func (b *Bucket) putObjectSingle(key string, body io.Reader, opts objstore.UploadObjectParams) error {
@@ -363,6 +370,8 @@ func (b *Bucket) IsObjNotFoundErr(err error) bool {
 func (b *Bucket) IsAccessDeniedErr(_ error) bool {
 	return false
 }
+
+func (b *Bucket) IsConditionNotMetErr(_ error) bool { return false }
 
 // Attributes returns information about the specified object.
 func (b *Bucket) Attributes(ctx context.Context, name string) (objstore.ObjectAttributes, error) {
