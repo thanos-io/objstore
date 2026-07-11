@@ -522,6 +522,8 @@ If `user_assigned_id` is used, authentication is done via user-assigned managed 
 
 If `storage_connection_string` is set, the values of `storage_account` and `endpoint` values will not be used. Use this method over `storage_account_key` if you need to authenticate via a SAS token.
 
+If `use_workload_identity` is set, `az_tenant_id` and `client_id` may be configured together or supplied through the standard Azure environment variables; `client_secret` must not be set. Set `active_directory_endpoint` to the Microsoft Entra authority host when using a sovereign cloud, for example `https://login.microsoftonline.us/` for Azure Government.
+
 The generic `max_retries` will be used as value for the `pipeline_config`'s `max_tries` and `reader_config`'s `max_retry_requests`. For more control, `max_retries` could be ignored (0) and one could set specific retry values.
 
 ##### OpenStack Swift
