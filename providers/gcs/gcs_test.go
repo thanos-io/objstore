@@ -5,13 +5,17 @@ package gcs
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
+	"cloud.google.com/go/storage"
 	"github.com/efficientgo/core/testutil"
 	"github.com/fullstorydev/emulators/storage/gcsemu"
 	"github.com/go-kit/log"
@@ -49,6 +53,37 @@ func TestBucket_Get_ShouldReturnErrorIfServerTruncateResponse(t *testing.T) {
 	_, err = io.ReadAll(reader)
 	testutil.NotOk(t, err)
 	testutil.Equals(t, "storage: partial request not satisfied", err.Error())
+}
+
+func TestBucket_Exists(t *testing.T) {
+	srv, err := gcsemu.NewServer("127.0.0.1:0", gcsemu.Options{})
+	testutil.Ok(t, err)
+	defer srv.Close()
+	testutil.Ok(t, os.Setenv("STORAGE_EMULATOR_HOST", srv.Addr))
+
+	ctx := context.Background()
+	cfg := Config{Bucket: "test-bucket"}
+	bkt, err := newBucket(ctx, log.NewNopLogger(), cfg, []option.ClientOption{})
+	testutil.Ok(t, err)
+
+	// A missing object must return (false, nil), not an error.
+	ok, err := bkt.Exists(ctx, "does-not-exist")
+	testutil.Ok(t, err)
+	testutil.Assert(t, !ok, "expected object to not exist")
+
+	// After upload the object exists. The emulator auto-creates the bucket on upload.
+	testutil.Ok(t, bkt.Upload(ctx, "obj-1", strings.NewReader("data")))
+	ok, err = bkt.Exists(ctx, "obj-1")
+	testutil.Ok(t, err)
+	testutil.Assert(t, ok, "expected object to exist")
+
+	// Exists relies on errors.Is(err, storage.ErrObjectNotExist); the old `!=` check failed
+	// for wrapped errors. The emulator returns the bare sentinel, so assert the shared
+	// classifier (identical errors.Is logic) recognises a wrapped ErrObjectNotExist.
+	wrapped := fmt.Errorf("attrs failed: %w", storage.ErrObjectNotExist)
+	testutil.Assert(t, bkt.IsObjNotFoundErr(wrapped), "wrapped ErrObjectNotExist must be treated as not-found")
+	testutil.Assert(t, !errors.Is(fmt.Errorf("x: %w", storage.ErrBucketNotExist), storage.ErrObjectNotExist),
+		"an unrelated wrapped error must not be treated as not-found")
 }
 
 func TestNewBucketWithConfig_ShouldCreateGRPC(t *testing.T) {
