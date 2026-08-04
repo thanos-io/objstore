@@ -8,7 +8,6 @@ import (
 	"github.com/oracle/oci-go-sdk/v65/common"
 	"github.com/oracle/oci-go-sdk/v65/objectstorage"
 	"github.com/oracle/oci-go-sdk/v65/objectstorage/transfer"
-	"github.com/stretchr/testify/require"
 	"github.com/thanos-io/objstore"
 	"github.com/thanos-io/objstore/errutil"
 	"gopkg.in/yaml.v2"
@@ -51,7 +50,7 @@ G6aFKaqQfOXKCyWoUiVknQJAXrlgySFci/2ueKlIE1QqIiLSZ8V8OlpFLRnb1pzI
 func TestSupportedObjectUploadOptions(t *testing.T) {
 	b := &Bucket{}
 
-	require.ElementsMatch(
+	testutil.Equals(
 		t,
 		[]objstore.ObjectUploadOptionType{
 			objstore.ContentType,
@@ -75,10 +74,10 @@ func TestApplyUploadConditionsIfMatch(t *testing.T) {
 
 	err := applyUploadConditions(&req, uploadOptions)
 
-	require.NoError(t, err)
-	require.NotNil(t, req.IfMatch)
-	require.Equal(t, `"test-etag"`, *req.IfMatch)
-	require.Nil(t, req.IfNoneMatch)
+	testutil.Ok(t, err)
+	testutil.Assert(t, req.IfMatch != nil)
+	testutil.Equals(t, `"test-etag"`, *req.IfMatch)
+	testutil.Assert(t, req.IfNoneMatch == nil)
 }
 
 func TestApplyUploadConditionsIfNotExists(t *testing.T) {
@@ -90,10 +89,10 @@ func TestApplyUploadConditionsIfNotExists(t *testing.T) {
 
 	err := applyUploadConditions(&req, uploadOptions)
 
-	require.NoError(t, err)
-	require.Nil(t, req.IfMatch)
-	require.NotNil(t, req.IfNoneMatch)
-	require.Equal(t, "*", *req.IfNoneMatch)
+	testutil.Ok(t, err)
+	testutil.Assert(t, req.IfMatch == nil)
+	testutil.Assert(t, req.IfNoneMatch != nil)
+	testutil.Equals(t, "*", *req.IfNoneMatch)
 }
 
 func TestApplyUploadConditionsWithoutCondition(t *testing.T) {
@@ -103,9 +102,9 @@ func TestApplyUploadConditionsWithoutCondition(t *testing.T) {
 
 	err := applyUploadConditions(&req, uploadOptions)
 
-	require.NoError(t, err)
-	require.Nil(t, req.IfMatch)
-	require.Nil(t, req.IfNoneMatch)
+	testutil.Ok(t, err)
+	testutil.Assert(t, req.IfMatch == nil)
+	testutil.Assert(t, req.IfNoneMatch == nil)
 }
 
 func TestApplyUploadConditionsRejectsGeneration(t *testing.T) {
@@ -122,9 +121,9 @@ func TestApplyUploadConditionsRejectsGeneration(t *testing.T) {
 
 	err := applyUploadConditions(&req, uploadOptions)
 
-	require.ErrorIs(t, err, errConditionInvalid)
-	require.Nil(t, req.IfMatch)
-	require.Nil(t, req.IfNoneMatch)
+	testutil.Equals(t, errConditionInvalid, err)
+	testutil.Assert(t, req.IfMatch == nil)
+	testutil.Assert(t, req.IfNoneMatch == nil)
 }
 
 func TestAttributesFromHeadObjectResponse(t *testing.T) {
@@ -149,12 +148,12 @@ func TestAttributesFromHeadObjectResponse(t *testing.T) {
 
 	attrs := attributesFromHeadObjectResponse(response)
 
-	require.Equal(t, int64(1234), attrs.Size)
-	require.Equal(t, lastModified.Time, attrs.LastModified)
+	testutil.Equals(t, int64(1234), attrs.Size)
+	testutil.Equals(t, lastModified.Time, attrs.LastModified)
 
-	require.NotNil(t, attrs.Version)
-	require.Equal(t, objstore.ETag, attrs.Version.Type)
-	require.Equal(t, `"oci-etag-value"`, attrs.Version.Value)
+	testutil.Assert(t, attrs.Version != nil)
+	testutil.Equals(t, objstore.ETag, attrs.Version.Type)
+	testutil.Equals(t, `"oci-etag-value"`, attrs.Version.Value)
 }
 func TestAttributesFromHeadObjectResponseWithoutETag(t *testing.T) {
 	response := objectstorage.HeadObjectResponse{
@@ -163,6 +162,6 @@ func TestAttributesFromHeadObjectResponseWithoutETag(t *testing.T) {
 
 	attrs := attributesFromHeadObjectResponse(response)
 
-	require.Equal(t, int64(10), attrs.Size)
-	require.Nil(t, attrs.Version)
+	testutil.Equals(t, int64(10), attrs.Size)
+	testutil.Assert(t, attrs.Version == nil)
 }
