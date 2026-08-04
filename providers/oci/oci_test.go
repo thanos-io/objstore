@@ -5,8 +5,14 @@ import (
 
 	"github.com/efficientgo/core/testutil"
 	"github.com/go-kit/log"
+	"github.com/oracle/oci-go-sdk/v65/common"
+	"github.com/oracle/oci-go-sdk/v65/objectstorage"
+	"github.com/oracle/oci-go-sdk/v65/objectstorage/transfer"
+	"github.com/stretchr/testify/require"
+	"github.com/thanos-io/objstore"
 	"github.com/thanos-io/objstore/errutil"
 	"gopkg.in/yaml.v2"
+	"time"
 )
 
 func TestNewBucketWithErrorRoundTripper(t *testing.T) {
@@ -41,4 +47,122 @@ G6aFKaqQfOXKCyWoUiVknQJAXrlgySFci/2ueKlIE1QqIiLSZ8V8OlpFLRnb1pzI
 	// We expect an error from the RoundTripper
 	testutil.NotOk(t, err)
 	testutil.Assert(t, errutil.IsMockedError(err), "Expected RoundTripper error, got: %v", err)
+}
+func TestSupportedObjectUploadOptions(t *testing.T) {
+	b := &Bucket{}
+
+	require.ElementsMatch(
+		t,
+		[]objstore.ObjectUploadOptionType{
+			objstore.ContentType,
+			objstore.IfMatch,
+			objstore.IfNotExists,
+		},
+		b.SupportedObjectUploadOptions(),
+	)
+}
+func TestApplyUploadConditionsIfMatch(t *testing.T) {
+	version := &objstore.ObjectVersion{
+		Type:  objstore.ETag,
+		Value: `"test-etag"`,
+	}
+
+	uploadOptions := objstore.ApplyObjectUploadOptions(
+		objstore.WithIfMatch(version),
+	)
+
+	req := transfer.UploadRequest{}
+
+	err := applyUploadConditions(&req, uploadOptions)
+
+	require.NoError(t, err)
+	require.NotNil(t, req.IfMatch)
+	require.Equal(t, `"test-etag"`, *req.IfMatch)
+	require.Nil(t, req.IfNoneMatch)
+}
+
+func TestApplyUploadConditionsIfNotExists(t *testing.T) {
+	uploadOptions := objstore.ApplyObjectUploadOptions(
+		objstore.WithIfNotExists(),
+	)
+
+	req := transfer.UploadRequest{}
+
+	err := applyUploadConditions(&req, uploadOptions)
+
+	require.NoError(t, err)
+	require.Nil(t, req.IfMatch)
+	require.NotNil(t, req.IfNoneMatch)
+	require.Equal(t, "*", *req.IfNoneMatch)
+}
+
+func TestApplyUploadConditionsWithoutCondition(t *testing.T) {
+	uploadOptions := objstore.ApplyObjectUploadOptions()
+
+	req := transfer.UploadRequest{}
+
+	err := applyUploadConditions(&req, uploadOptions)
+
+	require.NoError(t, err)
+	require.Nil(t, req.IfMatch)
+	require.Nil(t, req.IfNoneMatch)
+}
+
+func TestApplyUploadConditionsRejectsGeneration(t *testing.T) {
+	version := &objstore.ObjectVersion{
+		Type:  objstore.Generation,
+		Value: "123",
+	}
+
+	uploadOptions := objstore.ApplyObjectUploadOptions(
+		objstore.WithIfMatch(version),
+	)
+
+	req := transfer.UploadRequest{}
+
+	err := applyUploadConditions(&req, uploadOptions)
+
+	require.ErrorIs(t, err, errConditionInvalid)
+	require.Nil(t, req.IfMatch)
+	require.Nil(t, req.IfNoneMatch)
+}
+
+func TestAttributesFromHeadObjectResponse(t *testing.T) {
+	lastModified := common.SDKTime{
+		Time: time.Date(
+			2026,
+			time.August,
+			4,
+			12,
+			0,
+			0,
+			0,
+			time.UTC,
+		),
+	}
+
+	response := objectstorage.HeadObjectResponse{
+		ContentLength: common.Int64(1234),
+		LastModified:  &lastModified,
+		ETag:          common.String(`"oci-etag-value"`),
+	}
+
+	attrs := attributesFromHeadObjectResponse(response)
+
+	require.Equal(t, int64(1234), attrs.Size)
+	require.Equal(t, lastModified.Time, attrs.LastModified)
+
+	require.NotNil(t, attrs.Version)
+	require.Equal(t, objstore.ETag, attrs.Version.Type)
+	require.Equal(t, `"oci-etag-value"`, attrs.Version.Value)
+}
+func TestAttributesFromHeadObjectResponseWithoutETag(t *testing.T) {
+	response := objectstorage.HeadObjectResponse{
+		ContentLength: common.Int64(10),
+	}
+
+	attrs := attributesFromHeadObjectResponse(response)
+
+	require.Equal(t, int64(10), attrs.Size)
+	require.Nil(t, attrs.Version)
 }

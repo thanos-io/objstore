@@ -52,6 +52,9 @@ var DefaultConfig = Config{
 		ClientTimeout:         90 * time.Second,
 	},
 }
+var errConditionInvalid = errors.New(
+	"invalid condition: OCI supports ETag object versions",
+)
 
 // HTTPConfig stores the http.Transport configuration for the OCI client.
 type HTTPConfig struct {
@@ -200,22 +203,34 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, opts ...o
 	if err := objstore.ValidateUploadOptions(b.SupportedObjectUploadOptions(), opts...); err != nil {
 		return err
 	}
-	req := transfer.UploadStreamRequest{
-		UploadRequest: transfer.UploadRequest{
-			NamespaceName:                       common.String(b.namespace),
-			BucketName:                          common.String(b.name),
-			ObjectName:                          &name,
-			EnableMultipartChecksumVerification: common.Bool(true), // TODO: should we check?
-			ObjectStorageClient:                 b.client,
-			RequestMetadata:                     b.requestMetadata,
-		},
-		StreamReader: r,
+	uploadOptions := objstore.ApplyObjectUploadOptions(opts...)
+
+	uploadRequest := transfer.UploadRequest{
+		NamespaceName: common.String(b.namespace),
+		BucketName:    common.String(b.name),
+		ObjectName:    common.String(name),
+
+		EnableMultipartChecksumVerification: common.Bool(true),
+		ObjectStorageClient:                 b.client,
+		RequestMetadata:                     b.requestMetadata,
 	}
+
+	if err := applyUploadConditions(
+		&uploadRequest,
+		uploadOptions,
+	); err != nil {
+		return err
+	}
+
+	req := transfer.UploadStreamRequest{
+		UploadRequest: uploadRequest,
+		StreamReader:  r,
+	}
+
 	if b.partSize > 0 {
 		req.UploadRequest.PartSize = &b.partSize
 	}
 
-	uploadOptions := objstore.ApplyObjectUploadOptions(opts...)
 	if uploadOptions.ContentType != "" {
 		req.UploadRequest.ContentType = &uploadOptions.ContentType
 	}
@@ -227,7 +242,11 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, opts ...o
 }
 
 func (b *Bucket) SupportedObjectUploadOptions() []objstore.ObjectUploadOptionType {
-	return []objstore.ObjectUploadOptionType{objstore.ContentType}
+	return []objstore.ObjectUploadOptionType{
+		objstore.ContentType,
+		objstore.IfMatch,
+		objstore.IfNotExists,
+	}
 }
 
 // Exists checks if the given object exists in the bucket.
@@ -276,7 +295,18 @@ func (b *Bucket) IsAccessDeniedErr(err error) bool {
 	return false
 }
 
-func (b *Bucket) IsConditionNotMetErr(_ error) bool { return false }
+func (b *Bucket) IsConditionNotMetErr(err error) bool {
+	if errors.Is(err, errConditionInvalid) {
+		return true
+	}
+
+	failure, ok := common.IsServiceError(err)
+	if !ok {
+		return false
+	}
+
+	return failure.GetHTTPStatusCode() == http.StatusPreconditionFailed
+}
 
 // ObjectSize returns the size of the specified object.
 func (b *Bucket) ObjectSize(ctx context.Context, name string) (uint64, error) {
@@ -292,16 +322,23 @@ func (b *Bucket) Close() error {
 	return nil
 }
 
-// Attributes returns information about the specified object.
-func (b *Bucket) Attributes(ctx context.Context, name string) (objstore.ObjectAttributes, error) {
-	response, err := getObject(ctx, *b, name, "")
+func (b *Bucket) Attributes(
+	ctx context.Context,
+	name string,
+) (objstore.ObjectAttributes, error) {
+	request := objectstorage.HeadObjectRequest{
+		NamespaceName:   common.String(b.namespace),
+		BucketName:      common.String(b.name),
+		ObjectName:      common.String(name),
+		RequestMetadata: b.requestMetadata,
+	}
+
+	response, err := b.client.HeadObject(ctx, request)
 	if err != nil {
 		return objstore.ObjectAttributes{}, err
 	}
-	return objstore.ObjectAttributes{
-		Size:         *response.ContentLength,
-		LastModified: response.LastModified.Time,
-	}, nil
+
+	return attributesFromHeadObjectResponse(response), nil
 }
 
 // createBucket creates bucket.
@@ -444,4 +481,47 @@ func NewTestBucket(t testing.TB) (objstore.Bucket, func(), error) {
 		}
 		t.Logf("deleted temporary Oracle Cloud Infrastructure bucket '%s' for testing", bkt.name)
 	}, nil
+}
+
+func applyUploadConditions(
+	req *transfer.UploadRequest,
+	uploadOptions objstore.UploadObjectParams,
+) error {
+	if uploadOptions.Condition != nil {
+		if uploadOptions.Condition.Type != objstore.ETag {
+			return errConditionInvalid
+		}
+
+		req.IfMatch = common.String(uploadOptions.Condition.Value)
+		return nil
+	}
+
+	if uploadOptions.IfNotExists {
+		req.IfNoneMatch = common.String("*")
+	}
+
+	return nil
+}
+
+func attributesFromHeadObjectResponse(
+	response objectstorage.HeadObjectResponse,
+) objstore.ObjectAttributes {
+	attrs := objstore.ObjectAttributes{}
+
+	if response.ContentLength != nil {
+		attrs.Size = *response.ContentLength
+	}
+
+	if response.LastModified != nil {
+		attrs.LastModified = response.LastModified.Time
+	}
+
+	if response.ETag != nil {
+		attrs.Version = &objstore.ObjectVersion{
+			Type:  objstore.ETag,
+			Value: *response.ETag,
+		}
+	}
+
+	return attrs
 }
