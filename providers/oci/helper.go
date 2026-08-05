@@ -274,3 +274,16 @@ func getConfigFromEnv() (config Config, err error) {
 
 	return config, nil
 }
+
+func headObject(ctx context.Context, bkt Bucket, objectName string) (objectstorage.HeadObjectResponse, error) {
+	if objectName == "" {
+		return objectstorage.HeadObjectResponse{}, errors.New("object name cannot be empty")
+	}
+
+	return bkt.client.HeadObject(ctx, objectstorage.HeadObjectRequest{
+		NamespaceName:   common.String(bkt.namespace),
+		BucketName:      common.String(bkt.name),
+		ObjectName:      common.String(objectName),
+		RequestMetadata: bkt.requestMetadata,
+	})
+}

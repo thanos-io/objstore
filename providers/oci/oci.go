@@ -280,13 +280,15 @@ func (b *Bucket) SupportedObjectUploadOptions() []objstore.ObjectUploadOptionTyp
 
 // Exists checks if the given object exists in the bucket.
 func (b *Bucket) Exists(ctx context.Context, name string) (bool, error) {
-	_, err := getObject(ctx, *b, name, "")
+	_, err := headObject(ctx, *b, name)
 	if err != nil {
 		if b.IsObjNotFoundErr(err) {
 			return false, nil
 		}
-		return false, errors.Wrapf(err, "cannot get OCI object '%s'", name)
+
+		return false, errors.Wrapf(err, "cannot get OCI object attributes %q", name)
 	}
+
 	return true, nil
 }
 
@@ -339,10 +341,15 @@ func (b *Bucket) IsConditionNotMetErr(err error) bool {
 
 // ObjectSize returns the size of the specified object.
 func (b *Bucket) ObjectSize(ctx context.Context, name string) (uint64, error) {
-	response, err := getObject(ctx, *b, name, "")
+	response, err := headObject(ctx, *b, name)
 	if err != nil {
 		return 0, err
 	}
+
+	if response.ContentLength == nil {
+		return 0, errors.Errorf("OCI object %q response has no content length", name)
+	}
+
 	return uint64(*response.ContentLength), nil
 }
 
@@ -351,18 +358,8 @@ func (b *Bucket) Close() error {
 	return nil
 }
 
-func (b *Bucket) Attributes(
-	ctx context.Context,
-	name string,
-) (objstore.ObjectAttributes, error) {
-	request := objectstorage.HeadObjectRequest{
-		NamespaceName:   common.String(b.namespace),
-		BucketName:      common.String(b.name),
-		ObjectName:      common.String(name),
-		RequestMetadata: b.requestMetadata,
-	}
-
-	response, err := b.client.HeadObject(ctx, request)
+func (b *Bucket) Attributes(ctx context.Context, name string) (objstore.ObjectAttributes, error) {
+	response, err := headObject(ctx, *b, name)
 	if err != nil {
 		return objstore.ObjectAttributes{}, err
 	}
