@@ -4,6 +4,7 @@
 package oci
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -222,6 +223,14 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, opts ...o
 		return err
 	}
 
+	if uploadOptions.ContentType != "" {
+		uploadRequest.ContentType = common.String(uploadOptions.ContentType)
+	}
+
+	if uploadRequest.IfMatch != nil || uploadRequest.IfNoneMatch != nil {
+		return b.uploadConditionally(ctx, r, uploadRequest)
+	}
+
 	req := transfer.UploadStreamRequest{
 		UploadRequest: uploadRequest,
 		StreamReader:  r,
@@ -231,16 +240,36 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, opts ...o
 		req.UploadRequest.PartSize = &b.partSize
 	}
 
-	if uploadOptions.ContentType != "" {
-		req.UploadRequest.ContentType = &uploadOptions.ContentType
-	}
-
 	uploadManager := transfer.NewUploadManager()
 	_, err = uploadManager.UploadStream(ctx, req)
 
 	return err
 }
+func (b *Bucket) uploadConditionally(
+	ctx context.Context,
+	r io.Reader,
+	uploadRequest transfer.UploadRequest,
+) error {
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return errors.Wrap(err, "read object data for conditional OCI upload")
+	}
 
+	request := objectstorage.PutObjectRequest{
+		NamespaceName:   uploadRequest.NamespaceName,
+		BucketName:      uploadRequest.BucketName,
+		ObjectName:      uploadRequest.ObjectName,
+		ContentLength:   common.Int64(int64(len(data))),
+		PutObjectBody:   io.NopCloser(bytes.NewReader(data)),
+		IfMatch:         uploadRequest.IfMatch,
+		IfNoneMatch:     uploadRequest.IfNoneMatch,
+		ContentType:     uploadRequest.ContentType,
+		RequestMetadata: uploadRequest.RequestMetadata,
+	}
+
+	_, err = b.client.PutObject(ctx, request)
+	return err
+}
 func (b *Bucket) SupportedObjectUploadOptions() []objstore.ObjectUploadOptionType {
 	return []objstore.ObjectUploadOptionType{
 		objstore.ContentType,
