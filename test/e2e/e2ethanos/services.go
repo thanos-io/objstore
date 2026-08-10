@@ -392,7 +392,6 @@ http {
 // after this is addresses fixed all calls should be replaced with e2edb.NewMinio.
 func NewMinio(e e2e.Environment, name, bktName string) *e2emon.InstrumentedRunnable {
 	image := "minio/minio:RELEASE.2022-07-30T05-21-40Z"
-	minioKESGithubContent := "https://raw.githubusercontent.com/minio/kes/master"
 
 	httpsPort := 8090
 	consolePort := 8080
@@ -414,10 +413,14 @@ func NewMinio(e e2e.Environment, name, bktName string) *e2emon.InstrumentedRunna
 	}
 
 	commands := []string{
-		fmt.Sprintf("curl -sSL --tlsv1.2 -O '%s/root.key' -O '%s/root.cert'", minioKESGithubContent, minioKESGithubContent),
-		fmt.Sprintf("mkdir -p /data/%s && minio server --certs-dir %s/certs --address :%v --console-address :%v /data", bktName, f.InternalDir(), httpsPort, consolePort),
+		fmt.Sprintf(
+			"mkdir -p /data/%s && minio server --certs-dir %s/certs --address :%v --console-address :%v /data",
+			bktName,
+			f.InternalDir(),
+			httpsPort,
+			consolePort,
+		),
 	}
-
 	minio := e2emon.AsInstrumented(f.Init(e2e.StartOptions{
 		Image: image,
 		// Create the required bucket before starting minio.
@@ -429,10 +432,6 @@ func NewMinio(e e2e.Environment, name, bktName string) *e2emon.InstrumentedRunna
 			"MINIO_BROWSER":       "on",
 			"ENABLE_HTTPS":        "1",
 			// https://docs.min.io/docs/minio-kms-quickstart-guide.html
-			"MINIO_KMS_KES_ENDPOINT":  "https://play.min.io:7373",
-			"MINIO_KMS_KES_KEY_FILE":  "root.key",
-			"MINIO_KMS_KES_CERT_FILE": "root.cert",
-			"MINIO_KMS_KES_KEY_NAME":  "my-minio-key",
 		},
 	}), "https")
 	return minio
