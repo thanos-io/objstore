@@ -204,6 +204,10 @@ func TestParseConfig_DefaultHTTPConfig(t *testing.T) {
 	if cfg.HTTPConfig.InsecureSkipVerify {
 		t.Errorf("parsing of insecure_skip_verify failed: got %v, expected %v", cfg.HTTPConfig.InsecureSkipVerify, false)
 	}
+
+	if cfg.HTTPConfig.ForceAttemptHTTP2 {
+		t.Errorf("parsing of force_attempt_http2 failed: got %v, expected %v", cfg.HTTPConfig.ForceAttemptHTTP2, false)
+	}
 }
 
 func TestParseConfig_CustomHTTPConfigWithTLS(t *testing.T) {
@@ -218,6 +222,7 @@ http_config:
     key_file: /certs/key.key
     server_name: server
     insecure_skip_verify: false
+  force_attempt_http2: true
   `)
 	cfg, err := parseConfig(input)
 	testutil.Ok(t, err)
@@ -227,6 +232,7 @@ http_config:
 	testutil.Equals(t, "/certs/key.key", cfg.HTTPConfig.TLSConfig.KeyFile)
 	testutil.Equals(t, "server", cfg.HTTPConfig.TLSConfig.ServerName)
 	testutil.Equals(t, false, cfg.HTTPConfig.TLSConfig.InsecureSkipVerify)
+	testutil.Equals(t, true, cfg.HTTPConfig.ForceAttemptHTTP2)
 }
 
 func TestParseConfig_CustomLegacyInsecureSkipVerify(t *testing.T) {
