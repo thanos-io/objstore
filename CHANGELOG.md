@@ -15,6 +15,9 @@ We use *breaking :warning:* to mark changes that are not backward compatible (re
 - [#157](https://github.com/thanos-io/objstore/pull/157) Azure: Add `az_tenant_id`, `client_id` and `client_secret` configs.
 - [#178](https://github.com/thanos-io/objstore/pull/178) Feature: conditional upload API
 
+### Added
+- [#74](https://github.com/thanos-io/objstore/pull/74) S3: Implementing `ToErrorResponse` function to return the parsed S3 ErrorResponse.
+
 ### Fixed
 - [#196](https://github.com/thanos-io/objstore/pull/196) GCS: fix error check in Exists method when object does not exist.
 - [#153](https://github.com/thanos-io/objstore/pull/153) Metrics: Fix `objstore_bucket_operation_duration_seconds_*` for `get` and `get_range` operations.
