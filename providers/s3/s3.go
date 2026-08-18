@@ -430,6 +430,7 @@ func (b *Bucket) IterWithAttributes(ctx context.Context, dir string, f func(attr
 
 		attr := objstore.IterObjectAttributes{
 			Name: object.Key,
+			Size: object.Size,
 		}
 		if appliedOpts.LastModified {
 			attr.SetLastModified(object.LastModified)

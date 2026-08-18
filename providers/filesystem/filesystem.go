@@ -117,17 +117,17 @@ func (b *Bucket) IterWithAttributes(ctx context.Context, dir string, f func(attr
 				continue
 			}
 		}
+		finfo, err := file.Info()
+		if err != nil {
+			return errors.Wrapf(err, "stat %s", name)
+		}
 
 		attrs := objstore.IterObjectAttributes{
 			Name: name,
+			Size: finfo.Size(),
 		}
 		if params.LastModified {
-			absPath := filepath.Join(absDir, file.Name())
-			stat, err := os.Stat(absPath)
-			if err != nil {
-				return errors.Wrapf(err, "stat %s", name)
-			}
-			attrs.SetLastModified(stat.ModTime())
+			attrs.SetLastModified(finfo.ModTime())
 		}
 		if err := f(attrs); err != nil {
 			return err
