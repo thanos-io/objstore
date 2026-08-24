@@ -64,7 +64,7 @@ We use *breaking :warning:* to mark changes that are not backward compatible (re
 - [#155](https://github.com/thanos-io/objstore/pull/155) Add a `Provider` method on `objstore.Client`.
 - [#163](https://github.com/thanos-io/objstore/pull/145) Add a `NewBucketFromConfig` constructor method for creating a client from an existing `BucketConfig` object.
 - [#266](https://github.com/thanos-io/objstore/pull/266) *: Add `force_attempt_http2` option to `http_config` to re-enable HTTP/2 for the custom transport.
-
+- [#271](https://github.com/thanos-io/objstore/pull/271) Add metrics `net_conntrack_dialer_conn_*_total` for every connection attempted, failed, etc.
 
 ### Changed
 - [#38](https://github.com/thanos-io/objstore/pull/38) *: Upgrade minio-go version to `v7.0.45`.
