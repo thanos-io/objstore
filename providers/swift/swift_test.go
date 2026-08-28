@@ -64,6 +64,7 @@ http_config:
 	testutil.Equals(t, model.Duration(90*time.Second), cfg.HTTPConfig.IdleConnTimeout)
 	testutil.Equals(t, model.Duration(2*time.Minute), cfg.HTTPConfig.ResponseHeaderTimeout)
 	testutil.Equals(t, false, cfg.HTTPConfig.InsecureSkipVerify)
+	testutil.Equals(t, false, cfg.HTTPConfig.ForceAttemptHTTP2)
 
 }
 

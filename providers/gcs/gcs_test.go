@@ -117,6 +117,7 @@ func TestParseConfig_HTTPConfig(t *testing.T) {
 				testutil.Equals(t, cfg.HTTPConfig.IdleConnTimeout, model.Duration(90*time.Second))
 				testutil.Equals(t, cfg.HTTPConfig.ResponseHeaderTimeout, model.Duration(2*time.Minute))
 				testutil.Equals(t, cfg.HTTPConfig.InsecureSkipVerify, false)
+				testutil.Equals(t, cfg.HTTPConfig.ForceAttemptHTTP2, false)
 			},
 		},
 		{
@@ -125,11 +126,13 @@ func TestParseConfig_HTTPConfig(t *testing.T) {
 http_config:
   insecure_skip_verify: true
   idle_conn_timeout: 50s
-  response_header_timeout: 1m`,
+  response_header_timeout: 1m
+  force_attempt_http2: true`,
 			assertions: func(cfg Config) {
 				testutil.Equals(t, cfg.HTTPConfig.IdleConnTimeout, model.Duration(50*time.Second))
 				testutil.Equals(t, cfg.HTTPConfig.ResponseHeaderTimeout, model.Duration(1*time.Minute))
 				testutil.Equals(t, cfg.HTTPConfig.InsecureSkipVerify, true)
+				testutil.Equals(t, cfg.HTTPConfig.ForceAttemptHTTP2, true)
 			},
 		},
 		{

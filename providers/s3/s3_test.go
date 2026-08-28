@@ -141,6 +141,10 @@ insecure: false`)
 	if cfg.HTTPConfig.InsecureSkipVerify {
 		t.Errorf("parsing of insecure_skip_verify failed: got %v, expected %v", cfg.HTTPConfig.InsecureSkipVerify, false)
 	}
+
+	if cfg.HTTPConfig.ForceAttemptHTTP2 {
+		t.Errorf("parsing of force_attempt_http2 failed: got %v, expected %v", cfg.HTTPConfig.ForceAttemptHTTP2, false)
+	}
 }
 
 func TestParseConfig_CustomHTTPConfig(t *testing.T) {
@@ -149,7 +153,8 @@ insecure: false
 http_config:
   insecure_skip_verify: true
   idle_conn_timeout: 50s
-  response_header_timeout: 1m`)
+  response_header_timeout: 1m
+  force_attempt_http2: true`)
 	cfg, err := parseConfig(input)
 	testutil.Ok(t, err)
 
@@ -165,6 +170,10 @@ http_config:
 
 	if !cfg.HTTPConfig.InsecureSkipVerify {
 		t.Errorf("parsing of insecure_skip_verify failed: got %v, expected %v", cfg.HTTPConfig.InsecureSkipVerify, false)
+	}
+
+	if !cfg.HTTPConfig.ForceAttemptHTTP2 {
+		t.Errorf("parsing of force_attempt_http2 failed: got %v, expected %v", cfg.HTTPConfig.ForceAttemptHTTP2, true)
 	}
 }
 
