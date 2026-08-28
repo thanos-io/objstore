@@ -15,6 +15,7 @@ require (
 	github.com/go-kit/log v0.2.1
 	github.com/huaweicloud/huaweicloud-sdk-go-obs v3.25.4+incompatible
 	github.com/minio/minio-go/v7 v7.0.95
+	github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f
 	github.com/ncw/swift v1.0.53
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/oracle/oci-go-sdk/v65 v65.41.1
@@ -94,7 +95,6 @@ require (
 	github.com/minio/md5-simd v1.1.2 // indirect
 	github.com/mitchellh/mapstructure v1.4.3 // indirect
 	github.com/mozillazg/go-httpheader v0.2.1 // indirect
-	github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f // indirect
 	github.com/philhofer/fwd v1.2.0 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
