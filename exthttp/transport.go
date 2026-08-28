@@ -61,6 +61,8 @@ func DefaultTransport(config HTTPConfig) (*http.Transport, error) {
 	// conntrack exports metrics for every connection attempted, failed, etc.
 	dialFn = conntrack.NewDialContextFunc(
 		conntrack.DialWithDialContextFunc(dialFn),
+		// Can be overwritten with conntrack.DialNameToContext.
+		conntrack.DialWithName("objstore"),
 	)
 
 	return &http.Transport{
