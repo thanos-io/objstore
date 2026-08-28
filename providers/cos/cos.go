@@ -214,6 +214,10 @@ func (r fixedLengthReader) Size() int64 {
 
 // Upload the contents of the reader as an object into the bucket.
 func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, opts ...objstore.ObjectUploadOption) error {
+	if err := objstore.ValidateUploadOptions(b.SupportedObjectUploadOptions(), opts...); err != nil {
+		return err
+	}
+
 	size, err := objstore.TryToGetSize(r)
 	if err != nil {
 		return errors.Wrapf(err, "getting size of %s", name)
@@ -293,6 +297,10 @@ func (b *Bucket) Delete(ctx context.Context, name string) error {
 		return errors.Wrap(err, "delete cos object")
 	}
 	return nil
+}
+
+func (b *Bucket) SupportedObjectUploadOptions() []objstore.ObjectUploadOptionType {
+	return []objstore.ObjectUploadOptionType{objstore.ContentType}
 }
 
 func (b *Bucket) SupportedIterOptions() []objstore.IterOptionType {
@@ -404,6 +412,8 @@ func (b *Bucket) IsObjNotFoundErr(err error) bool {
 func (b *Bucket) IsAccessDeniedErr(_ error) bool {
 	return false
 }
+
+func (b *Bucket) IsConditionNotMetErr(_ error) bool { return false }
 
 func (b *Bucket) Close() error { return nil }
 

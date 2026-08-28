@@ -48,7 +48,7 @@ See [MAINTAINERS.md](https://github.com/thanos-io/thanos/blob/main/MAINTAINERS.m
 
 The core this module is the [`Bucket` interface](objstore.go):
 
-```go mdox-exec="sed -n '55,73p' objstore.go"
+```go mdox-exec="sed -n '55,76p' objstore.go"
 // Bucket provides read and write access to an object storage bucket.
 // NOTE: We assume strong consistency for write-read flow.
 type Bucket interface {
@@ -61,6 +61,9 @@ type Bucket interface {
 	// Upload should be idempotent.
 	Upload(ctx context.Context, name string, r io.Reader, opts ...ObjectUploadOption) error
 
+	// SupportedObjectUploadOptions returns a list of ObjectUploadOptions supported by the underlying provider.
+	SupportedObjectUploadOptions() []ObjectUploadOptionType
+
 	// Delete removes the object with the given name.
 	// If object does not exist in the moment of deletion, Delete should throw error.
 	Delete(ctx context.Context, name string) error
@@ -72,7 +75,7 @@ type Bucket interface {
 
 All [provider implementations](providers) have to implement `Bucket` interface that allows common read and write operations that all supported by all object providers. If you want to limit the code that will do bucket operation to only read access (smart idea, allowing to limit access permissions), you can use the [`BucketReader` interface](objstore.go):
 
-```go mdox-exec="sed -n '89,124p' objstore.go"
+```go mdox-exec="sed -n '92,130p' objstore.go"
 // BucketReader provides read access to an object storage bucket.
 type BucketReader interface {
 	// Iter calls f for each entry in the given directory (not recursive.). The argument to f is the full
@@ -105,6 +108,9 @@ type BucketReader interface {
 
 	// IsAccessDeniedErr returns true if access to object is denied.
 	IsAccessDeniedErr(err error) bool
+
+	// IsConditionNotMetErr returns true if an ObjectUploadOption condition parameter (IfNotExists, IfMatch, IfNotMatch) was not met.
+	IsConditionNotMetErr(err error) bool
 
 	// Attributes returns information about the specified object.
 	Attributes(ctx context.Context, name string) (ObjectAttributes, error)
@@ -154,6 +160,19 @@ Current object storage client implementations:
 
 NOTE: Currently Thanos requires strong consistency (write-read) for object store implementation for singleton Compaction purposes.
 
+#### Support for Conditional Writes
+
+Most, not all, object stores provide an API for write conditions. The `objstore` module partially supports this using `ObjectUploadOption` parameters in `Upload` of the `Bucket` interface.
+
+Version or etag metadata can be retrieved for use as write conditions from the `Attributes` method of `BucketReader`. Client should call `SupportedObjectUploadOptions` to validate which object upload options (`IfNotExists`, `IfMatch`, `IfNotMatch`) are supported by the provider.
+
+Providers with conditional write support include:
+
+- Google Cloud Storage ([cloud provider documentation](https://cloud.google.com/storage/docs/request-preconditions)))
+- Azure Storage Buckets ([cloud provider documentation](https://learn.microsoft.com/en-us/rest/api/storageservices/specifying-conditional-headers-for-blob-service-operations))
+- S3 ([cloud provider documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/conditional-writes.html)). `IfNotMatch` is currently not supported by AWS.
+- Local Filesystem (for testing and demos). Only supported by filesystems with extended attribute (`xattr`) support.
+
 ##### S3
 
 Thanos uses the [minio client](https://github.com/minio/minio-go) library to upload Prometheus data into AWS S3.
@@ -191,6 +210,7 @@ config:
       key_file: ""
       server_name: ""
       insecure_skip_verify: false
+    force_attempt_http2: false
     disable_compression: false
   trace:
     enable: false
@@ -389,6 +409,7 @@ config:
       key_file: ""
       server_name: ""
       insecure_skip_verify: false
+    force_attempt_http2: false
     disable_compression: false
   chunk_size_bytes: 0
   max_retries: 0
@@ -495,6 +516,7 @@ config:
       key_file: ""
       server_name: ""
       insecure_skip_verify: false
+    force_attempt_http2: false
     disable_compression: false
   msi_resource: ""
 prefix: ""
@@ -558,6 +580,7 @@ config:
       key_file: ""
       server_name: ""
       insecure_skip_verify: false
+    force_attempt_http2: false
     disable_compression: false
 prefix: ""
 ```
@@ -593,6 +616,7 @@ config:
       key_file: ""
       server_name: ""
       insecure_skip_verify: false
+    force_attempt_http2: false
     disable_compression: false
 prefix: ""
 ```
@@ -759,6 +783,7 @@ config:
       key_file: ""
       server_name: ""
       insecure_skip_verify: false
+    force_attempt_http2: false
     disable_compression: false
 prefix: ""
 ```

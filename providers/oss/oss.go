@@ -72,6 +72,9 @@ func (b *Bucket) Provider() objstore.ObjProvider { return objstore.ALIYUNOSS }
 
 // Upload the contents of the reader as an object into the bucket.
 func (b *Bucket) Upload(_ context.Context, name string, r io.Reader, opts ...objstore.ObjectUploadOption) error {
+	if err := objstore.ValidateUploadOptions(b.SupportedObjectUploadOptions(), opts...); err != nil {
+		return err
+	}
 	// TODO(https://github.com/thanos-io/thanos/issues/678): Remove guessing length when minio provider will support multipart upload without this.
 	size, err := objstore.TryToGetSize(r)
 	if err != nil {
@@ -127,6 +130,10 @@ func (b *Bucket) Upload(_ context.Context, name string, r io.Reader, opts ...obj
 		}
 	}
 	return nil
+}
+
+func (b *Bucket) SupportedObjectUploadOptions() []objstore.ObjectUploadOptionType {
+	return []objstore.ObjectUploadOptionType{objstore.ContentType}
 }
 
 // Delete removes the object with the given name.
@@ -426,5 +433,9 @@ func (b *Bucket) IsAccessDeniedErr(err error) bool {
 			return true
 		}
 	}
+	return false
+}
+
+func (b *Bucket) IsConditionNotMetErr(_ error) bool {
 	return false
 }
