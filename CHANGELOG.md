@@ -16,6 +16,7 @@ We use *breaking :warning:* to mark changes that are not backward compatible (re
 - [#178](https://github.com/thanos-io/objstore/pull/178) Feature: conditional upload API
 
 ### Fixed
+- [#227](https://github.com/thanos-io/objstore/pull/227) OBS: Fix multipart upload error.
 - [#196](https://github.com/thanos-io/objstore/pull/196) GCS: fix error check in Exists method when object does not exist.
 - [#153](https://github.com/thanos-io/objstore/pull/153) Metrics: Fix `objstore_bucket_operation_duration_seconds_*` for `get` and `get_range` operations.
 - [#141](https://github.com/thanos-io/objstore/pull/142) S3: Fix missing encryption configuration for `Bucket.Exists()` and `Bucket.Attributes()` calls.
