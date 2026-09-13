@@ -61,6 +61,11 @@ type Config struct {
 	// Overrides the default gcs storage client behavior if this value is greater than 0.
 	// Set this to 1 to disable retries.
 	MaxRetries int `yaml:"max_retries"`
+
+	// CustomEndpoint allows overriding the default Google Cloud Storage API endpoint.
+	// This is useful for connecting to GCS-compatible services or GCP regional endpoints.
+	// See https://cloud.google.com/storage/docs/regional-endpoints for details.
+	CustomEndpoint string `yaml:"custom_endpoint"`
 }
 
 var errConditionInvalid = errors.New("invalid condition: gcs supports generational object versions")
@@ -112,6 +117,9 @@ func NewBucketWithConfig(ctx context.Context, logger log.Logger, gc Config, comp
 	}
 	if gc.noAuth {
 		opts = append(opts, option.WithoutAuthentication())
+	}
+	if gc.CustomEndpoint != "" {
+		opts = append(opts, option.WithEndpoint(gc.CustomEndpoint))
 	}
 	opts = append(opts,
 		option.WithUserAgent(fmt.Sprintf("thanos-%s/%s (%s)", component, version.Version, runtime.Version())),
