@@ -14,6 +14,8 @@ import (
 type TLSConfig struct {
 	// The CA cert to use for the targets.
 	CAFile string `yaml:"ca_file"`
+	// Trust RootCAs provided by the host
+	TrustRootCA bool `yaml:"trust_root_ca"`
 	// The client cert file for the targets.
 	CertFile string `yaml:"cert_file"`
 	// The client key file for the targets.
@@ -34,7 +36,7 @@ func NewTLSConfig(cfg *TLSConfig) (*tls.Config, error) {
 		if err != nil {
 			return nil, err
 		}
-		if !updateRootCA(tlsConfig, b) {
+		if !updateRootCA(tlsConfig, b, cfg.TrustRootCA) {
 			return nil, fmt.Errorf("unable to use specified CA cert %s", cfg.CAFile)
 		}
 	}
@@ -68,8 +70,18 @@ func readCAFile(f string) ([]byte, error) {
 }
 
 // updateRootCA parses the given byte slice as a series of PEM encoded certificates and updates tls.Config.RootCAs.
-func updateRootCA(cfg *tls.Config, b []byte) bool {
-	caCertPool := x509.NewCertPool()
+func updateRootCA(cfg *tls.Config, b []byte, trustRootCA bool) bool {
+	var caCertPool *x509.CertPool
+	var err error
+	if trustRootCA {
+		caCertPool, err = x509.SystemCertPool()
+		if err != nil {
+			caCertPool = x509.NewCertPool()
+		}
+	} else {
+		caCertPool = x509.NewCertPool()
+	}
+
 	if !caCertPool.AppendCertsFromPEM(b) {
 		return false
 	}
