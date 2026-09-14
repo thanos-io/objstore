@@ -2,6 +2,24 @@
 // Licensed under the Apache License 2.0.
 
 // Package s3 implements common object storage abstractions against s3-compatible APIs.
+
+// Copyright (C) 2024 IQSIGHT Engineering GmbH jakub.klimasz@iqsight.com
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+
+//         http://www.apache.org/licenses/LICENSE-2.0
+
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// Modification history:
+// * 14.09.2026 Added Upload with attributes.
+
 package s3
 
 import (
@@ -551,7 +569,7 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, opts ...o
 	}
 
 	partSize := b.partSize
-	if size < int64(partSize) {
+	if size > 0 && size < int64(partSize) {
 		partSize = 0
 	}
 
@@ -562,6 +580,12 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, opts ...o
 	}
 
 	uploadOpts := objstore.ApplyObjectUploadOptions(opts...)
+
+	for k, v := range uploadOpts.Metadata {
+		if v != nil {
+			userMetadata[k] = *v
+		}
+	}
 
 	putOpts := &minio.PutObjectOptions{
 		DisableMultipart:     b.disableMultipart,
@@ -602,7 +626,7 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, opts ...o
 }
 
 func (b *Bucket) SupportedObjectUploadOptions() []objstore.ObjectUploadOptionType {
-	return []objstore.ObjectUploadOptionType{objstore.ContentType, objstore.IfNotExists, objstore.IfMatch}
+	return []objstore.ObjectUploadOptionType{objstore.ContentType, objstore.IfNotExists, objstore.IfMatch, objstore.Metadata}
 }
 
 // Attributes returns information about the specified object.
