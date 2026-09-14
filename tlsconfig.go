@@ -1,11 +1,29 @@
 // Copyright (c) The Thanos Authors.
 // Licensed under the Apache License 2.0.
 
+// Copyright (C) 2024 IQSIGHT Engineering GmbH jakub.klimasz@iqsight.com
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+
+//         http://www.apache.org/licenses/LICENSE-2.0
+
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// Modification history:
+// * 23.09.2024 Added certificate validation policy to storage configuration.
+
 package objstore
 
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"fmt"
 	"os"
 )
@@ -22,6 +40,18 @@ func NewTLSConfig(cfg *TLSConfig) (*tls.Config, error) {
 		}
 		if !updateRootCA(tlsConfig, b) {
 			return nil, fmt.Errorf("unable to use specified CA cert %s", cfg.CAFile)
+		}
+	}
+
+	if len(cfg.CAs) > 0 {
+		for _, c := range cfg.CAs {
+			certBytes, err := base64.StdEncoding.DecodeString(c)
+			if err != nil {
+				continue
+			}
+			if !updateRootCA(tlsConfig, certBytes) {
+				return nil, fmt.Errorf("unable to use specified CA cert %s", cfg.CAFile)
+			}
 		}
 	}
 
@@ -78,6 +108,8 @@ type TLSConfig struct {
 	CAFile string `yaml:"ca_file"`
 	// The client cert file for the targets.
 	CertFile string `yaml:"cert_file"`
+	// Base64 ecoded slice of CA to be used
+	CAs []string `yaml:"ca"`
 	// The client key file for the targets.
 	KeyFile string `yaml:"key_file"`
 	// Used to verify the hostname for the targets.
