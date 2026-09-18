@@ -162,6 +162,55 @@ http_config:
 	}
 }
 
+func TestParseConfig_Endpoint(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		input      string
+		assertions func(cfg Config)
+	}{
+		{
+			name:  "DefaultEndpoint",
+			input: `bucket: abcd`,
+			assertions: func(cfg Config) {
+				testutil.Equals(t, "", cfg.Endpoint)
+			},
+		},
+		{
+			name: "CustomEndpoint",
+			input: `bucket: abcd
+endpoint: https://storage.europe-west3.rep.googleapis.com`,
+			assertions: func(cfg Config) {
+				testutil.Equals(t, "https://storage.europe-west3.rep.googleapis.com", cfg.Endpoint)
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg, err := parseConfig([]byte(tc.input))
+			testutil.Ok(t, err)
+			tc.assertions(cfg)
+		})
+	}
+}
+
+func TestNewBucketWithConfig_CustomEndpoint(t *testing.T) {
+	svr, err := gcsemu.NewServer("127.0.0.1:0", gcsemu.Options{})
+	testutil.Ok(t, err)
+	defer svr.Close()
+
+	err = os.Setenv("STORAGE_EMULATOR_HOST", svr.Addr)
+	testutil.Ok(t, err)
+
+	cfg := Config{
+		Bucket:   "test-bucket",
+		Endpoint: "https://storage.europe-west3.rep.googleapis.com",
+		noAuth:   true,
+	}
+
+	bkt, err := NewBucketWithConfig(context.Background(), log.NewNopLogger(), cfg, "test", nil)
+	testutil.Ok(t, err)
+	testutil.Assert(t, bkt != nil, "expected bucket to be created with custom endpoint")
+}
+
 func TestNewBucketWithErrorRoundTripper(t *testing.T) {
 	cfg := Config{
 		Bucket:         "test-bucket",
