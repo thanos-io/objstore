@@ -980,18 +980,25 @@ type readAtTracker struct {
 func newReadAtTracker(isExpectedFailure IsOpFailureExpectedFunc) *readAtTracker {
 	return &readAtTracker{
 		offsetResults:     make(map[int64]readAtOffsetResult),
-		mtx:               sync.Mutex{},
 		isExpectedFailure: isExpectedFailure,
 	}
 }
 
 func (t *readAtTracker) updateMetrics(off int64, n int, err error) {
+	if t == nil {
+		return
+	}
+
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
 	t.offsetResults[off] = readAtOffsetResult{n: n, err: err}
 }
 
 func (t *readAtTracker) close() (readBytes int64, anyErr bool, anyRealFailure bool) {
+	if t == nil {
+		return 0, false, false
+	}
+
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
 
@@ -1034,11 +1041,11 @@ func newTimingReader(start time.Time, r io.Reader, closeReader bool, op string, 
 		readBytes:         0,
 	}
 
-	trc.readAtTracker = newReadAtTracker(isFailureExpected)
-
 	_, isSeeker := r.(io.Seeker)
 	_, isReaderAt := r.(io.ReaderAt)
 	if isSeeker && isReaderAt {
+		trc.readAtTracker = newReadAtTracker(isFailureExpected)
+
 		// The assumption is that in most cases when io.ReaderAt() is implemented then
 		// io.Seeker is implemented too (e.g. os.File).
 		return &timingReaderSeekerReaderAt{timingReaderSeeker: timingReaderSeeker{timingReader: trc}}
