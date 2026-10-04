@@ -1,6 +1,6 @@
 module github.com/thanos-io/objstore
 
-go 1.24.0
+go 1.25.0
 
 require (
 	cloud.google.com/go/storage v1.50.0
