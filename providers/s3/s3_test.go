@@ -11,9 +11,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"runtime"
-	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/efficientgo/core/testutil"
@@ -491,75 +490,75 @@ func TestNewBucketWithErrorRoundTripper(t *testing.T) {
 }
 
 func TestBucket_IterWithAttributes_EarlyReturnDoesNotLeakGoroutines(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/xml")
-		fmt.Fprint(w, `<ListBucketResult><Name>test-bucket</Name><IsTruncated>false</IsTruncated>`)
-		for i := 0; i < 100; i++ {
-			fmt.Fprintf(w, `<Contents><Key>obj-%d</Key></Contents>`, i)
-		}
-		fmt.Fprint(w, `</ListBucketResult>`)
-	}))
-	defer srv.Close()
-
-	cfg := DefaultConfig
-	cfg.Bucket = "test-bucket"
-	cfg.Endpoint = srv.Listener.Addr().String()
-	cfg.Insecure = true
-	cfg.Region = "us-east-1"
-	cfg.AccessKey = "access-key"
-	cfg.SecretKey = "secret-key"
-
-	bkt, err := NewBucketWithConfig(log.NewNopLogger(), cfg, "iteration-test", nil)
-	testutil.Ok(t, err)
-
 	errStop := errors.New("stop")
 	for _, tc := range []struct {
-		name string
-		iter func() error
+		name          string
+		cancelContext bool
+		wantErr       error
 	}{
 		{
-			name: "callback error",
-			iter: func() error {
-				return bkt.IterWithAttributes(context.Background(), "", func(objstore.IterObjectAttributes) error {
-					return errStop
-				})
-			},
+			name:    "callback error",
+			wantErr: errStop,
 		},
 		{
-			name: "context canceled while callback is blocked",
-			iter: func() error {
-				ctx, cancel := context.WithCancel(context.Background())
-				defer cancel()
-				return bkt.IterWithAttributes(ctx, "", func(objstore.IterObjectAttributes) error {
-					// Let the listing goroutine fill the channel buffer.
-					time.Sleep(50 * time.Millisecond)
-					cancel()
-					return ctx.Err()
-				})
-			},
+			name:          "context canceled while callback is blocked",
+			cancelContext: true,
+			wantErr:       context.Canceled,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			testutil.NotOk(t, tc.iter())
+			synctest.Test(t, func(t *testing.T) {
+				cfg := DefaultConfig
+				cfg.Bucket = "test-bucket"
+				cfg.Endpoint = endpoint
+				cfg.Insecure = true
+				cfg.Region = "us-east-1"
+				cfg.AccessKey = "access-key"
+				cfg.SecretKey = "secret-key"
+				// Keep HTTP I/O inside the bubble without using real network connections.
+				cfg.HTTPConfig.Transport = roundTripperFunc(func(*http.Request) (*http.Response, error) {
+					w := httptest.NewRecorder()
+					w.Header().Set("Content-Type", "application/xml")
+					fmt.Fprint(w, `<ListBucketResult><Name>test-bucket</Name><IsTruncated>false</IsTruncated>`)
+					for i := 0; i < 100; i++ {
+						fmt.Fprintf(w, `<Contents><Key>obj-%d</Key></Contents>`, i)
+					}
+					fmt.Fprint(w, `</ListBucketResult>`)
+					return w.Result(), nil
+				})
 
-			deadline := time.Now().Add(5 * time.Second)
-			for countListGoroutines() > 0 && time.Now().Before(deadline) {
-				time.Sleep(10 * time.Millisecond)
-			}
-			testutil.Equals(t, 0, countListGoroutines())
+				bkt, err := NewBucketWithConfig(log.NewNopLogger(), cfg, "iteration-test", nil)
+				testutil.Ok(t, err)
+
+				ctx := context.Background()
+				var cancel context.CancelFunc
+				if tc.cancelContext {
+					ctx, cancel = context.WithCancel(ctx)
+					defer cancel()
+				}
+				calls := 0
+				err = bkt.IterWithAttributes(ctx, "", func(attrs objstore.IterObjectAttributes) error {
+					calls++
+					testutil.Equals(t, "obj-0", attrs.Name)
+					// Wait until the listing goroutine fills the channel and blocks on its next send.
+					synctest.Wait()
+					if tc.cancelContext {
+						cancel()
+						// Wait until the cancellation error send blocks on the full channel.
+						synctest.Wait()
+					}
+					return tc.wantErr
+				})
+				testutil.Equals(t, tc.wantErr, err)
+				testutil.Equals(t, 1, calls)
+				// synctest.Test fails if the listing goroutine remains blocked when the bubble exits.
+			})
 		})
 	}
 }
 
-// countListGoroutines counts goroutines running minio-go listing code.
-func countListGoroutines() int {
-	buf := make([]byte, 1<<20)
-	buf = buf[:runtime.Stack(buf, true)]
-	n := 0
-	for _, g := range strings.Split(string(buf), "\n\n") {
-		if strings.Contains(g, "minio-go/v7") && strings.Contains(g, "api-list.go") {
-			n++
-		}
-	}
-	return n
+type roundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
+	return f(r)
 }
