@@ -104,6 +104,13 @@ chunk_size_bytes: 1024`,
 	}
 }
 
+func TestParseConfig_Endpoint(t *testing.T) {
+	cfg, err := parseConfig([]byte(`bucket: abcd
+endpoint: https://storage.example.com`))
+	testutil.Ok(t, err)
+	testutil.Equals(t, "https://storage.example.com", cfg.Endpoint)
+}
+
 func TestParseConfig_HTTPConfig(t *testing.T) {
 	for _, tc := range []struct {
 		name       string

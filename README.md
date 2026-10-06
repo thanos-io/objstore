@@ -392,6 +392,7 @@ type: GCS
 config:
   bucket: ""
   service_account: ""
+  endpoint: ""
   use_grpc: false
   grpc_conn_pool_size: 0
   http_config:
@@ -415,6 +416,8 @@ config:
   max_retries: 0
 prefix: ""
 ```
+
+The `endpoint` option overrides the default GCS API endpoint. Leave it empty to use the client library's default, or configure a [GCP regional endpoint](https://cloud.google.com/storage/docs/regional-endpoints).
 
 ###### Using GOOGLE_APPLICATION_CREDENTIALS
 
