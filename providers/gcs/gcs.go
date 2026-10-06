@@ -59,7 +59,7 @@ type Config struct {
 	noAuth         bool `yaml:"no_auth"`
 
 	// MaxRetries controls the number of attempts for retryable operations.
-	// Defaults to 3 when unset (see DefaultConfig). Set this to 1 to disable retries.
+	// See DefaultConfig for the default. Set this to 1 to disable retries.
 	MaxRetries int `yaml:"max_retries"`
 }
 

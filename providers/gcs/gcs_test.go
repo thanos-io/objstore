@@ -200,13 +200,13 @@ func TestBucket_Delete_RetriesOnTransient5xx(t *testing.T) {
 		}
 		w.WriteHeader(http.StatusOK)
 	}))
-	defer srv.Close()
+	t.Cleanup(srv.Close)
 
 	t.Setenv("STORAGE_EMULATOR_HOST", srv.Listener.Addr().String())
 
-	bkt, err := newBucket(context.Background(), log.NewNopLogger(), Config{Bucket: "test-bucket"}, []option.ClientOption{})
+	bkt, err := newBucket(t.Context(), log.NewNopLogger(), Config{Bucket: "test-bucket"}, []option.ClientOption{})
 	testutil.Ok(t, err)
 
-	testutil.Ok(t, bkt.Delete(context.Background(), "test-object"))
+	testutil.Ok(t, bkt.Delete(t.Context(), "test-object"))
 	testutil.Equals(t, int32(3), deleteAttempts.Load())
 }
