@@ -386,9 +386,12 @@ func (b *Bucket) SupportedObjectUploadOptions() []objstore.ObjectUploadOptionTyp
 	return []objstore.ObjectUploadOptionType{objstore.ContentType, objstore.IfNotExists, objstore.IfMatch, objstore.IfNotMatch}
 }
 
-// Delete removes the object with the given name. RetryAlways overrides the
-// default RetryIdempotent policy, which would otherwise exclude Delete because
-// we don't pass IfGenerationMatch.
+// Delete removes the object with the given name.
+//
+// The SDK's default RetryIdempotent policy only retries a delete when the
+// request pins a specific object version through a generation precondition
+// (IfGenerationMatch). We don't pass one, so a transient 5xx is never retried
+// and surfaces straight to the caller. RetryAlways opts back in.
 func (b *Bucket) Delete(ctx context.Context, name string) error {
 	return b.bkt.Object(name).Retryer(storage.WithPolicy(storage.RetryAlways)).Delete(ctx)
 }
