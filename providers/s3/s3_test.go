@@ -490,6 +490,24 @@ func TestNewBucketWithErrorRoundTripper(t *testing.T) {
 }
 
 func TestBucket_IterWithAttributes_EarlyReturnDoesNotLeakGoroutines(t *testing.T) {
+	cfg := Config{
+		Bucket:    "test-bucket",
+		Endpoint:  endpoint,
+		Region:    "us-east-1",
+		AccessKey: "access-key",
+		SecretKey: "secret-key",
+	}
+	cfg.HTTPConfig.Transport = roundTripperFunc(func(*http.Request) (*http.Response, error) {
+		w := httptest.NewRecorder()
+		w.Header().Set("Content-Type", "application/xml")
+		fmt.Fprint(w, `<ListBucketResult><Name>test-bucket</Name><IsTruncated>false</IsTruncated>`)
+		for i := 0; i < 100; i++ {
+			fmt.Fprintf(w, `<Contents><Key>obj-%d</Key></Contents>`, i)
+		}
+		fmt.Fprint(w, `</ListBucketResult>`)
+		return w.Result(), nil
+	})
+
 	errStop := errors.New("stop")
 	for _, tc := range []struct {
 		name          string
@@ -508,25 +526,6 @@ func TestBucket_IterWithAttributes_EarlyReturnDoesNotLeakGoroutines(t *testing.T
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
-				cfg := DefaultConfig
-				cfg.Bucket = "test-bucket"
-				cfg.Endpoint = endpoint
-				cfg.Insecure = true
-				cfg.Region = "us-east-1"
-				cfg.AccessKey = "access-key"
-				cfg.SecretKey = "secret-key"
-				// Keep HTTP I/O inside the bubble without using real network connections.
-				cfg.HTTPConfig.Transport = roundTripperFunc(func(*http.Request) (*http.Response, error) {
-					w := httptest.NewRecorder()
-					w.Header().Set("Content-Type", "application/xml")
-					fmt.Fprint(w, `<ListBucketResult><Name>test-bucket</Name><IsTruncated>false</IsTruncated>`)
-					for i := 0; i < 100; i++ {
-						fmt.Fprintf(w, `<Contents><Key>obj-%d</Key></Contents>`, i)
-					}
-					fmt.Fprint(w, `</ListBucketResult>`)
-					return w.Result(), nil
-				})
-
 				bkt, err := NewBucketWithConfig(log.NewNopLogger(), cfg, "iteration-test", nil)
 				testutil.Ok(t, err)
 
@@ -540,18 +539,15 @@ func TestBucket_IterWithAttributes_EarlyReturnDoesNotLeakGoroutines(t *testing.T
 				err = bkt.IterWithAttributes(ctx, "", func(attrs objstore.IterObjectAttributes) error {
 					calls++
 					testutil.Equals(t, "obj-0", attrs.Name)
-					// Wait until the listing goroutine fills the channel and blocks on its next send.
 					synctest.Wait()
 					if tc.cancelContext {
 						cancel()
-						// Wait until the cancellation error send blocks on the full channel.
 						synctest.Wait()
 					}
 					return tc.wantErr
 				})
 				testutil.Equals(t, tc.wantErr, err)
 				testutil.Equals(t, 1, calls)
-				// synctest.Test fails if the listing goroutine remains blocked when the bubble exits.
 			})
 		})
 	}
