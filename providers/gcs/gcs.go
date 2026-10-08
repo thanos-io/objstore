@@ -43,7 +43,11 @@ var DefaultConfig = Config{
 type Config struct {
 	Bucket         string `yaml:"bucket"`
 	ServiceAccount string `yaml:"service_account"`
-	UseGRPC        bool   `yaml:"use_grpc"`
+	// Endpoint overrides the default GCS API endpoint. It is useful for GCP regional endpoints.
+	// See https://cloud.google.com/storage/docs/regional-endpoints.
+	// If empty, the client library's default endpoint is used.
+	Endpoint string `yaml:"endpoint"`
+	UseGRPC  bool   `yaml:"use_grpc"`
 	// GRPCConnPoolSize controls the size of the gRPC connection pool and should only be used
 	// when direct path is not enabled.
 	// See https://pkg.go.dev/cloud.google.com/go/storage#hdr-Experimental_gRPC_API for more details
@@ -116,6 +120,9 @@ func NewBucketWithConfig(ctx context.Context, logger log.Logger, gc Config, comp
 	opts = append(opts,
 		option.WithUserAgent(fmt.Sprintf("thanos-%s/%s (%s)", component, version.Version, runtime.Version())),
 	)
+	if gc.Endpoint != "" {
+		opts = append(opts, option.WithEndpoint(gc.Endpoint))
+	}
 
 	if !gc.UseGRPC {
 		var err error
