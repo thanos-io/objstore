@@ -416,7 +416,16 @@ func (b *Bucket) IterWithAttributes(ctx context.Context, dir string, f func(attr
 		UseV1:     b.listObjectsV1,
 	}
 
-	for object := range b.client.ListObjects(ctx, b.name, opts) {
+	listCtx, cancel := context.WithCancel(ctx)
+	objects := b.client.ListObjects(listCtx, b.name, opts)
+	// minio-go requires the channel to be drained after canceling, otherwise its listing goroutine leaks.
+	defer func() {
+		cancel()
+		for range objects {
+		}
+	}()
+
+	for object := range objects {
 		// Catch the error when failed to list objects.
 		if object.Err != nil {
 			return object.Err

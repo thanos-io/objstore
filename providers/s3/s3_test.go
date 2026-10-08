@@ -7,16 +7,20 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/efficientgo/core/testutil"
 	"github.com/go-kit/log"
 	"github.com/minio/minio-go/v7/pkg/encrypt"
+	"github.com/pkg/errors"
 
+	"github.com/thanos-io/objstore"
 	"github.com/thanos-io/objstore/errutil"
 	"github.com/thanos-io/objstore/exthttp"
 )
@@ -483,4 +487,74 @@ func TestNewBucketWithErrorRoundTripper(t *testing.T) {
 	// We expect an error from the RoundTripper
 	testutil.NotOk(t, err)
 	testutil.Assert(t, errutil.IsMockedError(err), "Expected RoundTripper error, got: %v", err)
+}
+
+func TestBucket_IterWithAttributes_EarlyReturnDoesNotLeakGoroutines(t *testing.T) {
+	cfg := Config{
+		Bucket:    "test-bucket",
+		Endpoint:  endpoint,
+		Region:    "us-east-1",
+		AccessKey: "access-key",
+		SecretKey: "secret-key",
+	}
+	cfg.HTTPConfig.Transport = roundTripperFunc(func(*http.Request) (*http.Response, error) {
+		w := httptest.NewRecorder()
+		w.Header().Set("Content-Type", "application/xml")
+		fmt.Fprint(w, `<ListBucketResult><Name>test-bucket</Name><IsTruncated>false</IsTruncated>`)
+		for i := 0; i < 100; i++ {
+			fmt.Fprintf(w, `<Contents><Key>obj-%d</Key></Contents>`, i)
+		}
+		fmt.Fprint(w, `</ListBucketResult>`)
+		return w.Result(), nil
+	})
+
+	errStop := errors.New("stop")
+	for _, tc := range []struct {
+		name          string
+		cancelContext bool
+		wantErr       error
+	}{
+		{
+			name:    "callback error",
+			wantErr: errStop,
+		},
+		{
+			name:          "context canceled while callback is blocked",
+			cancelContext: true,
+			wantErr:       context.Canceled,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				bkt, err := NewBucketWithConfig(log.NewNopLogger(), cfg, "iteration-test", nil)
+				testutil.Ok(t, err)
+
+				ctx := context.Background()
+				var cancel context.CancelFunc
+				if tc.cancelContext {
+					ctx, cancel = context.WithCancel(ctx)
+					defer cancel()
+				}
+				calls := 0
+				err = bkt.IterWithAttributes(ctx, "", func(attrs objstore.IterObjectAttributes) error {
+					calls++
+					testutil.Equals(t, "obj-0", attrs.Name)
+					synctest.Wait()
+					if tc.cancelContext {
+						cancel()
+						synctest.Wait()
+					}
+					return tc.wantErr
+				})
+				testutil.Equals(t, tc.wantErr, err)
+				testutil.Equals(t, 1, calls)
+			})
+		})
+	}
+}
+
+type roundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
+	return f(r)
 }

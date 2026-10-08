@@ -17,7 +17,9 @@ import (
 	"github.com/go-kit/log"
 	"github.com/minio/minio-go/v7/pkg/encrypt"
 
+	"github.com/thanos-io/objstore"
 	"github.com/thanos-io/objstore/exthttp"
+	"github.com/thanos-io/objstore/objtesting"
 	"github.com/thanos-io/objstore/providers/s3"
 	"github.com/thanos-io/objstore/test/e2e/e2ethanos"
 )
@@ -61,6 +63,10 @@ func BenchmarkUpload(b *testing.B) {
 }
 
 func TestSSECencryption(t *testing.T) {
+	if objtesting.IsObjStoreSkipped(t, objstore.S3) {
+		t.Skip("S3 integration tests are disabled")
+	}
+
 	ctx := context.Background()
 	e, err := e2e.NewDockerEnvironment("e2e-ssec", e2e.WithLogger(log.NewNopLogger()))
 	testutil.Ok(t, err)
