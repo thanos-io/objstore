@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -510,6 +511,41 @@ func TestBucket_Get_ShouldReturnErrorIfServerTruncateResponse(t *testing.T) {
 	// We expect an error when reading back.
 	_, err = io.ReadAll(reader)
 	testutil.Equals(t, io.ErrUnexpectedEOF, err)
+}
+
+func TestBucket_SignatureVersion(t *testing.T) {
+	for _, tc := range []struct {
+		name               string
+		signatureV2        bool
+		expectedAuthPrefix string
+	}{
+		{name: "v4", signatureV2: false, expectedAuthPrefix: "AWS4-HMAC-SHA256 Credential"},
+		{name: "v2", signatureV2: true, expectedAuthPrefix: "AWS "}, // the trailing space is intentional
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var authHeader string
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				authHeader = r.Header.Get("Authorization")
+			}))
+			defer srv.Close()
+
+			cfg := DefaultConfig
+			cfg.Bucket = "test-bucket"
+			cfg.Endpoint = srv.Listener.Addr().String()
+			cfg.Insecure = true
+			cfg.Region = "test-region"
+			cfg.AccessKey = "test-access-key"
+			cfg.SecretKey = "test-secret-key"
+			cfg.SignatureV2 = tc.signatureV2
+
+			bkt, err := NewBucketWithConfig(log.NewNopLogger(), cfg, "test", nil)
+			testutil.Ok(t, err)
+
+			_, _ = bkt.Exists(context.Background(), "test")
+
+			testutil.Assert(t, strings.HasPrefix(authHeader, tc.expectedAuthPrefix), "expected auth prefix %q, got %q", tc.expectedAuthPrefix, authHeader)
+		})
+	}
 }
 
 func TestParseConfig_CustomStorageClass(t *testing.T) {
