@@ -15,6 +15,8 @@ import (
 	"testing/synctest"
 	"time"
 
+	"go.uber.org/atomic"
+
 	"github.com/efficientgo/core/testutil"
 	"github.com/go-kit/log"
 	"github.com/minio/minio-go/v7/pkg/encrypt"
@@ -416,6 +418,68 @@ func TestBucket_getServerSideEncryption(t *testing.T) {
 	sse, err = bkt.getServerSideEncryption(context.WithValue(context.Background(), sseConfigKey, override))
 	testutil.Ok(t, err)
 	testutil.Equals(t, encrypt.KMS, sse.Type())
+}
+
+type noSizerSpamReader struct {
+	n int
+}
+
+var _ io.Reader = &noSizerSpamReader{}
+
+func (n *noSizerSpamReader) ObjectSizer() (int64, error) {
+	return -1, nil
+}
+
+func (n *noSizerSpamReader) Read(p []byte) (int, error) {
+	if n.n <= 0 {
+		return 0, io.EOF
+	}
+	var i int
+	for i < len(p) && n.n > 0 {
+		p[i] = byte(42)
+		i++
+		n.n -= 1
+	}
+	return i, nil
+}
+
+func TestBucket_Put_PartSizeRespected(t *testing.T) {
+	var firstReqResponse, triggeredCondition atomic.Bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !firstReqResponse.Load() {
+			_, err := w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
+<InitiateMultipartUploadResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+    <Bucket>example-bucket</Bucket>
+    <Key>large-file.zip</Key>
+    <UploadId>7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a</UploadId>
+</InitiateMultipartUploadResult>`))
+			testutil.Ok(t, err)
+			firstReqResponse.Store(true)
+			return
+		}
+
+		if r.Header.Get("X-Amz-Content-Sha256") == "STREAMING-AWS4-HMAC-SHA256-PAYLOAD" {
+			triggeredCondition.Store(true)
+			testutil.Equals(t, r.Header.Get("X-Amz-Decoded-Content-Length"), "5242880")
+		}
+	}))
+	defer srv.Close()
+
+	cfg := DefaultConfig
+	cfg.Bucket = "test-bucket"
+	cfg.Endpoint = srv.Listener.Addr().String()
+	cfg.Insecure = true
+	cfg.Region = "test123"
+	cfg.AccessKey = "test123"
+	cfg.SecretKey = "test123"
+	cfg.PartSize = 5 * 1024 * 1024
+
+	bkt, err := NewBucketWithConfig(log.NewNopLogger(), cfg, "test", nil)
+	testutil.Ok(t, err)
+
+	testutil.NotOk(t, bkt.Upload(t.Context(), "foo", &noSizerSpamReader{n: 10 * 1024 * 1024}))
+	testutil.Equals(t, true, triggeredCondition.Load())
+
 }
 
 func TestBucket_Get_ShouldReturnErrorIfServerTruncateResponse(t *testing.T) {
