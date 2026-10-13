@@ -171,6 +171,7 @@ Providers with conditional write support include:
 - Google Cloud Storage ([cloud provider documentation](https://cloud.google.com/storage/docs/request-preconditions)))
 - Azure Storage Buckets ([cloud provider documentation](https://learn.microsoft.com/en-us/rest/api/storageservices/specifying-conditional-headers-for-blob-service-operations))
 - S3 ([cloud provider documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/conditional-writes.html)). `IfNotMatch` is currently not supported by AWS.
+- Oracle Cloud Infrastructure Object Storage ([cloud provider documentation](https://docs.oracle.com/en-us/iaas/api/#/en/objectstorage/20160918/Object/PutObject)). `IfNotMatch` is not supported because OCI only accepts `*` for `If-None-Match` on `PutObject`; conditional uploads are limited to 50 GiB.
 - Local Filesystem (for testing and demos). Only supported by filesystems with extended attribute (`xattr`) support.
 
 ##### S3
