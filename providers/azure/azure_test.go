@@ -51,6 +51,17 @@ pipeline_config:
 		wantFailValidate: true,
 	},
 	{
+		name: "Connection string without storage account",
+		config: []byte(`storage_connection_string: "DefaultEndpointsProtocol=https;AccountName=myAccount;AccountKey=bXlTdXBlclNlY3JldEtleTEyMyFAIw==;EndpointSuffix=core.windows.net"
+container: "MyContainer"
+reader_config:
+  "max_retry_requests": 100
+pipeline_config:
+  "try_timeout": 0`),
+		wantFailParse:    false,
+		wantFailValidate: false,
+	},
+	{
 		name: "Negative max_tries",
 		config: []byte(`storage_account: "asdfasdf"
 storage_account_key: "asdfsdf"
