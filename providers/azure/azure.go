@@ -100,8 +100,9 @@ func (conf *Config) validate() error {
 		errMsg = append(errMsg, "storage_account_key and storage_connection_string cannot both be set")
 	}
 
-	if conf.StorageAccountName == "" {
-		errMsg = append(errMsg, "storage_account_name is required but not configured")
+	// The account name is part of the connection string, so it only has to be set separately without one.
+	if conf.StorageAccountName == "" && conf.StorageConnectionString == "" {
+		errMsg = append(errMsg, "storage_account_name is required but not configured when storage_connection_string is not set")
 	}
 
 	if conf.ContainerName == "" {

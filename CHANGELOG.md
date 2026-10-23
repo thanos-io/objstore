@@ -16,6 +16,7 @@ We use *breaking :warning:* to mark changes that are not backward compatible (re
 - [#178](https://github.com/thanos-io/objstore/pull/178) Feature: conditional upload API
 
 ### Fixed
+- [#90](https://github.com/thanos-io/objstore/issues/90) Azure: `storage_account` is no longer required when `storage_connection_string` is set.
 - [#287](https://github.com/thanos-io/objstore/pull/287) S3: Fix goroutine leak in `Iter` and `IterWithAttributes` when iteration stops early.
 - [#196](https://github.com/thanos-io/objstore/pull/196) GCS: fix error check in Exists method when object does not exist.
 - [#153](https://github.com/thanos-io/objstore/pull/153) Metrics: Fix `objstore_bucket_operation_duration_seconds_*` for `get` and `get_range` operations.
