@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -161,6 +163,171 @@ http_config:
 		})
 	}
 }
+
+func TestParseConfig_Endpoint(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		input      string
+		assertions func(cfg Config)
+	}{
+		{
+			name:  "DefaultEndpoint",
+			input: `bucket: abcd`,
+			assertions: func(cfg Config) {
+				testutil.Equals(t, "", cfg.Endpoint)
+			},
+		},
+		{
+			name: "CustomEndpoint",
+			input: `bucket: abcd
+endpoint: https://storage.europe-west3.rep.googleapis.com`,
+			assertions: func(cfg Config) {
+				testutil.Equals(t, "https://storage.europe-west3.rep.googleapis.com", cfg.Endpoint)
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg, err := parseConfig([]byte(tc.input))
+			testutil.Ok(t, err)
+			tc.assertions(cfg)
+		})
+	}
+}
+
+func TestNormalizeEndpoint(t *testing.T) {
+	const regional = "https://storage.europe-west3.rep.googleapis.com"
+	for _, tc := range []struct {
+		name     string
+		endpoint string
+		useGRPC  bool
+		expected string
+		wantErr  bool
+	}{
+		{
+			name:     "RegionalEndpointGetsAPIPath",
+			endpoint: regional,
+			expected: regional + "/storage/v1/",
+		},
+		{
+			name:     "TrailingSlashAdded",
+			endpoint: regional + "/storage/v1",
+			expected: regional + "/storage/v1/",
+		},
+		{
+			name:     "ExplicitPathKept",
+			endpoint: "http://localhost:4443/custom/",
+			expected: "http://localhost:4443/custom/",
+		},
+		{
+			name:     "MissingSchemeRejected",
+			endpoint: "storage.googleapis.com",
+			wantErr:  true,
+		},
+		{
+			name:     "GRPCHostPortKept",
+			endpoint: "storage.googleapis.com:443",
+			useGRPC:  true,
+			expected: "storage.googleapis.com:443",
+		},
+		{
+			name:     "GRPCWithSchemeRejected",
+			endpoint: regional,
+			useGRPC:  true,
+			wantErr:  true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := normalizeEndpoint(tc.endpoint, tc.useGRPC)
+			if tc.wantErr {
+				testutil.NotOk(t, err)
+				return
+			}
+			testutil.Ok(t, err)
+			testutil.Equals(t, tc.expected, got)
+		})
+	}
+}
+
+func TestNewBucketWithConfig_CustomEndpoint(t *testing.T) {
+	svr, err := gcsemu.NewServer("127.0.0.1:0", gcsemu.Options{})
+	testutil.Ok(t, err)
+	defer svr.Close()
+
+	// Otherwise the client picks up the emulator host from the environment and the
+	// request we assert on never leaves for the configured endpoint.
+	t.Setenv("STORAGE_EMULATOR_HOST", "")
+
+	var (
+		mu   sync.Mutex
+		urls []string
+	)
+	wrapRoundtripper := func(rt http.RoundTripper) http.RoundTripper {
+		return roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			mu.Lock()
+			urls = append(urls, r.URL.String())
+			mu.Unlock()
+			return rt.RoundTrip(r)
+		})
+	}
+
+	cfg := Config{
+		Bucket:   "test-bucket",
+		Endpoint: "http://" + svr.Addr,
+		noAuth:   true,
+	}
+
+	bkt, err := NewBucketWithConfig(context.Background(), log.NewNopLogger(), cfg, "test", wrapRoundtripper)
+	testutil.Ok(t, err)
+	defer bkt.Close()
+
+	// Exists issues a real request, so this fails if the endpoint is dropped or the
+	// JSON API path is missing.
+	_, err = bkt.Exists(context.Background(), "test-object")
+	testutil.Ok(t, err)
+
+	mu.Lock()
+	defer mu.Unlock()
+	testutil.Assert(t, len(urls) > 0, "expected a request to the custom endpoint")
+	for _, u := range urls {
+		testutil.Assert(t, strings.HasPrefix(u, "http://"+svr.Addr+"/storage/v1/"), "request went to unexpected url %q", u)
+	}
+}
+
+func TestNewBucketWithConfig_CustomEndpoint_GRPC(t *testing.T) {
+	svr, err := gcsemu.NewServer("127.0.0.1:0", gcsemu.Options{})
+	testutil.Ok(t, err)
+	defer svr.Close()
+
+	t.Setenv("STORAGE_EMULATOR_HOST", "")
+
+	cfg := Config{
+		Bucket:   "test-bucket",
+		UseGRPC:  true,
+		Endpoint: svr.Addr,
+		noAuth:   true,
+	}
+
+	bkt, err := NewBucketWithConfig(context.Background(), log.NewNopLogger(), cfg, "test", nil)
+	testutil.Ok(t, err)
+	testutil.Assert(t, bkt != nil, "expected bucket to be created with custom grpc endpoint")
+}
+
+func TestNewBucketWithConfig_CustomEndpointGRPCRejectsURL(t *testing.T) {
+	cfg := Config{
+		Bucket:   "test-bucket",
+		UseGRPC:  true,
+		Endpoint: "https://storage.europe-west3.rep.googleapis.com",
+		noAuth:   true,
+	}
+
+	_, err := NewBucketWithConfig(context.Background(), log.NewNopLogger(), cfg, "test", nil)
+	testutil.NotOk(t, err)
+	testutil.Assert(t, strings.Contains(err.Error(), "host:port"), "unexpected error: %v", err)
+}
+
+type roundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
 func TestNewBucketWithErrorRoundTripper(t *testing.T) {
 	cfg := Config{

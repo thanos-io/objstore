@@ -14,6 +14,7 @@ We use *breaking :warning:* to mark changes that are not backward compatible (re
 - [#145](https://github.com/thanos-io/objstore/pull/145) Include content length in the response of Get and GetRange.
 - [#157](https://github.com/thanos-io/objstore/pull/157) Azure: Add `az_tenant_id`, `client_id` and `client_secret` configs.
 - [#178](https://github.com/thanos-io/objstore/pull/178) Feature: conditional upload API
+- [#257](https://github.com/thanos-io/objstore/pull/257) GCS: Add `endpoint` config for regional endpoints and GCS-compatible backends.
 
 ### Fixed
 - [#287](https://github.com/thanos-io/objstore/pull/287) S3: Fix goroutine leak in `Iter` and `IterWithAttributes` when iteration stops early.

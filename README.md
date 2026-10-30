@@ -413,8 +413,13 @@ config:
     disable_compression: false
   chunk_size_bytes: 0
   max_retries: 0
+  endpoint: ""
 prefix: ""
 ```
+
+###### Custom endpoint
+
+Set `endpoint` to use a [GCS regional endpoint](https://cloud.google.com/storage/docs/regional-endpoints) or a GCS-compatible backend. For the HTTP client the value is a URL. The JSON API path `/storage/v1/` is added when the URL has no path, so `https://storage.europe-west3.rep.googleapis.com` works as is. For the gRPC client (`use_grpc: true`) the value must be `host:port`, for example `storage.europe-west3.rep.googleapis.com:443`. The configured credentials are sent to this endpoint.
 
 ###### Using GOOGLE_APPLICATION_CREDENTIALS
 

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"runtime"
 	"strconv"
 	"strings"
@@ -61,6 +62,14 @@ type Config struct {
 	// Overrides the default gcs storage client behavior if this value is greater than 0.
 	// Set this to 1 to disable retries.
 	MaxRetries int `yaml:"max_retries"`
+
+	// Endpoint specifies the GCS API endpoint to use.
+	// This can be used to point to GCS regional endpoints or GCS-compatible storage backends.
+	// See https://cloud.google.com/storage/docs/regional-endpoints for more details.
+	// For the HTTP client the value is a URL and defaults to the standard JSON API path
+	// when no path is set. For the gRPC client the value must be host:port.
+	// Note that the configured credentials are sent to this endpoint.
+	Endpoint string `yaml:"endpoint"`
 }
 
 var errConditionInvalid = errors.New("invalid condition: gcs supports generational object versions")
@@ -117,6 +126,14 @@ func NewBucketWithConfig(ctx context.Context, logger log.Logger, gc Config, comp
 		option.WithUserAgent(fmt.Sprintf("thanos-%s/%s (%s)", component, version.Version, runtime.Version())),
 	)
 
+	if gc.Endpoint != "" {
+		endpoint, err := normalizeEndpoint(gc.Endpoint, gc.UseGRPC)
+		if err != nil {
+			return nil, err
+		}
+		opts = append(opts, option.WithEndpoint(endpoint))
+	}
+
 	if !gc.UseGRPC {
 		var err error
 		opts, err = appendHttpOptions(gc, opts, wrapRoundtripper)
@@ -126,6 +143,33 @@ func NewBucketWithConfig(ctx context.Context, logger log.Logger, gc Config, comp
 	}
 
 	return newBucket(ctx, logger, gc, opts)
+}
+
+// normalizeEndpoint puts the configured endpoint in the form the client expects.
+// HTTP takes a JSON API base path, gRPC takes host:port.
+func normalizeEndpoint(endpoint string, useGRPC bool) (string, error) {
+	if useGRPC {
+		// A scheme would be read as a resolver scheme and the default port would be lost.
+		if strings.Contains(endpoint, "://") {
+			return "", errors.Errorf("gcs endpoint %q must be host:port when use_grpc is set", endpoint)
+		}
+		return endpoint, nil
+	}
+
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return "", errors.Wrapf(err, "parse gcs endpoint %q", endpoint)
+	}
+	if u.Scheme == "" || u.Host == "" {
+		return "", errors.Errorf("gcs endpoint %q must be an absolute URL, e.g. https://storage.googleapis.com/storage/v1/", endpoint)
+	}
+	if u.Path == "" || u.Path == "/" {
+		u.Path = "/storage/v1/"
+	}
+	if !strings.HasSuffix(u.Path, "/") {
+		u.Path += "/"
+	}
+	return u.String(), nil
 }
 
 func appendHttpOptions(gc Config, opts []option.ClientOption, wrapRoundtripper func(http.RoundTripper) http.RoundTripper) ([]option.ClientOption, error) {
