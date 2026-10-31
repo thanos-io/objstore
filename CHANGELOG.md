@@ -9,6 +9,7 @@ NOTE: As semantic versioning states all 0.y.z releases can contain breaking chan
 We use *breaking :warning:* to mark changes that are not backward compatible (relates only to v0.y.z releases.)
 
 ## Unreleased
+- [#263](https://github.com/thanos-io/objstore/pull/263) Azure: Support for Azure Active directory Override
 - [#165](https://github.com/thanos-io/objstore/pull/165) GCS: Upgrade cloud.google.com/go/storage version to `v1.50.0`.
 - [#38](https://github.com/thanos-io/objstore/pull/38) GCS: Upgrade cloud.google.com/go/storage version to `v1.43.0`.
 - [#145](https://github.com/thanos-io/objstore/pull/145) Include content length in the response of Get and GetRange.
