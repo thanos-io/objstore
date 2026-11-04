@@ -492,166 +492,81 @@ func (r dummyReader) Read(_ []byte) (int, error) {
 	return 0, r.err
 }
 
-// flakyReaderAt fails the first ReadAt() call at a given offset and succeeds afterward,
-// simulating a transient error that gets retried by a caller (e.g. an SDK's multipart uploader).
-type flakyReaderAt struct {
-	*bytes.Reader
-	failedOnce bool
-}
-
-func (f *flakyReaderAt) ReadAt(p []byte, off int64) (int, error) {
-	if !f.failedOnce {
-		f.failedOnce = true
-		return 0, errors.New("transient error")
-	}
-	return f.Reader.ReadAt(p, off)
-}
-
-// alwaysFailReaderAt fails every ReadAt() call, simulating a permanent, never-retried error.
-type alwaysFailReaderAt struct {
-	*bytes.Reader
-	err error
-}
-
-func (f *alwaysFailReaderAt) ReadAt(_ []byte, _ int64) (int, error) {
-	return 0, f.err
-}
-
 func histogramSumAndCount(t testing.TB, obs prometheus.Observer) (sum float64, count uint64) {
 	var dm dto.Metric
 	testutil.Ok(t, obs.(prometheus.Histogram).Write(&dm))
 	return dm.GetHistogram().GetSampleSum(), dm.GetHistogram().GetSampleCount()
 }
 
-func TestTimingReader_ReadAtUnexpectedErrorRecordsFailure(t *testing.T) {
+func TestMetricBucket_UploadKnownSizeRecordedAtOperationBoundary(t *testing.T) {
 	data := []byte("hello world")
-	fr := &alwaysFailReaderAt{Reader: bytes.NewReader(data), err: errors.New("permanent disk error")}
+	reader := bytes.NewReader(data)
+	b := &mockBucket{
+		Bucket: NewInMemBucket(),
+		upload: func(_ context.Context, _ string, r io.Reader, _ ...ObjectUploadOption) error {
+			testutil.Equals(t, io.Reader(reader), r)
+			_, err := r.(io.ReaderAt).ReadAt(make([]byte, len(data)), 0)
+			return err
+		},
+	}
+	m := WrapWithMetrics(b, nil, "")
 
-	m := WrapWithMetrics(NewInMemBucket(), nil, "")
-	tr := newTimingReader(time.Now(), fr, true, OpUpload, m.metrics.opsDuration, m.metrics.opsFailures, func(err error) bool {
-		return false
-	}, nil, m.metrics.opsTransferredBytes)
+	testutil.Ok(t, m.Upload(context.Background(), "object", reader))
+	sum, count := histogramSumAndCount(t, m.metrics.opsTransferredBytes.WithLabelValues(OpUpload))
+	testutil.Equals(t, float64(len(data)), sum)
+	testutil.Equals(t, uint64(1), count)
+}
 
-	ra, ok := tr.(io.ReaderAt)
-	testutil.Assert(t, ok)
+func TestMetricBucket_UploadFailureDoesNotRecordTransfer(t *testing.T) {
+	uploadErr := errors.New("upload failed")
+	b := &mockBucket{
+		Bucket: NewInMemBucket(),
+		upload: func(context.Context, string, io.Reader, ...ObjectUploadOption) error {
+			return uploadErr
+		},
+	}
+	m := WrapWithMetrics(b, nil, "")
 
-	_, err := ra.ReadAt(make([]byte, len(data)), 0)
-	testutil.NotOk(t, err)
-
-	testutil.Ok(t, tr.Close())
-
-	// A permanent ReadAt error that is never retried successfully must be counted as a failure,
-	// and must not be reported as a successful transfer.
-	testutil.Equals(t, float64(1), promtest.ToFloat64(m.metrics.opsFailures.WithLabelValues(OpUpload)))
+	err := m.Upload(context.Background(), "object", bytes.NewReader([]byte("data")))
+	testutil.Equals(t, uploadErr, err)
 	_, count := histogramSumAndCount(t, m.metrics.opsTransferredBytes.WithLabelValues(OpUpload))
 	testutil.Equals(t, uint64(0), count)
 }
 
-func TestTimingReader_ReadAtExpectedErrorNotCounted(t *testing.T) {
-	readerErr := errors.New("expected sentinel error")
-
-	for name, tc := range map[string]struct {
-		err               error
-		isFailureExpected IsOpFailureExpectedFunc
-	}{
-		"error explicitly marked as expected": {
-			err:               readerErr,
-			isFailureExpected: func(err error) bool { return errors.Is(err, readerErr) },
-		},
-		"io.EOF": {
-			err:               io.EOF,
-			isFailureExpected: func(err error) bool { return false },
-		},
-		"context.Canceled": {
-			err:               context.Canceled,
-			isFailureExpected: func(err error) bool { return false },
-		},
-	} {
-		t.Run(name, func(t *testing.T) {
-			data := []byte("hello world")
-			fr := &alwaysFailReaderAt{Reader: bytes.NewReader(data), err: tc.err}
-
-			m := WrapWithMetrics(NewInMemBucket(), nil, "")
-			tr := newTimingReader(time.Now(), fr, true, OpUpload, m.metrics.opsDuration, m.metrics.opsFailures, tc.isFailureExpected, nil, m.metrics.opsTransferredBytes)
-
-			ra, ok := tr.(io.ReaderAt)
-			testutil.Assert(t, ok)
-
-			_, err := ra.ReadAt(make([]byte, len(data)), 0)
-			testutil.Equals(t, tc.err, err)
-
-			testutil.Ok(t, tr.Close())
-
-			// None of these errors must be counted as a failure, even though the ReadAt() call
-			// never succeeded.
-			testutil.Equals(t, float64(0), promtest.ToFloat64(m.metrics.opsFailures.WithLabelValues(OpUpload)))
-		})
-	}
-}
-
-func TestTimingReader_ReadAtRetryAtSameOffsetDoesNotDoubleCount(t *testing.T) {
+func TestMetricBucket_UploadUnknownSizeFallsBackToReaderCounting(t *testing.T) {
 	data := []byte("hello world")
-	fr := &flakyReaderAt{Reader: bytes.NewReader(data)}
+	reader := struct{ io.Reader }{Reader: bytes.NewBuffer(data)}
+	b := &mockBucket{
+		Bucket: NewInMemBucket(),
+		upload: func(_ context.Context, _ string, r io.Reader, _ ...ObjectUploadOption) error {
+			_, err := io.Copy(io.Discard, r)
+			return err
+		},
+	}
+	m := WrapWithMetrics(b, nil, "")
 
-	m := WrapWithMetrics(NewInMemBucket(), nil, "")
-	tr := newTimingReader(time.Now(), fr, true, OpUpload, m.metrics.opsDuration, m.metrics.opsFailures, func(err error) bool {
-		return false
-	}, nil, m.metrics.opsTransferredBytes)
-
-	ra, ok := tr.(io.ReaderAt)
-	testutil.Assert(t, ok)
-
-	buf := make([]byte, len(data))
-	_, err := ra.ReadAt(buf, 0)
-	testutil.NotOk(t, err)
-
-	n, err := ra.ReadAt(buf, 0)
-	testutil.Ok(t, err)
-	testutil.Equals(t, len(data), n)
-
-	testutil.Ok(t, tr.Close())
-
-	// A transient ReadAt error that was retried and ultimately succeeded at the same offset must
-	// not be counted as a failure, nor double-count the bytes read across both attempts.
-	testutil.Equals(t, float64(0), promtest.ToFloat64(m.metrics.opsFailures.WithLabelValues(OpUpload)))
+	testutil.Ok(t, m.Upload(context.Background(), "object", reader))
 	sum, count := histogramSumAndCount(t, m.metrics.opsTransferredBytes.WithLabelValues(OpUpload))
 	testutil.Equals(t, float64(len(data)), sum)
 	testutil.Equals(t, uint64(1), count)
 }
 
-func TestTimingReader_ReadAtHappyPathAcrossMultipleOffsets(t *testing.T) {
-	data := []byte("hello world!") // 12 bytes
-	r := bytes.NewReader(data)
-
-	m := WrapWithMetrics(NewInMemBucket(), nil, "")
-	tr := newTimingReader(time.Now(), r, true, OpUpload, m.metrics.opsDuration, m.metrics.opsFailures, func(err error) bool {
-		return false
-	}, m.metrics.opsFetchedBytes, m.metrics.opsTransferredBytes)
-
-	ra, ok := tr.(io.ReaderAt)
-	testutil.Assert(t, ok)
-
-	// Read every chunk of the object at a distinct offset, all succeeding on the first
-	// attempt, simulating a multipart upload's parts.
-	const chunkSize = 4
-	for off := 0; off < len(data); off += chunkSize {
-		buf := make([]byte, chunkSize)
-		n, err := ra.ReadAt(buf, int64(off))
-		testutil.Ok(t, err)
-		testutil.Equals(t, chunkSize, n)
+func TestMetricBucket_UploadUnknownSizeFailureCountedOnce(t *testing.T) {
+	readerErr := errors.New("reader failed")
+	b := &mockBucket{
+		Bucket: NewInMemBucket(),
+		upload: func(_ context.Context, _ string, r io.Reader, _ ...ObjectUploadOption) error {
+			_, err := io.Copy(io.Discard, r)
+			return err
+		},
 	}
+	m := WrapWithMetrics(b, nil, "")
 
-	testutil.Ok(t, tr.Close())
-
-	testutil.Equals(t, float64(0), promtest.ToFloat64(m.metrics.opsFailures.WithLabelValues(OpUpload)))
-
-	// transferredBytes must sum across all offsets, not just reflect one of them.
-	sum, count := histogramSumAndCount(t, m.metrics.opsTransferredBytes.WithLabelValues(OpUpload))
-	testutil.Equals(t, float64(len(data)), sum)
-	testutil.Equals(t, uint64(1), count)
-
-	// fetchedBytes must be incremented for ReadAt() calls too, same as for Read().
-	testutil.Equals(t, float64(len(data)), promtest.ToFloat64(m.metrics.opsFetchedBytes.WithLabelValues(OpUpload)))
+	err := m.Upload(context.Background(), "object", dummyReader{err: readerErr})
+	testutil.Equals(t, readerErr, err)
+	testutil.Equals(t, float64(1), promtest.ToFloat64(m.metrics.opsFailures.WithLabelValues(OpUpload)))
+	_, count := histogramSumAndCount(t, m.metrics.opsTransferredBytes.WithLabelValues(OpUpload))
+	testutil.Equals(t, uint64(0), count)
 }
 
 func TestTimingReader_ShouldCorrectlyWrapFile(t *testing.T) {
