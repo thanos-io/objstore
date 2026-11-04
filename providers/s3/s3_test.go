@@ -11,6 +11,9 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -621,4 +624,52 @@ type roundTripperFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
 	return f(r)
+}
+
+func TestBucket_AWSSDKAuth_CredentialErrorDoesNotFallBackToAnonymous(t *testing.T) {
+	var s3Requests, stsRequests atomic.Int32
+
+	s3Srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		s3Requests.Add(1)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer s3Srv.Close()
+
+	stsSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		stsRequests.Add(1)
+		w.Header().Set("Content-Type", "text/xml")
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`<ErrorResponse xmlns="https://sts.amazonaws.com/doc/2011-06-15/"><Error><Type>Sender</Type><Code>AccessDenied</Code><Message>denied</Message></Error><RequestId>1</RequestId></ErrorResponse>`))
+	}))
+	defer stsSrv.Close()
+
+	tokenFile := filepath.Join(t.TempDir(), "token")
+	testutil.Ok(t, os.WriteFile(tokenFile, []byte("token"), 0o600))
+
+	// Make the AWS SDK default chain resolve only to web identity against the fake STS.
+	for _, k := range []string{"AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN", "AWS_PROFILE"} {
+		t.Setenv(k, "")
+	}
+	t.Setenv("AWS_EC2_METADATA_DISABLED", "true")
+	t.Setenv("AWS_CONFIG_FILE", filepath.Join(t.TempDir(), "config"))
+	t.Setenv("AWS_SHARED_CREDENTIALS_FILE", filepath.Join(t.TempDir(), "credentials"))
+	t.Setenv("AWS_ENDPOINT_URL_STS", stsSrv.URL)
+	t.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", tokenFile)
+	t.Setenv("AWS_ROLE_ARN", "arn:aws:iam::123456789012:role/test")
+
+	cfg := DefaultConfig
+	cfg.Bucket = "test-bucket"
+	cfg.Endpoint = s3Srv.Listener.Addr().String()
+	cfg.Insecure = true
+	cfg.Region = "us-east-1"
+	cfg.AWSSDKAuth = true
+
+	bkt, err := NewBucketWithConfig(log.NewNopLogger(), cfg, "test", nil)
+	testutil.Ok(t, err)
+
+	err = bkt.Upload(context.Background(), "obj", strings.NewReader("data"))
+	testutil.NotOk(t, err)
+	testutil.Assert(t, strings.Contains(err.Error(), "retrieve AWS SDK credentials"), "expected credential retrieval error, got: %v", err)
+	testutil.Assert(t, stsRequests.Load() > 0, "expected STS to be called")
+	testutil.Equals(t, int32(0), s3Requests.Load())
 }
