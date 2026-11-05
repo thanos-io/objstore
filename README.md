@@ -48,7 +48,7 @@ See [MAINTAINERS.md](https://github.com/thanos-io/thanos/blob/main/MAINTAINERS.m
 
 The core this module is the [`Bucket` interface](objstore.go):
 
-```go mdox-exec="sed -n '55,76p' objstore.go"
+```go mdox-exec="sed -n '56,77p' objstore.go"
 // Bucket provides read and write access to an object storage bucket.
 // NOTE: We assume strong consistency for write-read flow.
 type Bucket interface {
@@ -75,7 +75,7 @@ type Bucket interface {
 
 All [provider implementations](providers) have to implement `Bucket` interface that allows common read and write operations that all supported by all object providers. If you want to limit the code that will do bucket operation to only read access (smart idea, allowing to limit access permissions), you can use the [`BucketReader` interface](objstore.go):
 
-```go mdox-exec="sed -n '92,130p' objstore.go"
+```go mdox-exec="sed -n '93,131p' objstore.go"
 // BucketReader provides read access to an object storage bucket.
 type BucketReader interface {
 	// Iter calls f for each entry in the given directory (not recursive.). The argument to f is the full
