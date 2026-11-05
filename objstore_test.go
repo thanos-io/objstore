@@ -408,10 +408,10 @@ func TestDownloadUploadDirConcurrency(t *testing.T) {
 		`), `objstore_bucket_operations_total`))
 }
 
-func TestTimingReader(t *testing.T) {
+func TestMetricReadCloser(t *testing.T) {
 	m := WrapWithMetrics(NewInMemBucket(), nil, "")
 	r := bytes.NewReader([]byte("hello world"))
-	tr := newTimingReader(time.Now(), r, true, OpGet, m.metrics.opsDuration, m.metrics.opsFailures, func(err error) bool {
+	tr := newMetricReadCloser(time.Now(), r, OpGet, m.metrics.opsDuration, m.metrics.opsFailures, func(err error) bool {
 		return false
 	}, m.metrics.opsFetchedBytes, m.metrics.opsTransferredBytes)
 
@@ -441,12 +441,12 @@ func TestTimingReader(t *testing.T) {
 	testutil.Equals(t, float64(0), promtest.ToFloat64(m.metrics.opsFailures.WithLabelValues(OpGet)))
 }
 
-func TestTimingReader_ExpectedError(t *testing.T) {
+func TestMetricReadCloser_ExpectedError(t *testing.T) {
 	readerErr := errors.New("something went wrong")
 
 	m := WrapWithMetrics(NewInMemBucket(), nil, "")
 	r := dummyReader{readerErr}
-	tr := newTimingReader(time.Now(), r, true, OpGet, m.metrics.opsDuration, m.metrics.opsFailures, func(err error) bool { return errors.Is(err, readerErr) }, m.metrics.opsFetchedBytes, m.metrics.opsTransferredBytes)
+	tr := newMetricReadCloser(time.Now(), r, OpGet, m.metrics.opsDuration, m.metrics.opsFailures, func(err error) bool { return errors.Is(err, readerErr) }, m.metrics.opsFetchedBytes, m.metrics.opsTransferredBytes)
 
 	buf := make([]byte, 1)
 	_, err := io.ReadFull(tr, buf)
@@ -455,12 +455,12 @@ func TestTimingReader_ExpectedError(t *testing.T) {
 	testutil.Equals(t, float64(0), promtest.ToFloat64(m.metrics.opsFailures.WithLabelValues(OpGet)))
 }
 
-func TestTimingReader_UnexpectedError(t *testing.T) {
+func TestMetricReadCloser_UnexpectedError(t *testing.T) {
 	readerErr := errors.New("something went wrong")
 
 	m := WrapWithMetrics(NewInMemBucket(), nil, "")
 	r := dummyReader{readerErr}
-	tr := newTimingReader(time.Now(), r, true, OpGet, m.metrics.opsDuration, m.metrics.opsFailures, func(err error) bool { return false }, m.metrics.opsFetchedBytes, m.metrics.opsTransferredBytes)
+	tr := newMetricReadCloser(time.Now(), r, OpGet, m.metrics.opsDuration, m.metrics.opsFailures, func(err error) bool { return false }, m.metrics.opsFetchedBytes, m.metrics.opsTransferredBytes)
 
 	buf := make([]byte, 1)
 	_, err := io.ReadFull(tr, buf)
@@ -469,13 +469,13 @@ func TestTimingReader_UnexpectedError(t *testing.T) {
 	testutil.Equals(t, float64(1), promtest.ToFloat64(m.metrics.opsFailures.WithLabelValues(OpGet)))
 }
 
-func TestTimingReader_ContextCancellation(t *testing.T) {
+func TestMetricReadCloser_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
 	m := WrapWithMetrics(NewInMemBucket(), nil, "")
 	r := dummyReader{ctx.Err()}
-	tr := newTimingReader(time.Now(), r, true, OpGet, m.metrics.opsDuration, m.metrics.opsFailures, func(err error) bool { return false }, m.metrics.opsFetchedBytes, m.metrics.opsTransferredBytes)
+	tr := newMetricReadCloser(time.Now(), r, OpGet, m.metrics.opsDuration, m.metrics.opsFailures, func(err error) bool { return false }, m.metrics.opsFetchedBytes, m.metrics.opsTransferredBytes)
 
 	buf := make([]byte, 1)
 	_, err := io.ReadFull(tr, buf)
@@ -490,6 +490,34 @@ type dummyReader struct {
 
 func (r dummyReader) Read(_ []byte) (int, error) {
 	return 0, r.err
+}
+
+type readerSeekerAt struct {
+	reader *bytes.Reader
+}
+
+func (r readerSeekerAt) Read(p []byte) (int, error) {
+	return r.reader.Read(p)
+}
+
+func (r readerSeekerAt) Seek(offset int64, whence int) (int64, error) {
+	return r.reader.Seek(offset, whence)
+}
+
+func (r readerSeekerAt) ReadAt(p []byte, offset int64) (int, error) {
+	return r.reader.ReadAt(p, offset)
+}
+
+type readerWriterTo struct {
+	reader *bytes.Buffer
+}
+
+func (r readerWriterTo) Read(p []byte) (int, error) {
+	return r.reader.Read(p)
+}
+
+func (r readerWriterTo) WriteTo(w io.Writer) (int64, error) {
+	return r.reader.WriteTo(w)
 }
 
 func histogramSumAndCount(t testing.TB, obs prometheus.Observer) (sum float64, count uint64) {
@@ -551,6 +579,46 @@ func TestMetricBucket_UploadUnknownSizeFallsBackToReaderCounting(t *testing.T) {
 	testutil.Equals(t, uint64(1), count)
 }
 
+func TestMetricBucket_UploadUnknownSizeCountsReadAt(t *testing.T) {
+	data := []byte("hello world")
+	reader := readerSeekerAt{reader: bytes.NewReader(data)}
+	b := &mockBucket{
+		Bucket: NewInMemBucket(),
+		upload: func(_ context.Context, _ string, r io.Reader, _ ...ObjectUploadOption) error {
+			readerAt, ok := r.(io.ReaderAt)
+			testutil.Assert(t, ok)
+			_, err := readerAt.ReadAt(make([]byte, len(data)), 0)
+			return err
+		},
+	}
+	m := WrapWithMetrics(b, nil, "")
+
+	testutil.Ok(t, m.Upload(context.Background(), "object", reader))
+	sum, count := histogramSumAndCount(t, m.metrics.opsTransferredBytes.WithLabelValues(OpUpload))
+	testutil.Equals(t, float64(len(data)), sum)
+	testutil.Equals(t, uint64(1), count)
+}
+
+func TestMetricBucket_UploadUnknownSizePreservesWriterTo(t *testing.T) {
+	data := []byte("hello world")
+	reader := readerWriterTo{reader: bytes.NewBuffer(data)}
+	b := &mockBucket{
+		Bucket: NewInMemBucket(),
+		upload: func(_ context.Context, _ string, r io.Reader, _ ...ObjectUploadOption) error {
+			_, ok := r.(io.WriterTo)
+			testutil.Assert(t, ok)
+			_, err := io.Copy(io.Discard, r)
+			return err
+		},
+	}
+	m := WrapWithMetrics(b, nil, "")
+
+	testutil.Ok(t, m.Upload(context.Background(), "object", reader))
+	sum, count := histogramSumAndCount(t, m.metrics.opsTransferredBytes.WithLabelValues(OpUpload))
+	testutil.Equals(t, float64(len(data)), sum)
+	testutil.Equals(t, uint64(1), count)
+}
+
 func TestMetricBucket_UploadUnknownSizeFailureCountedOnce(t *testing.T) {
 	readerErr := errors.New("reader failed")
 	b := &mockBucket{
@@ -569,7 +637,7 @@ func TestMetricBucket_UploadUnknownSizeFailureCountedOnce(t *testing.T) {
 	testutil.Equals(t, uint64(0), count)
 }
 
-func TestTimingReader_ShouldCorrectlyWrapFile(t *testing.T) {
+func TestMetricReadCloser_ShouldCorrectlyWrapFile(t *testing.T) {
 	// Create a test file.
 	testFilepath := filepath.Join(t.TempDir(), "test")
 	testutil.Ok(t, os.WriteFile(testFilepath, []byte("test"), os.ModePerm))
@@ -582,7 +650,7 @@ func TestTimingReader_ShouldCorrectlyWrapFile(t *testing.T) {
 	})
 
 	m := WrapWithMetrics(NewInMemBucket(), nil, "")
-	r := newTimingReader(time.Now(), file, true, "", m.metrics.opsDuration, m.metrics.opsFailures, func(err error) bool {
+	r := newMetricReadCloser(time.Now(), file, "", m.metrics.opsDuration, m.metrics.opsFailures, func(err error) bool {
 		return false
 	}, m.metrics.opsFetchedBytes, m.metrics.opsTransferredBytes)
 
