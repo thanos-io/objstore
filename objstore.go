@@ -889,24 +889,36 @@ func (b *metricBucket) Upload(ctx context.Context, name string, r io.Reader, opt
 
 	start := time.Now()
 
-	trc := newTimingReader(
-		start,
-		r,
-		false,
-		op,
-		b.metrics.opsDuration,
-		b.metrics.opsFailures,
-		b.metrics.isOpFailureExpected,
-		nil,
-		b.metrics.opsTransferredBytes,
-	)
-	defer trc.Close()
-	err := b.bkt.Upload(ctx, name, trc, opts...)
+	objSize, objSizeErr := TryToGetSize(r)
+	var metricsReader io.ReadCloser
+	if objSizeErr != nil {
+		metricsReader = newTimingReader(
+			start,
+			r,
+			false,
+			op,
+			b.metrics.opsDuration,
+			b.metrics.opsFailures,
+			b.metrics.isOpFailureExpected,
+			nil,
+			b.metrics.opsTransferredBytes,
+		)
+		r = metricsReader
+	}
+
+	err := b.bkt.Upload(ctx, name, r, opts...)
 	if err != nil {
-		if !b.metrics.isOpFailureExpected(err) && ctx.Err() != context.Canceled {
+		if !b.metrics.isOpFailureExpected(err) && !errors.Is(ctx.Err(), context.Canceled) {
 			b.metrics.opsFailures.WithLabelValues(op).Inc()
 		}
 		return err
+	}
+	if metricsReader != nil {
+		// closeReader is false, so Close only records metrics for the successful operation.
+		_ = metricsReader.Close()
+	} else {
+		b.metrics.opsDuration.WithLabelValues(op).Observe(time.Since(start).Seconds())
+		b.metrics.opsTransferredBytes.WithLabelValues(op).Observe(float64(objSize))
 	}
 	b.metrics.lastSuccessfulUploadTime.SetToCurrentTime()
 
@@ -1006,7 +1018,6 @@ func newTimingReader(start time.Time, r io.Reader, closeReader bool, op string, 
 
 	return &trc
 }
-
 func (r *timingReader) ObjectSize() (int64, error) {
 	return r.objSize, r.objSizeErr
 }
@@ -1050,7 +1061,8 @@ func (r *timingReader) updateMetrics(n int, err error) {
 
 	// Report metric just once.
 	if !r.alreadyGotErr && err != nil && err != io.EOF {
-		if !r.isFailureExpected(err) && !errors.Is(err, context.Canceled) {
+		// Upload failures are recorded at the operation boundary by metricBucket.Upload.
+		if r.op != OpUpload && !r.isFailureExpected(err) && !errors.Is(err, context.Canceled) {
 			r.failed.WithLabelValues(r.op).Inc()
 		}
 		r.alreadyGotErr = true
