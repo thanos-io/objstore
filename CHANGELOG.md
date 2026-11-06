@@ -17,6 +17,7 @@ We use *breaking :warning:* to mark changes that are not backward compatible (re
 - [#257](https://github.com/thanos-io/objstore/pull/257) GCS: Add `endpoint` config for regional endpoints and GCS-compatible backends.
 
 ### Fixed
+- [#290](https://github.com/thanos-io/objstore/pull/290) S3: Fix bug that caused SignatureV2 configuration to not apply.
 - [#287](https://github.com/thanos-io/objstore/pull/287) S3: Fix goroutine leak in `Iter` and `IterWithAttributes` when iteration stops early.
 - [#283](https://github.com/thanos-io/objstore/pull/283) Metrics: Fix `objstore_bucket_operation_transferred_bytes` never recorded when the underlying reader is read via `io.ReaderAt` (e.g. concurrent multipart uploads).
 - [#196](https://github.com/thanos-io/objstore/pull/196) GCS: fix error check in Exists method when object does not exist.
