@@ -4,6 +4,7 @@
 package azure
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -165,6 +166,47 @@ container: "MyContainer"`),
 		wantFailParse:    false,
 		wantFailValidate: true,
 	},
+	{
+		name: "ClientSecret without TenantID or ClientID",
+		config: []byte(`storage_account: "myAccount"
+client_secret: "1234-56578678-655"
+container: "MyContainer"`),
+		wantFailParse:    false,
+		wantFailValidate: true,
+	},
+	{
+		name: "Valid workload identity",
+		config: []byte(`storage_account: "myAccount"
+az_tenant_id: "1234-56578678-655"
+client_id: "1234-56578678-655"
+use_workload_identity: true
+active_directory_endpoint: "https://login.microsoftonline.us/"
+container: "MyContainer"`),
+		wantFailParse:    false,
+		wantFailValidate: false,
+	},
+	{
+		name: "Workload identity with client secret",
+		config: []byte(`storage_account: "myAccount"
+az_tenant_id: "1234-56578678-655"
+client_id: "1234-56578678-655"
+client_secret: "1234-56578678-655"
+use_workload_identity: true
+container: "MyContainer"`),
+		wantFailParse:    false,
+		wantFailValidate: true,
+	},
+}
+
+func TestGetTokenCredential_CustomActiveDirectoryEndpoint(t *testing.T) {
+	_, err := getTokenCredential(Config{
+		AzTenantID:              "tenant",
+		ClientID:                "client",
+		ClientSecret:            "secret",
+		ActiveDirectoryEndpoint: "http://login.example.com",
+	})
+	testutil.NotOk(t, err)
+	testutil.Assert(t, strings.Contains(err.Error(), "https"), "expected HTTPS validation error, got %v", err)
 }
 
 func TestConfig_validate(t *testing.T) {
