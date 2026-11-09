@@ -412,6 +412,9 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, opts ...o
 	// It uses whatever the default value https://pkg.go.dev/google.golang.org/cloud/storage#Writer
 	if b.chunkSize > 0 {
 		w.ChunkSize = b.chunkSize
+	}
+
+	if uploadOpts.ContentType != "" {
 		w.ContentType = uploadOpts.ContentType
 	}
 
