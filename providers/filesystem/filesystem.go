@@ -344,6 +344,10 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, opts ...o
 		return
 	}
 
+	// We must close the file before renaming it on Windows. It's innocuous on other platforms.
+	// Note that errcapture allows double-close.
+	swf.Close()
+
 	// Atomic on unix; replaces any existing object.
 	if err := os.Rename(swap, file); err != nil {
 		return err
