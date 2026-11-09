@@ -415,12 +415,16 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, uploadOpt
 		}
 	}
 
+	var blobHeaders *blob.HTTPHeaders
+	if uploadOptions.ContentType != "" {
+		blobHeaders = &blob.HTTPHeaders{
+			BlobContentType: &uploadOptions.ContentType,
+		}
+	}
 	opts := &blockblob.UploadStreamOptions{
 		BlockSize:   3 * 1024 * 1024,
 		Concurrency: 4,
-		HTTPHeaders: &blob.HTTPHeaders{
-			BlobContentType: &uploadOptions.ContentType,
-		},
+		HTTPHeaders: blobHeaders,
 	}
 	if conds != nil {
 		opts.AccessConditions = &blob.AccessConditions{

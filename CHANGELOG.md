@@ -15,6 +15,8 @@ We use *breaking :warning:* to mark changes that are not backward compatible (re
 - [#157](https://github.com/thanos-io/objstore/pull/157) Azure: Add `az_tenant_id`, `client_id` and `client_secret` configs.
 - [#178](https://github.com/thanos-io/objstore/pull/178) Feature: conditional upload API
 - [#257](https://github.com/thanos-io/objstore/pull/257) GCS: Add `endpoint` config for regional endpoints and GCS-compatible backends.
+- [#298](https://github.com/thanos-io/objstore/pull/298) GCS: Pass through a ContentType regardless of whether chunk size is set.
+- [#298](https://github.com/thanos-io/objstore/pull/298) Azure: Only set a header if the ContentType is set.
 
 ### Fixed
 - [#287](https://github.com/thanos-io/objstore/pull/287) S3: Fix goroutine leak in `Iter` and `IterWithAttributes` when iteration stops early.
