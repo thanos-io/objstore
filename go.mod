@@ -4,9 +4,9 @@ go 1.25.0
 
 require (
 	cloud.google.com/go/storage v1.50.0
-	github.com/alibabacloud-go/tea v1.2.2
+	github.com/alibabacloud-go/tea v1.5.4
 	github.com/aliyun/aliyun-oss-go-sdk v3.0.2+incompatible
-	github.com/aliyun/credentials-go v1.4.6
+	github.com/aliyun/credentials-go v1.4.14
 	github.com/aws/aws-sdk-go-v2 v1.30.4
 	github.com/aws/aws-sdk-go-v2/config v1.27.30
 	github.com/baidubce/bce-sdk-go v0.9.111
