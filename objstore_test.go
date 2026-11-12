@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	promtest "github.com/prometheus/client_golang/prometheus/testutil"
+	dto "github.com/prometheus/client_model/go"
 	"go.uber.org/atomic"
 )
 
@@ -28,21 +29,21 @@ func TestMetricBucket_Close(t *testing.T) {
 	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.metrics.opsFailures))
 	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.metrics.opsDuration))
 
-	AcceptanceTest(t, bkt.WithExpectedErrs(bkt.IsObjNotFoundErr))
+	stats := AcceptanceTest(t, bkt.WithExpectedErrs(bkt.IsObjNotFoundErr))
 	testutil.Equals(t, float64(9), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpIter)))
-	testutil.Equals(t, float64(2), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpAttributes)))
-	testutil.Equals(t, float64(3), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpGet)))
+	testutil.Equals(t, float64(stats.AttributesCount), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpAttributes)))
+	testutil.Equals(t, float64(stats.GetCount), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpGet)))
 	testutil.Equals(t, float64(3), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpGetRange)))
 	testutil.Equals(t, float64(2), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpExists)))
-	testutil.Equals(t, float64(9), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpUpload)))
-	testutil.Equals(t, float64(3), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpDelete)))
+	testutil.Equals(t, float64(stats.UploadCount), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpUpload)))
+	testutil.Equals(t, float64(stats.DeleteCount), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpDelete)))
 	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.metrics.ops))
 	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpIter)))
 	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpAttributes)))
 	testutil.Equals(t, float64(1), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpGet)))
 	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpGetRange)))
 	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpExists)))
-	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpUpload)))
+	testutil.Equals(t, float64(stats.FailedUploadCount), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpUpload)))
 	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpDelete)))
 	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.metrics.opsFailures))
 	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.metrics.opsDuration))
@@ -51,14 +52,14 @@ func TestMetricBucket_Close(t *testing.T) {
 
 	// Clear bucket, but don't clear metrics to ensure we use same.
 	bkt.bkt = NewInMemBucket()
-	AcceptanceTest(t, bkt)
+	stats2 := AcceptanceTest(t, bkt)
 	testutil.Equals(t, float64(18), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpIter)))
-	testutil.Equals(t, float64(4), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpAttributes)))
-	testutil.Equals(t, float64(6), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpGet)))
+	testutil.Equals(t, float64(stats.AttributesCount+stats2.AttributesCount), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpAttributes)))
+	testutil.Equals(t, float64(stats.GetCount+stats2.GetCount), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpGet)))
 	testutil.Equals(t, float64(6), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpGetRange)))
 	testutil.Equals(t, float64(4), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpExists)))
-	testutil.Equals(t, float64(18), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpUpload)))
-	testutil.Equals(t, float64(6), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpDelete)))
+	testutil.Equals(t, float64(stats.UploadCount+stats2.UploadCount), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpUpload)))
+	testutil.Equals(t, float64(stats.DeleteCount+stats2.DeleteCount), promtest.ToFloat64(bkt.metrics.ops.WithLabelValues(OpDelete)))
 	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.metrics.ops))
 	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpIter)))
 	// Not expected not found error here.
@@ -67,7 +68,7 @@ func TestMetricBucket_Close(t *testing.T) {
 	testutil.Equals(t, float64(3), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpGet)))
 	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpGetRange)))
 	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpExists)))
-	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpUpload)))
+	testutil.Equals(t, float64(stats.FailedUploadCount+stats2.FailedUploadCount), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpUpload)))
 	testutil.Equals(t, float64(0), promtest.ToFloat64(bkt.metrics.opsFailures.WithLabelValues(OpDelete)))
 	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.metrics.opsFailures))
 	testutil.Equals(t, 7, promtest.CollectAndCount(bkt.metrics.opsDuration))
@@ -285,6 +286,7 @@ func TestMetricBucket_ReaderCloseError(t *testing.T) {
 }
 
 func TestDownloadUploadDirConcurrency(t *testing.T) {
+
 	r := prometheus.NewRegistry()
 	m := WrapWithMetrics(NewInMemBucket(), r, "")
 	tempDir := t.TempDir()
@@ -322,11 +324,11 @@ func TestDownloadUploadDirConcurrency(t *testing.T) {
 		`), `objstore_bucket_operations_total`))
 
 	testutil.Ok(t, promtest.GatherAndCompare(r, strings.NewReader(`
-        # HELP objstore_bucket_operation_fetched_bytes_total Total number of bytes fetched from bucket, per operation.
-        # TYPE objstore_bucket_operation_fetched_bytes_total counter
-        objstore_bucket_operation_fetched_bytes_total{bucket="",operation="get"} 1.048578e+06
-        objstore_bucket_operation_fetched_bytes_total{bucket="",operation="get_range"} 0
-        objstore_bucket_operation_fetched_bytes_total{bucket="",operation="upload"} 0
+		# HELP objstore_bucket_operation_fetched_bytes_total Total number of bytes fetched from bucket, per operation.
+		# TYPE objstore_bucket_operation_fetched_bytes_total counter
+		objstore_bucket_operation_fetched_bytes_total{bucket="",operation="get"} 1.048578e+06
+		objstore_bucket_operation_fetched_bytes_total{bucket="",operation="get_range"} 0
+		objstore_bucket_operation_fetched_bytes_total{bucket="",operation="upload"} 0
 		`), `objstore_bucket_operation_fetched_bytes_total`))
 
 	testutil.Ok(t, promtest.GatherAndCompare(r, strings.NewReader(`
@@ -488,6 +490,83 @@ type dummyReader struct {
 
 func (r dummyReader) Read(_ []byte) (int, error) {
 	return 0, r.err
+}
+
+func histogramSumAndCount(t testing.TB, obs prometheus.Observer) (sum float64, count uint64) {
+	var dm dto.Metric
+	testutil.Ok(t, obs.(prometheus.Histogram).Write(&dm))
+	return dm.GetHistogram().GetSampleSum(), dm.GetHistogram().GetSampleCount()
+}
+
+func TestMetricBucket_UploadKnownSizeRecordedAtOperationBoundary(t *testing.T) {
+	data := []byte("hello world")
+	reader := bytes.NewReader(data)
+	b := &mockBucket{
+		Bucket: NewInMemBucket(),
+		upload: func(_ context.Context, _ string, r io.Reader, _ ...ObjectUploadOption) error {
+			testutil.Equals(t, io.Reader(reader), r)
+			_, err := r.(io.ReaderAt).ReadAt(make([]byte, len(data)), 0)
+			return err
+		},
+	}
+	m := WrapWithMetrics(b, nil, "")
+
+	testutil.Ok(t, m.Upload(context.Background(), "object", reader))
+	sum, count := histogramSumAndCount(t, m.metrics.opsTransferredBytes.WithLabelValues(OpUpload))
+	testutil.Equals(t, float64(len(data)), sum)
+	testutil.Equals(t, uint64(1), count)
+}
+
+func TestMetricBucket_UploadFailureDoesNotRecordTransfer(t *testing.T) {
+	uploadErr := errors.New("upload failed")
+	b := &mockBucket{
+		Bucket: NewInMemBucket(),
+		upload: func(context.Context, string, io.Reader, ...ObjectUploadOption) error {
+			return uploadErr
+		},
+	}
+	m := WrapWithMetrics(b, nil, "")
+
+	err := m.Upload(context.Background(), "object", bytes.NewReader([]byte("data")))
+	testutil.Equals(t, uploadErr, err)
+	_, count := histogramSumAndCount(t, m.metrics.opsTransferredBytes.WithLabelValues(OpUpload))
+	testutil.Equals(t, uint64(0), count)
+}
+
+func TestMetricBucket_UploadUnknownSizeFallsBackToReaderCounting(t *testing.T) {
+	data := []byte("hello world")
+	reader := struct{ io.Reader }{Reader: bytes.NewBuffer(data)}
+	b := &mockBucket{
+		Bucket: NewInMemBucket(),
+		upload: func(_ context.Context, _ string, r io.Reader, _ ...ObjectUploadOption) error {
+			_, err := io.Copy(io.Discard, r)
+			return err
+		},
+	}
+	m := WrapWithMetrics(b, nil, "")
+
+	testutil.Ok(t, m.Upload(context.Background(), "object", reader))
+	sum, count := histogramSumAndCount(t, m.metrics.opsTransferredBytes.WithLabelValues(OpUpload))
+	testutil.Equals(t, float64(len(data)), sum)
+	testutil.Equals(t, uint64(1), count)
+}
+
+func TestMetricBucket_UploadUnknownSizeFailureCountedOnce(t *testing.T) {
+	readerErr := errors.New("reader failed")
+	b := &mockBucket{
+		Bucket: NewInMemBucket(),
+		upload: func(_ context.Context, _ string, r io.Reader, _ ...ObjectUploadOption) error {
+			_, err := io.Copy(io.Discard, r)
+			return err
+		},
+	}
+	m := WrapWithMetrics(b, nil, "")
+
+	err := m.Upload(context.Background(), "object", dummyReader{err: readerErr})
+	testutil.Equals(t, readerErr, err)
+	testutil.Equals(t, float64(1), promtest.ToFloat64(m.metrics.opsFailures.WithLabelValues(OpUpload)))
+	_, count := histogramSumAndCount(t, m.metrics.opsTransferredBytes.WithLabelValues(OpUpload))
+	testutil.Equals(t, uint64(0), count)
 }
 
 func TestTimingReader_ShouldCorrectlyWrapFile(t *testing.T) {

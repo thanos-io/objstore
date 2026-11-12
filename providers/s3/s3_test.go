@@ -7,16 +7,22 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"testing/synctest"
 	"time"
+
+	"go.uber.org/atomic"
 
 	"github.com/efficientgo/core/testutil"
 	"github.com/go-kit/log"
 	"github.com/minio/minio-go/v7/pkg/encrypt"
+	"github.com/pkg/errors"
 
+	"github.com/thanos-io/objstore"
 	"github.com/thanos-io/objstore/errutil"
 	"github.com/thanos-io/objstore/exthttp"
 )
@@ -141,6 +147,10 @@ insecure: false`)
 	if cfg.HTTPConfig.InsecureSkipVerify {
 		t.Errorf("parsing of insecure_skip_verify failed: got %v, expected %v", cfg.HTTPConfig.InsecureSkipVerify, false)
 	}
+
+	if cfg.HTTPConfig.ForceAttemptHTTP2 {
+		t.Errorf("parsing of force_attempt_http2 failed: got %v, expected %v", cfg.HTTPConfig.ForceAttemptHTTP2, false)
+	}
 }
 
 func TestParseConfig_CustomHTTPConfig(t *testing.T) {
@@ -149,7 +159,8 @@ insecure: false
 http_config:
   insecure_skip_verify: true
   idle_conn_timeout: 50s
-  response_header_timeout: 1m`)
+  response_header_timeout: 1m
+  force_attempt_http2: true`)
 	cfg, err := parseConfig(input)
 	testutil.Ok(t, err)
 
@@ -165,6 +176,10 @@ http_config:
 
 	if !cfg.HTTPConfig.InsecureSkipVerify {
 		t.Errorf("parsing of insecure_skip_verify failed: got %v, expected %v", cfg.HTTPConfig.InsecureSkipVerify, false)
+	}
+
+	if !cfg.HTTPConfig.ForceAttemptHTTP2 {
+		t.Errorf("parsing of force_attempt_http2 failed: got %v, expected %v", cfg.HTTPConfig.ForceAttemptHTTP2, true)
 	}
 }
 
@@ -405,6 +420,68 @@ func TestBucket_getServerSideEncryption(t *testing.T) {
 	testutil.Equals(t, encrypt.KMS, sse.Type())
 }
 
+type noSizerSpamReader struct {
+	n int
+}
+
+var _ io.Reader = &noSizerSpamReader{}
+
+func (n *noSizerSpamReader) ObjectSizer() (int64, error) {
+	return -1, nil
+}
+
+func (n *noSizerSpamReader) Read(p []byte) (int, error) {
+	if n.n <= 0 {
+		return 0, io.EOF
+	}
+	var i int
+	for i < len(p) && n.n > 0 {
+		p[i] = byte(42)
+		i++
+		n.n -= 1
+	}
+	return i, nil
+}
+
+func TestBucket_Put_PartSizeRespected(t *testing.T) {
+	var firstReqResponse, triggeredCondition atomic.Bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !firstReqResponse.Load() {
+			_, err := w.Write([]byte(`<?xml version="1.0" encoding="UTF-8"?>
+<InitiateMultipartUploadResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+    <Bucket>example-bucket</Bucket>
+    <Key>large-file.zip</Key>
+    <UploadId>7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a</UploadId>
+</InitiateMultipartUploadResult>`))
+			testutil.Ok(t, err)
+			firstReqResponse.Store(true)
+			return
+		}
+
+		if r.Header.Get("X-Amz-Content-Sha256") == "STREAMING-AWS4-HMAC-SHA256-PAYLOAD" {
+			triggeredCondition.Store(true)
+			testutil.Equals(t, r.Header.Get("X-Amz-Decoded-Content-Length"), "5242880")
+		}
+	}))
+	defer srv.Close()
+
+	cfg := DefaultConfig
+	cfg.Bucket = "test-bucket"
+	cfg.Endpoint = srv.Listener.Addr().String()
+	cfg.Insecure = true
+	cfg.Region = "test123"
+	cfg.AccessKey = "test123"
+	cfg.SecretKey = "test123"
+	cfg.PartSize = 5 * 1024 * 1024
+
+	bkt, err := NewBucketWithConfig(log.NewNopLogger(), cfg, "test", nil)
+	testutil.Ok(t, err)
+
+	testutil.NotOk(t, bkt.Upload(t.Context(), "foo", &noSizerSpamReader{n: 10 * 1024 * 1024}))
+	testutil.Equals(t, true, triggeredCondition.Load())
+
+}
+
 func TestBucket_Get_ShouldReturnErrorIfServerTruncateResponse(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Last-Modified", "Wed, 21 Oct 2015 07:28:00 GMT")
@@ -474,4 +551,74 @@ func TestNewBucketWithErrorRoundTripper(t *testing.T) {
 	// We expect an error from the RoundTripper
 	testutil.NotOk(t, err)
 	testutil.Assert(t, errutil.IsMockedError(err), "Expected RoundTripper error, got: %v", err)
+}
+
+func TestBucket_IterWithAttributes_EarlyReturnDoesNotLeakGoroutines(t *testing.T) {
+	cfg := Config{
+		Bucket:    "test-bucket",
+		Endpoint:  endpoint,
+		Region:    "us-east-1",
+		AccessKey: "access-key",
+		SecretKey: "secret-key",
+	}
+	cfg.HTTPConfig.Transport = roundTripperFunc(func(*http.Request) (*http.Response, error) {
+		w := httptest.NewRecorder()
+		w.Header().Set("Content-Type", "application/xml")
+		fmt.Fprint(w, `<ListBucketResult><Name>test-bucket</Name><IsTruncated>false</IsTruncated>`)
+		for i := 0; i < 100; i++ {
+			fmt.Fprintf(w, `<Contents><Key>obj-%d</Key></Contents>`, i)
+		}
+		fmt.Fprint(w, `</ListBucketResult>`)
+		return w.Result(), nil
+	})
+
+	errStop := errors.New("stop")
+	for _, tc := range []struct {
+		name          string
+		cancelContext bool
+		wantErr       error
+	}{
+		{
+			name:    "callback error",
+			wantErr: errStop,
+		},
+		{
+			name:          "context canceled while callback is blocked",
+			cancelContext: true,
+			wantErr:       context.Canceled,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				bkt, err := NewBucketWithConfig(log.NewNopLogger(), cfg, "iteration-test", nil)
+				testutil.Ok(t, err)
+
+				ctx := context.Background()
+				var cancel context.CancelFunc
+				if tc.cancelContext {
+					ctx, cancel = context.WithCancel(ctx)
+					defer cancel()
+				}
+				calls := 0
+				err = bkt.IterWithAttributes(ctx, "", func(attrs objstore.IterObjectAttributes) error {
+					calls++
+					testutil.Equals(t, "obj-0", attrs.Name)
+					synctest.Wait()
+					if tc.cancelContext {
+						cancel()
+						synctest.Wait()
+					}
+					return tc.wantErr
+				})
+				testutil.Equals(t, tc.wantErr, err)
+				testutil.Equals(t, 1, calls)
+			})
+		})
+	}
+}
+
+type roundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
+	return f(r)
 }

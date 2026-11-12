@@ -197,6 +197,9 @@ func (b *Bucket) GetRange(ctx context.Context, name string, offset, length int64
 // Upload the contents of the reader as an object into the bucket.
 // Upload should be idempotent.
 func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, opts ...objstore.ObjectUploadOption) (err error) {
+	if err := objstore.ValidateUploadOptions(b.SupportedObjectUploadOptions(), opts...); err != nil {
+		return err
+	}
 	req := transfer.UploadStreamRequest{
 		UploadRequest: transfer.UploadRequest{
 			NamespaceName:                       common.String(b.namespace),
@@ -221,6 +224,10 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, opts ...o
 	_, err = uploadManager.UploadStream(ctx, req)
 
 	return err
+}
+
+func (b *Bucket) SupportedObjectUploadOptions() []objstore.ObjectUploadOptionType {
+	return []objstore.ObjectUploadOptionType{objstore.ContentType}
 }
 
 // Exists checks if the given object exists in the bucket.
@@ -268,6 +275,8 @@ func (b *Bucket) IsAccessDeniedErr(err error) bool {
 	}
 	return false
 }
+
+func (b *Bucket) IsConditionNotMetErr(_ error) bool { return false }
 
 // ObjectSize returns the size of the specified object.
 func (b *Bucket) ObjectSize(ctx context.Context, name string) (uint64, error) {

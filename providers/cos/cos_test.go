@@ -55,6 +55,28 @@ http_config:
 			},
 			wantErr: false,
 		},
+		{
+			name: "force_attempt_http2",
+			args: args{
+				conf: []byte(`
+http_config:
+  force_attempt_http2: true
+`),
+			},
+			want: Config{
+				HTTPConfig: exthttp.HTTPConfig{
+					IdleConnTimeout:       model.Duration(90 * time.Second),
+					ResponseHeaderTimeout: model.Duration(2 * time.Minute),
+					TLSHandshakeTimeout:   model.Duration(10 * time.Second),
+					ExpectContinueTimeout: model.Duration(1 * time.Second),
+					MaxIdleConns:          100,
+					MaxIdleConnsPerHost:   100,
+					MaxConnsPerHost:       0,
+					ForceAttemptHTTP2:     true,
+				},
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

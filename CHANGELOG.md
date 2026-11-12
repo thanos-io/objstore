@@ -13,8 +13,14 @@ We use *breaking :warning:* to mark changes that are not backward compatible (re
 - [#38](https://github.com/thanos-io/objstore/pull/38) GCS: Upgrade cloud.google.com/go/storage version to `v1.43.0`.
 - [#145](https://github.com/thanos-io/objstore/pull/145) Include content length in the response of Get and GetRange.
 - [#157](https://github.com/thanos-io/objstore/pull/157) Azure: Add `az_tenant_id`, `client_id` and `client_secret` configs.
+- [#178](https://github.com/thanos-io/objstore/pull/178) Feature: conditional upload API
+- [#257](https://github.com/thanos-io/objstore/pull/257) GCS: Add `endpoint` config for regional endpoints and GCS-compatible backends.
+- [#298](https://github.com/thanos-io/objstore/pull/298) GCS: Pass through a ContentType regardless of whether chunk size is set.
+- [#298](https://github.com/thanos-io/objstore/pull/298) Azure: Only set a header if the ContentType is set.
 
 ### Fixed
+- [#287](https://github.com/thanos-io/objstore/pull/287) S3: Fix goroutine leak in `Iter` and `IterWithAttributes` when iteration stops early.
+- [#283](https://github.com/thanos-io/objstore/pull/283) Metrics: Fix `objstore_bucket_operation_transferred_bytes` never recorded when the underlying reader is read via `io.ReaderAt` (e.g. concurrent multipart uploads).
 - [#196](https://github.com/thanos-io/objstore/pull/196) GCS: fix error check in Exists method when object does not exist.
 - [#153](https://github.com/thanos-io/objstore/pull/153) Metrics: Fix `objstore_bucket_operation_duration_seconds_*` for `get` and `get_range` operations.
 - [#141](https://github.com/thanos-io/objstore/pull/142) S3: Fix missing encryption configuration for `Bucket.Exists()` and `Bucket.Attributes()` calls.
@@ -61,9 +67,10 @@ We use *breaking :warning:* to mark changes that are not backward compatible (re
 - [#150](https://github.com/thanos-io/objstore/pull/150) Add support for roundtripper wrapper.
 - [#63](https://github.com/thanos-io/objstore/pull/63) Implement a `IterWithAttributes` method on the bucket client.
 - [#155](https://github.com/thanos-io/objstore/pull/155) Add a `Provider` method on `objstore.Client`.
-- [#163](https://github.com/thanos-io/objstore/pull/145) Add a `NewBucketFromConfig` constructor method for creating a client from an existing `BucketConfig` object.
+- [#163](https://github.com/thanos-io/objstore/pull/163) Add a `NewBucketFromConfig` constructor method for creating a client from an existing `BucketConfig` object.
+- [#266](https://github.com/thanos-io/objstore/pull/266) *: Add `force_attempt_http2` option to `http_config` to re-enable HTTP/2 for the custom transport.
+- [#271](https://github.com/thanos-io/objstore/pull/271) Add metrics `net_conntrack_dialer_conn_*_total` for every connection attempted, failed, etc.
 - [#198](https://github.com/thanos-io/objstore/pull/198) oss: Add `sdk_auth` config to support more authentication methods.
-
 
 ### Changed
 - [#38](https://github.com/thanos-io/objstore/pull/38) *: Upgrade minio-go version to `v7.0.45`.
@@ -75,5 +82,6 @@ We use *breaking :warning:* to mark changes that are not backward compatible (re
 - [#89](https://github.com/thanos-io/objstore/pull/89) GCS: Upgrade cloud.google.com/go/storage version to `v1.35.1`.
 - [#123](https://github.com/thanos-io/objstore/pull/123) *: Upgrade minio-go version to `v7.0.72`.
 - [#132](https://github.com/thanos-io/objstore/pull/132) s3: Upgrade aws-sdk-go-v2/config version to `v1.27.30`
+- [#288](https://github.com/thanos-io/objstore/pull/288) *: Upgrade to Go 1.25. The minimum supported Go version is now 1.25.
 
 ### Removed

@@ -9,7 +9,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -19,6 +21,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/version"
 	"golang.org/x/oauth2/google"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 	htransport "google.golang.org/api/transport/http"
@@ -59,7 +62,17 @@ type Config struct {
 	// Overrides the default gcs storage client behavior if this value is greater than 0.
 	// Set this to 1 to disable retries.
 	MaxRetries int `yaml:"max_retries"`
+
+	// Endpoint specifies the GCS API endpoint to use.
+	// This can be used to point to GCS regional endpoints or GCS-compatible storage backends.
+	// See https://cloud.google.com/storage/docs/regional-endpoints for more details.
+	// For the HTTP client the value is a URL and defaults to the standard JSON API path
+	// when no path is set. For the gRPC client the value must be host:port.
+	// Note that the configured credentials are sent to this endpoint.
+	Endpoint string `yaml:"endpoint"`
 }
+
+var errConditionInvalid = errors.New("invalid condition: gcs supports generational object versions")
 
 // Bucket implements the store.Bucket and shipper.Bucket interfaces against GCS.
 type Bucket struct {
@@ -113,6 +126,14 @@ func NewBucketWithConfig(ctx context.Context, logger log.Logger, gc Config, comp
 		option.WithUserAgent(fmt.Sprintf("thanos-%s/%s (%s)", component, version.Version, runtime.Version())),
 	)
 
+	if gc.Endpoint != "" {
+		endpoint, err := normalizeEndpoint(gc.Endpoint, gc.UseGRPC)
+		if err != nil {
+			return nil, err
+		}
+		opts = append(opts, option.WithEndpoint(endpoint))
+	}
+
 	if !gc.UseGRPC {
 		var err error
 		opts, err = appendHttpOptions(gc, opts, wrapRoundtripper)
@@ -122,6 +143,33 @@ func NewBucketWithConfig(ctx context.Context, logger log.Logger, gc Config, comp
 	}
 
 	return newBucket(ctx, logger, gc, opts)
+}
+
+// normalizeEndpoint puts the configured endpoint in the form the client expects.
+// HTTP takes a JSON API base path, gRPC takes host:port.
+func normalizeEndpoint(endpoint string, useGRPC bool) (string, error) {
+	if useGRPC {
+		// A scheme would be read as a resolver scheme and the default port would be lost.
+		if strings.Contains(endpoint, "://") {
+			return "", errors.Errorf("gcs endpoint %q must be host:port when use_grpc is set", endpoint)
+		}
+		return endpoint, nil
+	}
+
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return "", errors.Wrapf(err, "parse gcs endpoint %q", endpoint)
+	}
+	if u.Scheme == "" || u.Host == "" {
+		return "", errors.Errorf("gcs endpoint %q must be an absolute URL, e.g. https://storage.googleapis.com/storage/v1/", endpoint)
+	}
+	if u.Path == "" || u.Path == "/" {
+		u.Path = "/storage/v1/"
+	}
+	if !strings.HasSuffix(u.Path, "/") {
+		u.Path += "/"
+	}
+	return u.String(), nil
 }
 
 func appendHttpOptions(gc Config, opts []option.ClientOption, wrapRoundtripper func(http.RoundTripper) http.RoundTripper) ([]option.ClientOption, error) {
@@ -312,6 +360,7 @@ func (b *Bucket) Attributes(ctx context.Context, name string) (objstore.ObjectAt
 	return objstore.ObjectAttributes{
 		Size:         attrs.Size,
 		LastModified: attrs.Updated,
+		Version:      &objstore.ObjectVersion{Type: objstore.Generation, Value: strconv.Itoa(int(attrs.Generation))},
 	}, nil
 }
 
@@ -333,13 +382,39 @@ func (b *Bucket) Exists(ctx context.Context, name string) (bool, error) {
 
 // Upload writes the file specified in src to remote GCS location specified as target.
 func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, opts ...objstore.ObjectUploadOption) error {
-	w := b.bkt.Object(name).NewWriter(ctx)
+	if err := objstore.ValidateUploadOptions(b.SupportedObjectUploadOptions(), opts...); err != nil {
+		return err
+	}
 
 	uploadOpts := objstore.ApplyObjectUploadOptions(opts...)
+
+	obj := b.bkt.Object(name)
+	if uploadOpts.Condition != nil {
+		if uploadOpts.Condition.Type != objstore.Generation {
+			return errConditionInvalid
+		}
+		g8n, err := strconv.Atoi(uploadOpts.Condition.Value)
+		if err != nil {
+			return err
+		}
+		if uploadOpts.IfNotMatch {
+			obj = obj.If(storage.Conditions{GenerationNotMatch: int64(g8n)})
+		} else {
+			obj = obj.If(storage.Conditions{GenerationMatch: int64(g8n)})
+		}
+	} else if uploadOpts.IfNotExists {
+		obj = obj.If(storage.Conditions{DoesNotExist: true})
+	}
+
+	w := obj.NewWriter(ctx)
+
 	// if `chunkSize` is 0, we don't set any custom value for writer's ChunkSize.
 	// It uses whatever the default value https://pkg.go.dev/google.golang.org/cloud/storage#Writer
 	if b.chunkSize > 0 {
 		w.ChunkSize = b.chunkSize
+	}
+
+	if uploadOpts.ContentType != "" {
 		w.ContentType = uploadOpts.ContentType
 	}
 
@@ -347,6 +422,10 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, opts ...o
 		return err
 	}
 	return w.Close()
+}
+
+func (b *Bucket) SupportedObjectUploadOptions() []objstore.ObjectUploadOptionType {
+	return []objstore.ObjectUploadOptionType{objstore.ContentType, objstore.IfNotExists, objstore.IfMatch, objstore.IfNotMatch}
 }
 
 // Delete removes the object with the given name.
@@ -365,6 +444,18 @@ func (b *Bucket) IsAccessDeniedErr(err error) bool {
 		return true
 	}
 	return false
+}
+
+// IsConditionNotMetErr returns true if error means a conditional upload condition was not met.
+func (b *Bucket) IsConditionNotMetErr(err error) bool {
+	var gapiErr *googleapi.Error
+	// See https://cloud.google.com/storage/docs/json_api/v1/status-codes
+	if errors.As(err, &gapiErr) &&
+		(gapiErr.Code == http.StatusPreconditionFailed ||
+			gapiErr.Code == http.StatusNotModified) {
+		return true
+	}
+	return errors.Is(err, errConditionInvalid)
 }
 
 func (b *Bucket) Close() error {
