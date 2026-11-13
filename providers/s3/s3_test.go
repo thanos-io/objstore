@@ -673,3 +673,45 @@ func TestBucket_AWSSDKAuth_CredentialErrorDoesNotFallBackToAnonymous(t *testing.
 	testutil.Assert(t, stsRequests.Load() > 0, "expected STS to be called")
 	testutil.Equals(t, int32(0), s3Requests.Load())
 }
+
+func TestBucket_DefaultCredentialChain_FallsBackToAnonymous(t *testing.T) {
+	var authHeader atomic.Value
+	s3Srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader.Store(r.Header.Get("Authorization"))
+		w.Header().Set("Last-Modified", "Wed, 21 Oct 2015 07:28:00 GMT")
+		_, _ = w.Write([]byte("data"))
+	}))
+	defer s3Srv.Close()
+
+	// Stands in for the IAM provider's metadata endpoint, which never has credentials.
+	iamSrv := httptest.NewServer(http.NotFoundHandler())
+	defer iamSrv.Close()
+
+	// Leave every provider in the default chain without credentials.
+	for _, k := range []string{
+		"AWS_ACCESS_KEY_ID", "AWS_ACCESS_KEY", "AWS_SECRET_ACCESS_KEY", "AWS_SECRET_KEY", "AWS_SESSION_TOKEN", "AWS_PROFILE",
+		"AWS_WEB_IDENTITY_TOKEN_FILE", "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI", "AWS_CONTAINER_CREDENTIALS_FULL_URI",
+	} {
+		t.Setenv(k, "")
+	}
+	t.Setenv("AWS_SHARED_CREDENTIALS_FILE", filepath.Join(t.TempDir(), "credentials"))
+
+	cfg := DefaultConfig
+	cfg.Bucket = "test-bucket"
+	cfg.Endpoint = s3Srv.Listener.Addr().String()
+	cfg.STSEndpoint = iamSrv.URL
+	cfg.Insecure = true
+	cfg.Region = "us-east-1"
+
+	bkt, err := NewBucketWithConfig(log.NewNopLogger(), cfg, "test", nil)
+	testutil.Ok(t, err)
+
+	r, err := bkt.Get(context.Background(), "obj")
+	testutil.Ok(t, err)
+	defer r.Close()
+	body, err := io.ReadAll(r)
+	testutil.Ok(t, err)
+
+	testutil.Equals(t, "data", string(body))
+	testutil.Equals(t, "", authHeader.Load())
+}
