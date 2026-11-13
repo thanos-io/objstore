@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/efficientgo/core/logerrcapture"
 	"github.com/go-kit/log"
@@ -23,6 +24,7 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/minio/minio-go/v7/pkg/encrypt"
 	"github.com/pkg/errors"
+	"github.com/prometheus/common/model"
 	"github.com/prometheus/common/version"
 	"gopkg.in/yaml.v2"
 
@@ -106,6 +108,8 @@ var DefaultConfig = Config{
 	PartSize:         1024 * 1024 * 64, // 64MB.
 	BucketLookupType: AutoLookup,
 	SendContentMd5:   true, // Default to using MD5.
+
+	AWSSDKAuthTimeout: model.Duration(DefaultAWSSDKAuthTimeout),
 }
 
 // HTTPConfig exists here only because Cortex depends on it, and we depend on Cortex.
@@ -115,11 +119,13 @@ type HTTPConfig = exthttp.HTTPConfig
 
 // Config stores the configuration for s3 bucket.
 type Config struct {
-	Bucket             string             `yaml:"bucket"`
-	Endpoint           string             `yaml:"endpoint"`
-	Region             string             `yaml:"region"`
-	DisableDualstack   bool               `yaml:"disable_dualstack"`
-	AWSSDKAuth         bool               `yaml:"aws_sdk_auth"`
+	Bucket           string `yaml:"bucket"`
+	Endpoint         string `yaml:"endpoint"`
+	Region           string `yaml:"region"`
+	DisableDualstack bool   `yaml:"disable_dualstack"`
+	AWSSDKAuth       bool   `yaml:"aws_sdk_auth"`
+	// AWSSDKAuthTimeout bounds each AWS SDK credential retrieval. Only used if AWSSDKAuth is set.
+	AWSSDKAuthTimeout  model.Duration     `yaml:"aws_sdk_auth_timeout"`
 	AccessKey          string             `yaml:"access_key"`
 	Insecure           bool               `yaml:"insecure"`
 	SignatureV2        bool               `yaml:"signature_version2"`
@@ -221,7 +227,7 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string, wra
 
 	if config.AWSSDKAuth {
 		// Not via a chain: minio's Chain discards provider errors and falls back to anonymous credentials.
-		creds = credentials.New(wrapCredentialsProvider(&AWSSDKAuth{Region: config.Region}))
+		creds = credentials.New(wrapCredentialsProvider(&AWSSDKAuth{Region: config.Region, Timeout: time.Duration(config.AWSSDKAuthTimeout)}))
 	} else if config.AccessKey != "" {
 		creds = credentials.NewChainCredentials([]credentials.Provider{wrapCredentialsProvider(&credentials.Static{
 			Value: credentials.Value{

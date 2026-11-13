@@ -189,6 +189,7 @@ config:
   region: ""
   disable_dualstack: false
   aws_sdk_auth: false
+  aws_sdk_auth_timeout: 30s
   access_key: ""
   insecure: false
   signature_version2: false

@@ -715,3 +715,76 @@ func TestBucket_DefaultCredentialChain_FallsBackToAnonymous(t *testing.T) {
 	testutil.Equals(t, "data", string(body))
 	testutil.Equals(t, "", authHeader.Load())
 }
+
+// setWebIdentityEnv makes the AWS SDK default chain resolve only to web identity against stsURL.
+func setWebIdentityEnv(t *testing.T, stsURL string) {
+	t.Helper()
+
+	tokenFile := filepath.Join(t.TempDir(), "token")
+	testutil.Ok(t, os.WriteFile(tokenFile, []byte("token"), 0o600))
+
+	for _, k := range []string{
+		"AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_ACCESS_KEY", "AWS_SECRET_KEY", "AWS_SESSION_TOKEN",
+		"AWS_PROFILE", "AWS_DEFAULT_PROFILE", "AWS_IGNORE_CONFIGURED_ENDPOINT_URLS", "AWS_USE_FIPS_ENDPOINT", "AWS_CA_BUNDLE",
+	} {
+		t.Setenv(k, "")
+	}
+	t.Setenv("AWS_EC2_METADATA_DISABLED", "true")
+	t.Setenv("AWS_CONFIG_FILE", filepath.Join(t.TempDir(), "config"))
+	t.Setenv("AWS_SHARED_CREDENTIALS_FILE", filepath.Join(t.TempDir(), "credentials"))
+	t.Setenv("AWS_REGION", "us-east-1")
+	t.Setenv("AWS_ENDPOINT_URL_STS", stsURL)
+	t.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", tokenFile)
+	t.Setenv("AWS_ROLE_ARN", "arn:aws:iam::123456789012:role/test")
+}
+
+func TestAWSSDKAuth_RetrieveTimesOutWhenSTSNeverAnswers(t *testing.T) {
+	release := make(chan struct{})
+	stsSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-r.Context().Done():
+		case <-release:
+		case <-time.After(30 * time.Second):
+		}
+	}))
+	t.Cleanup(func() {
+		close(release)
+		stsSrv.CloseClientConnections()
+		stsSrv.Close()
+	})
+	setWebIdentityEnv(t, stsSrv.URL)
+
+	auth := &AWSSDKAuth{Region: "us-east-1", Timeout: 500 * time.Millisecond}
+
+	start := time.Now()
+	_, err := auth.Retrieve()
+	elapsed := time.Since(start)
+
+	testutil.NotOk(t, err)
+	testutil.Assert(t, strings.Contains(err.Error(), "retrieve AWS SDK credentials"), "expected credential retrieval error, got: %v", err)
+	testutil.Assert(t, elapsed < 5*time.Second, "expected retrieval to fail near the timeout, took %v", elapsed)
+}
+
+func TestAWSSDKAuth_RetrieveSucceeds(t *testing.T) {
+	stsSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/xml")
+		_, _ = w.Write([]byte(`<AssumeRoleWithWebIdentityResponse xmlns="https://sts.amazonaws.com/doc/2011-06-15/"><AssumeRoleWithWebIdentityResult><Credentials><AccessKeyId>AKIATEST</AccessKeyId><SecretAccessKey>secret</SecretAccessKey><SessionToken>session</SessionToken><Expiration>2099-01-01T00:00:00Z</Expiration></Credentials></AssumeRoleWithWebIdentityResult><ResponseMetadata><RequestId>1</RequestId></ResponseMetadata></AssumeRoleWithWebIdentityResponse>`))
+	}))
+	defer stsSrv.Close()
+	setWebIdentityEnv(t, stsSrv.URL)
+
+	v, err := (&AWSSDKAuth{Region: "us-east-1", Timeout: 5 * time.Second}).Retrieve()
+	testutil.Ok(t, err)
+	testutil.Equals(t, "AKIATEST", v.AccessKeyID)
+	testutil.Equals(t, "session", v.SessionToken)
+}
+
+func TestParseConfig_AWSSDKAuthTimeout(t *testing.T) {
+	cfg, err := parseConfig([]byte(`bucket: abcd`))
+	testutil.Ok(t, err)
+	testutil.Equals(t, DefaultAWSSDKAuthTimeout, time.Duration(cfg.AWSSDKAuthTimeout))
+
+	cfg, err = parseConfig([]byte("bucket: abcd\naws_sdk_auth_timeout: 7s"))
+	testutil.Ok(t, err)
+	testutil.Equals(t, 7*time.Second, time.Duration(cfg.AWSSDKAuthTimeout))
+}
