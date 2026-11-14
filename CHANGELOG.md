@@ -19,6 +19,7 @@ We use *breaking :warning:* to mark changes that are not backward compatible (re
 - [#298](https://github.com/thanos-io/objstore/pull/298) Azure: Only set a header if the ContentType is set.
 
 ### Fixed
+- [#90](https://github.com/thanos-io/objstore/issues/90) Azure: `storage_account` is no longer required when `storage_connection_string` is set.
 - [#287](https://github.com/thanos-io/objstore/pull/287) S3: Fix goroutine leak in `Iter` and `IterWithAttributes` when iteration stops early.
 - [#283](https://github.com/thanos-io/objstore/pull/283) Metrics: Fix `objstore_bucket_operation_transferred_bytes` never recorded when the underlying reader is read via `io.ReaderAt` (e.g. concurrent multipart uploads).
 - [#294](https://github.com/thanos-io/objstore/pull/294) S3: *breaking :warning:* Return credential retrieval errors when `aws_sdk_auth` is set instead of silently falling back to anonymous (unsigned) requests.
