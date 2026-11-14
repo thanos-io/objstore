@@ -36,6 +36,8 @@ type Config struct {
 	Bucket          string `yaml:"bucket"`
 	AccessKeyID     string `yaml:"access_key_id"`
 	AccessKeySecret string `yaml:"access_key_secret"`
+	// If true, use the alibaba SDK credentials provider to retrieve credentials.
+	SdkAuth bool `yaml:"sdk_auth"`
 }
 
 // Bucket implements the store.Bucket interface.
@@ -47,17 +49,37 @@ type Bucket struct {
 	bucket *alioss.Bucket
 }
 
-func NewTestBucket(t testing.TB) (objstore.Bucket, func(), error) {
+// testBucketConfigFromEnv builds the Config used by the OSS acceptance tests from
+// environment variables. Set `ALIYUNOSS_SDK_AUTH=true` to test the keyless
+// authentication path, in which case `ALIYUNOSS_ACCESS_KEY_ID` and
+// `ALIYUNOSS_ACCESS_KEY_SECRET` are not required and credentials are resolved by
+// the Alibaba Cloud credentials SDK instead.
+func testBucketConfigFromEnv() (Config, error) {
 	c := Config{
 		Endpoint:        os.Getenv("ALIYUNOSS_ENDPOINT"),
 		Bucket:          os.Getenv("ALIYUNOSS_BUCKET"),
 		AccessKeyID:     os.Getenv("ALIYUNOSS_ACCESS_KEY_ID"),
 		AccessKeySecret: os.Getenv("ALIYUNOSS_ACCESS_KEY_SECRET"),
 	}
+	if v := os.Getenv("ALIYUNOSS_SDK_AUTH"); v != "" {
+		sdkAuth, err := strconv.ParseBool(v)
+		if err != nil {
+			return Config{}, errors.Wrap(err, "parse ALIYUNOSS_SDK_AUTH")
+		}
+		c.SdkAuth = sdkAuth
+	}
 
-	if c.Endpoint == "" || c.AccessKeyID == "" || c.AccessKeySecret == "" {
-		return nil, nil, errors.New("aliyun oss endpoint or access_key_id or access_key_secret " +
+	if c.Endpoint == "" || (!c.SdkAuth && (c.AccessKeyID == "" || c.AccessKeySecret == "")) {
+		return Config{}, errors.New("aliyun oss endpoint or access_key_id or access_key_secret " +
 			"is not present in config file")
+	}
+	return c, nil
+}
+
+func NewTestBucket(t testing.TB) (objstore.Bucket, func(), error) {
+	c, err := testBucketConfigFromEnv()
+	if err != nil {
+		return nil, nil, err
 	}
 	if c.Bucket != "" && os.Getenv("THANOS_ALLOW_EXISTING_BUCKET_USE") == "true" {
 		t.Log("ALIYUNOSS_BUCKET is defined. Normally this tests will create temporary bucket " +
@@ -195,6 +217,13 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string, wra
 			}
 		})
 	}
+	if config.SdkAuth {
+		opt, err := credentialsProviderOption(logger)
+		if err != nil {
+			return nil, err
+		}
+		clientOptions = append(clientOptions, opt)
+	}
 	client, err := alioss.New(config.Endpoint, config.AccessKeyID, config.AccessKeySecret, clientOptions...)
 	if err != nil {
 		return nil, errors.Wrap(err, "create aliyun oss client failed")
@@ -214,12 +243,23 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string, wra
 	return bkt, nil
 }
 
+// credentialsProviderOption returns a client option that makes the OSS client
+// resolve credentials through the Alibaba Cloud credentials SDK (RRSA, known
+// environment variables, credentials URI, ...) instead of the static keys.
+func credentialsProviderOption(logger log.Logger) (alioss.ClientOption, error) {
+	credProvider, err := NewCredentialsProvider(logger)
+	if err != nil {
+		return nil, errors.Wrap(err, "create aliyun oss credentials provider failed")
+	}
+	return alioss.SetCredentialsProvider(credProvider), nil
+}
+
 // validate checks to see the config options are set.
 func validate(config Config) error {
 	if config.Endpoint == "" || config.Bucket == "" {
 		return errors.New("aliyun oss endpoint or bucket is not present in config file")
 	}
-	if config.AccessKeyID == "" || config.AccessKeySecret == "" {
+	if !config.SdkAuth && (config.AccessKeyID == "" || config.AccessKeySecret == "") {
 		return errors.New("aliyun oss access_key_id or access_key_secret is not present in config file")
 	}
 
@@ -294,7 +334,15 @@ func NewTestBucketFromConfig(t testing.TB, c Config, reuseBucket bool) (objstore
 		if len(bktToCreate) >= 63 {
 			bktToCreate = bktToCreate[:63]
 		}
-		testclient, err := alioss.New(c.Endpoint, c.AccessKeyID, c.AccessKeySecret)
+		var clientOptions []alioss.ClientOption
+		if c.SdkAuth {
+			opt, err := credentialsProviderOption(log.NewNopLogger())
+			if err != nil {
+				return nil, nil, err
+			}
+			clientOptions = append(clientOptions, opt)
+		}
+		testclient, err := alioss.New(c.Endpoint, c.AccessKeyID, c.AccessKeySecret, clientOptions...)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "create aliyun oss client failed")
 		}
