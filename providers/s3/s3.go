@@ -205,7 +205,7 @@ func (s *overrideSignerType) Retrieve() (credentials.Value, error) {
 
 // NewBucketWithConfig returns a new Bucket using the provided s3 config values.
 func NewBucketWithConfig(logger log.Logger, config Config, component string, wrapRoundtripper func(http.RoundTripper) http.RoundTripper) (*Bucket, error) {
-	var chain []credentials.Provider
+	var creds *credentials.Credentials
 
 	// TODO(bwplotka): Don't do flags as they won't scale, use actual params like v2, v4 instead
 	wrapCredentialsProvider := func(p credentials.Provider) credentials.Provider { return p }
@@ -220,20 +220,19 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string, wra
 	}
 
 	if config.AWSSDKAuth {
-		chain = []credentials.Provider{
-			wrapCredentialsProvider(&AWSSDKAuth{Region: config.Region}),
-		}
+		// Not via a chain: minio's Chain discards provider errors and falls back to anonymous credentials.
+		creds = credentials.New(wrapCredentialsProvider(&AWSSDKAuth{Region: config.Region}))
 	} else if config.AccessKey != "" {
-		chain = []credentials.Provider{wrapCredentialsProvider(&credentials.Static{
+		creds = credentials.NewChainCredentials([]credentials.Provider{wrapCredentialsProvider(&credentials.Static{
 			Value: credentials.Value{
 				AccessKeyID:     config.AccessKey,
 				SecretAccessKey: config.SecretKey,
 				SessionToken:    config.SessionToken,
 				SignerType:      credentials.SignatureV4,
 			},
-		})}
+		})})
 	} else {
-		chain = []credentials.Provider{
+		creds = credentials.NewChainCredentials([]credentials.Provider{
 			wrapCredentialsProvider(&credentials.EnvAWS{}),
 			wrapCredentialsProvider(&credentials.FileAWSCredentials{}),
 			wrapCredentialsProvider(&credentials.IAM{
@@ -242,7 +241,7 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string, wra
 				},
 				Endpoint: config.STSEndpoint,
 			}),
-		}
+		})
 	}
 
 	// Check if a roundtripper has been set in the config
@@ -262,7 +261,7 @@ func NewBucketWithConfig(logger log.Logger, config Config, component string, wra
 	}
 
 	client, err := minio.New(config.Endpoint, &minio.Options{
-		Creds:        credentials.NewChainCredentials(chain),
+		Creds:        creds,
 		Secure:       !config.Insecure,
 		Region:       config.Region,
 		Transport:    tpt,
