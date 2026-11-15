@@ -5,13 +5,13 @@ package main
 
 import (
 	"fmt"
-	"github.com/thanos-io/objstore"
 	"io"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 
+	"github.com/thanos-io/objstore"
 	"github.com/thanos-io/objstore/client"
 	"github.com/thanos-io/objstore/providers/azure"
 	"github.com/thanos-io/objstore/providers/bos"

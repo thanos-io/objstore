@@ -22,6 +22,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/xattr v0.4.10
 	github.com/prometheus/client_golang v1.17.0
+	github.com/prometheus/client_model v0.6.1
 	github.com/prometheus/common v0.44.0
 	github.com/tencentyun/cos-go-sdk-v5 v0.7.40
 	go.opentelemetry.io/otel v1.34.0
@@ -98,7 +99,6 @@ require (
 	github.com/philhofer/fwd v1.2.0 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
-	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/procfs v0.11.1 // indirect
 	github.com/rs/xid v1.6.0 // indirect
 	github.com/sony/gobreaker v0.5.0 // indirect
