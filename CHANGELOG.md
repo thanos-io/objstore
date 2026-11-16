@@ -83,5 +83,6 @@ We use *breaking :warning:* to mark changes that are not backward compatible (re
 - [#123](https://github.com/thanos-io/objstore/pull/123) *: Upgrade minio-go version to `v7.0.72`.
 - [#132](https://github.com/thanos-io/objstore/pull/132) s3: Upgrade aws-sdk-go-v2/config version to `v1.27.30`
 - [#288](https://github.com/thanos-io/objstore/pull/288) *: Upgrade to Go 1.25. The minimum supported Go version is now 1.25.
+- [#302](https://github.com/thanos-io/objstore/pull/302) S3: Drop stale #678 TODO and misleading unknown-size warning in `Upload` (no behavior change).
 
 ### Removed
