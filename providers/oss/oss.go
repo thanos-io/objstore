@@ -4,6 +4,7 @@
 package oss
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -75,13 +76,16 @@ func (b *Bucket) Upload(_ context.Context, name string, r io.Reader, opts ...obj
 	if err := objstore.ValidateUploadOptions(b.SupportedObjectUploadOptions(), opts...); err != nil {
 		return err
 	}
-	// TODO(https://github.com/thanos-io/thanos/issues/678): Remove guessing length when minio provider will support multipart upload without this.
-	size, err := objstore.TryToGetSize(r)
-	if err != nil {
-		return errors.Wrapf(err, "failed to get size apriori to upload %s", name)
-	}
 
 	uploadOpts := objstore.ApplyObjectUploadOptions(opts...)
+
+	size, err := objstore.TryToGetSize(r)
+	if err != nil {
+		// The size cannot be determined up front (e.g. a plain io.Reader such as a
+		// pipe or a chunked HTTP body): stream the object via multipart upload
+		// instead of failing. See https://github.com/thanos-io/thanos/issues/678.
+		return b.uploadUnknownSize(name, r, uploadOpts.ContentType)
+	}
 
 	chunksnum, lastslice := int(math.Floor(float64(size)/PartSize)), size%PartSize
 
@@ -134,6 +138,69 @@ func (b *Bucket) Upload(_ context.Context, name string, r io.Reader, opts ...obj
 
 func (b *Bucket) SupportedObjectUploadOptions() []objstore.ObjectUploadOptionType {
 	return []objstore.ObjectUploadOptionType{objstore.ContentType}
+}
+
+// uploadUnknownSize streams an object whose size cannot be determined up front
+// via multipart upload. It mirrors the known-size path's chunk size (PartSize),
+// so part boundaries stay consistent between the two paths.
+//
+// One 128 MiB buffer is reused across parts. An empty stream cannot be a
+// multipart upload (zero parts is invalid), so it goes through a single
+// PutObject instead. At most 10,000 parts can be uploaded, capping objects on
+// this path at roughly 1.25 TiB.
+func (b *Bucket) uploadUnknownSize(name string, r io.Reader, contentType string) error {
+	// Read the first chunk up front: it distinguishes the empty stream (no
+	// multipart upload with zero parts is valid) from a real upload.
+	buf := make([]byte, PartSize)
+	n, readErr := io.ReadFull(r, buf)
+	if readErr == io.EOF {
+		if err := b.bucket.PutObject(name, bytes.NewReader(nil), oss.ContentType(contentType)); err != nil {
+			return errors.Wrap(err, "failed to upload oss object")
+		}
+		return nil
+	}
+	if readErr != nil && readErr != io.ErrUnexpectedEOF {
+		return errors.Wrap(readErr, "failed to read oss object")
+	}
+
+	init, err := b.bucket.InitiateMultipartUpload(name, oss.ContentType(contentType))
+	if err != nil {
+		return errors.Wrap(err, "failed to initiate multi-part upload")
+	}
+
+	abort := func(err error) error {
+		if abortErr := b.bucket.AbortMultipartUpload(init); abortErr != nil {
+			return errors.Wrap(abortErr, "failed to abort multi-part upload")
+		}
+		return err
+	}
+
+	var parts []alioss.UploadPart
+	for partNumber := 1; ; partNumber++ {
+		if partNumber > 10000 {
+			return abort(errors.Errorf("object exceeds the 10,000-part limit for multi-part upload"))
+		}
+		part, err := b.bucket.UploadPart(init, bytes.NewReader(buf[:n]), int64(n), partNumber)
+		if err != nil {
+			return abort(errors.Wrap(err, "failed to upload multi-part chunk"))
+		}
+		parts = append(parts, part)
+		if readErr == io.ErrUnexpectedEOF {
+			break // Last (partial) chunk uploaded.
+		}
+		n, readErr = io.ReadFull(r, buf)
+		if readErr == io.EOF {
+			break // Last chunk was exactly PartSize; nothing left to read.
+		}
+		if readErr != nil && readErr != io.ErrUnexpectedEOF {
+			return abort(errors.Wrap(readErr, "failed to read oss object"))
+		}
+	}
+
+	if _, err := b.bucket.CompleteMultipartUpload(init, parts); err != nil {
+		return errors.Wrap(err, "failed to set multi-part upload completive")
+	}
+	return nil
 }
 
 // Delete removes the object with the given name.
