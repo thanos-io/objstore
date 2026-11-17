@@ -227,6 +227,7 @@ func (b *Bucket) IterWithAttributes(ctx context.Context, dir string, f func(attr
 		for _, object := range objects.Contents {
 			attrs := objstore.IterObjectAttributes{
 				Name: object.Key,
+				Size: int64(object.Size),
 			}
 
 			if params.LastModified && object.LastModified != "" {
