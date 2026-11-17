@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/thanos-io/objstore"
+	"github.com/thanos-io/objstore/clientutil"
 	"github.com/thanos-io/objstore/providers/azure"
 	"github.com/thanos-io/objstore/providers/bos"
 	"github.com/thanos-io/objstore/providers/cos"
@@ -37,8 +38,12 @@ type BucketConfig struct {
 // NOTE: confContentYaml can contain secrets.
 func NewBucket(logger log.Logger, confContentYaml []byte, component string, wrapRoundtripper func(http.RoundTripper) http.RoundTripper) (objstore.Bucket, error) {
 	level.Info(logger).Log("msg", "loading bucket configuration")
+	trimmedYaml, err := clientutil.TrimExtraFields(confContentYaml)
+	if err != nil {
+		return nil, errors.Wrap(err, "trimming extra fields failed")
+	}
 	bucketConf := &BucketConfig{}
-	if err := yaml.UnmarshalStrict(confContentYaml, bucketConf); err != nil {
+	if err := yaml.UnmarshalStrict(trimmedYaml, bucketConf); err != nil {
 		return nil, errors.Wrap(err, "parsing config YAML file")
 	}
 
