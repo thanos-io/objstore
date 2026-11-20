@@ -61,7 +61,7 @@ func NewBucket(rootDir string) (*Bucket, error) {
 func (b *Bucket) Provider() objstore.ObjProvider { return objstore.FILESYSTEM }
 
 func (b *Bucket) SupportedIterOptions() []objstore.IterOptionType {
-	return []objstore.IterOptionType{objstore.Recursive, objstore.UpdatedAt}
+	return []objstore.IterOptionType{objstore.Recursive, objstore.UpdatedAt, objstore.Size, objstore.Version}
 }
 
 func (b *Bucket) IterWithAttributes(ctx context.Context, dir string, f func(attrs objstore.IterObjectAttributes) error, options ...objstore.IterOption) error {
@@ -121,13 +121,21 @@ func (b *Bucket) IterWithAttributes(ctx context.Context, dir string, f func(attr
 		attrs := objstore.IterObjectAttributes{
 			Name: name,
 		}
-		if params.LastModified {
+		if params.LastModified || params.Size {
 			absPath := filepath.Join(absDir, file.Name())
 			stat, err := os.Stat(absPath)
 			if err != nil {
 				return errors.Wrapf(err, "stat %s", name)
 			}
-			attrs.SetLastModified(stat.ModTime())
+			if params.LastModified {
+				attrs.SetLastModified(stat.ModTime())
+			}
+			if params.Size && !file.IsDir() {
+				attrs.SetSize(stat.Size())
+			}
+		}
+		if params.Version && !file.IsDir() {
+			attrs.SetVersion(b.version(name))
 		}
 		if err := f(attrs); err != nil {
 			return err
@@ -186,23 +194,26 @@ func (b *Bucket) Attributes(ctx context.Context, name string) (objstore.ObjectAt
 		}, nil
 	}
 
-	var version *objstore.ObjectVersion
-
-	if xattr.XATTR_SUPPORTED {
-		chkSum := b.checksum(name)
-		if chkSum != "" {
-			version = &objstore.ObjectVersion{
-				Type:  objstore.ETag,
-				Value: chkSum,
-			}
-		}
-	}
-
 	return objstore.ObjectAttributes{
 		Size:         stat.Size(),
 		LastModified: stat.ModTime(),
-		Version:      version,
+		Version:      b.version(name),
 	}, nil
+}
+
+// version returns the object's version that is stored in extended attributes. Returns nil if not found.
+func (b *Bucket) version(name string) *objstore.ObjectVersion {
+	if !xattr.XATTR_SUPPORTED {
+		return nil
+	}
+	chkSum := b.checksum(name)
+	if chkSum == "" {
+		return nil
+	}
+	return &objstore.ObjectVersion{
+		Type:  objstore.ETag,
+		Value: chkSum,
+	}
 }
 
 // GetRange returns a new range reader for the given object name and range.
