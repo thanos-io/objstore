@@ -279,6 +279,38 @@ func AcceptanceTest(t *testing.T, bkt Bucket) AcceptanceStats {
 		FailedUploadCount: 0,
 	}
 
+	// If supported, check that size and version attributes are the same in both IterWithAttributes() and Attributes().
+	if slices.Contains(bkt.SupportedIterOptions(), Size) && slices.Contains(bkt.SupportedIterOptions(), Version) {
+		seen = []string{}
+		testutil.Ok(t, bkt.IterWithAttributes(ctx, "", func(it IterObjectAttributes) error {
+			seen = append(seen, it.Name)
+			attrs, err := bkt.Attributes(ctx, it.Name)
+			testutil.Ok(t, err)
+			size, ok := it.Size()
+			testutil.Assert(t, ok, "expected size of %s", it.Name)
+			testutil.Equals(t, attrs.Size, size)
+			testutil.Equals(t, attrs.Version, it.Version())
+			return nil
+		}, WithRecursiveIter(), WithSize(), WithVersion()))
+		expected = []string{"id1/obj_1.some", "id1/obj_3.some", "id1/sub/subobj_1.some", "id1/sub/subobj_2.some", "obj_5.some"}
+		sort.Strings(seen)
+		testutil.Equals(t, expected, seen)
+		stats.AttributesCount += len(seen)
+
+		var prefixes []string
+		testutil.Ok(t, bkt.IterWithAttributes(ctx, "", func(it IterObjectAttributes) error {
+			if !strings.HasSuffix(it.Name, DirDelim) {
+				return nil
+			}
+			prefixes = append(prefixes, it.Name)
+			_, ok := it.Size()
+			testutil.Assert(t, !ok, "expected no size of prefix %s", it.Name)
+			testutil.Assert(t, it.Version() == nil, "expected no version of prefix %s", it.Name)
+			return nil
+		}, WithSize(), WithVersion()))
+		testutil.Equals(t, []string{"id1/"}, prefixes)
+	}
+
 	// If supported, test IfNotExists write option
 	if slices.Contains(bkt.SupportedObjectUploadOptions(), IfNotExists) {
 		testutil.Ok(t, bkt.Upload(ctx, "obj_7.some", strings.NewReader("@test-data7@"), WithIfNotExists()))

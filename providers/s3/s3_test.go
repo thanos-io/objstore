@@ -620,6 +620,55 @@ func TestBucket_IterWithAttributes_EarlyReturnDoesNotLeakGoroutines(t *testing.T
 	}
 }
 
+func TestBucket_IterWithAttributes_SizeAndVersionMatchAttributes(t *testing.T) {
+	cfg := Config{
+		Bucket:    "test-bucket",
+		Endpoint:  endpoint,
+		Region:    "us-east-1",
+		AccessKey: "access-key",
+		SecretKey: "secret-key",
+	}
+	cfg.HTTPConfig.Transport = roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+		w := httptest.NewRecorder()
+		if r.Method == http.MethodHead {
+			w.Header().Set("ETag", `"9b2cf535f27731c974343645a3985328"`)
+			w.Header().Set("Content-Length", "11")
+			w.Header().Set("Last-Modified", "Wed, 21 Oct 2015 07:28:00 GMT")
+			return w.Result(), nil
+		}
+		w.Header().Set("Content-Type", "application/xml")
+		fmt.Fprint(w, `<ListBucketResult><Name>test-bucket</Name><IsTruncated>false</IsTruncated>`)
+		fmt.Fprint(w, `<Contents><Key>obj</Key><Size>11</Size><ETag>&quot;9b2cf535f27731c974343645a3985328&quot;</ETag><LastModified>2015-10-21T07:28:00.000Z</LastModified></Contents>`)
+		if r.URL.Query().Get("delimiter") != "" {
+			fmt.Fprint(w, `<CommonPrefixes><Prefix>dir/</Prefix></CommonPrefixes>`)
+		}
+		fmt.Fprint(w, `</ListBucketResult>`)
+		return w.Result(), nil
+	})
+	bkt, err := NewBucketWithConfig(log.NewNopLogger(), cfg, "test", nil)
+	testutil.Ok(t, err)
+
+	attrs, err := bkt.Attributes(t.Context(), "obj")
+	testutil.Ok(t, err)
+
+	var prefixes []string
+	testutil.Ok(t, bkt.IterWithAttributes(t.Context(), "", func(it objstore.IterObjectAttributes) error {
+		size, ok := it.Size()
+		if it.Name == "dir/" {
+			prefixes = append(prefixes, it.Name)
+			testutil.Assert(t, !ok, "expected no size of prefix")
+			testutil.Assert(t, it.Version() == nil, "expected no version of prefix")
+			return nil
+		}
+		testutil.Equals(t, "obj", it.Name)
+		testutil.Assert(t, ok, "expected size")
+		testutil.Equals(t, attrs.Size, size)
+		testutil.Equals(t, attrs.Version, it.Version())
+		return nil
+	}, objstore.WithSize(), objstore.WithVersion()))
+	testutil.Equals(t, []string{"dir/"}, prefixes)
+}
+
 type roundTripperFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {

@@ -146,6 +146,8 @@ type IterOptionType int
 const (
 	Recursive IterOptionType = iota
 	UpdatedAt
+	Size
+	Version
 )
 
 // IterOption configures the provided params.
@@ -168,7 +170,7 @@ func WithRecursiveIter() IterOption {
 // WithUpdatedAt is an option that can be applied to Iter() to
 // include the last modified time in the attributes.
 // NB: Prefixes may not report last modified time.
-// This option is currently supported for the azure, s3, bos, gcs and filesystem providers.
+// May not be supported in all providers. Check against SupportedIterOptions().
 func WithUpdatedAt() IterOption {
 	return IterOption{
 		Type: UpdatedAt,
@@ -178,10 +180,38 @@ func WithUpdatedAt() IterOption {
 	}
 }
 
+// WithSize is an option that can be applied to Iter() to
+// include the object size in the attributes.
+// NB: Prefixes do not report a size.
+// May not be supported in all providers. Check against SupportedIterOptions().
+func WithSize() IterOption {
+	return IterOption{
+		Type: Size,
+		Apply: func(params *IterParams) {
+			params.Size = true
+		},
+	}
+}
+
+// WithVersion is an option that can be applied to Iter() to
+// include the object version just like the one Attributes() reports.
+// NB: Prefixes do not report a version.
+// May not be supported in all providers. Check against SupportedIterOptions().
+func WithVersion() IterOption {
+	return IterOption{
+		Type: Version,
+		Apply: func(params *IterParams) {
+			params.Version = true
+		},
+	}
+}
+
 // IterParams holds the Iter() parameters and is used by objstore clients implementations.
 type IterParams struct {
 	Recursive    bool
 	LastModified bool
+	Size         bool
+	Version      bool
 }
 
 func ValidateIterOptions(supportedOptions []IterOptionType, options ...IterOption) error {
@@ -397,6 +427,9 @@ type ObjectVersion struct {
 type IterObjectAttributes struct {
 	Name         string
 	lastModified time.Time
+	size         int64
+	hasSize      bool
+	version      *ObjectVersion
 }
 
 func (i *IterObjectAttributes) SetLastModified(t time.Time) {
@@ -406,6 +439,24 @@ func (i *IterObjectAttributes) SetLastModified(t time.Time) {
 // LastModified returns the timestamp the object was last modified. Returns false if the timestamp is not available.
 func (i *IterObjectAttributes) LastModified() (time.Time, bool) {
 	return i.lastModified, !i.lastModified.IsZero()
+}
+
+func (i *IterObjectAttributes) SetSize(size int64) {
+	i.size, i.hasSize = size, true
+}
+
+// Size returns the object size in bytes. Returns false if the size is not available.
+func (i *IterObjectAttributes) Size() (int64, bool) {
+	return i.size, i.hasSize
+}
+
+func (i *IterObjectAttributes) SetVersion(v *ObjectVersion) {
+	i.version = v
+}
+
+// Version returns the object version Attributes() reports. Returns nil if the version is not available.
+func (i *IterObjectAttributes) Version() *ObjectVersion {
+	return i.version
 }
 
 // TryToGetSize tries to get upfront size from reader.
