@@ -394,7 +394,7 @@ func ValidateForTests(conf Config) error {
 }
 
 func (b *Bucket) SupportedIterOptions() []objstore.IterOptionType {
-	return []objstore.IterOptionType{objstore.Recursive, objstore.UpdatedAt}
+	return []objstore.IterOptionType{objstore.Recursive, objstore.UpdatedAt, objstore.Size, objstore.Version}
 }
 
 func (b *Bucket) IterWithAttributes(ctx context.Context, dir string, f func(attrs objstore.IterObjectAttributes) error, options ...objstore.IterOption) error {
@@ -444,6 +444,12 @@ func (b *Bucket) IterWithAttributes(ctx context.Context, dir string, f func(attr
 		}
 		if appliedOpts.LastModified {
 			attr.SetLastModified(object.LastModified)
+		}
+		if appliedOpts.Size && !strings.HasSuffix(object.Key, objstore.DirDelim) {
+			attr.SetSize(object.Size)
+		}
+		if appliedOpts.Version && object.ETag != "" && !strings.HasSuffix(object.Key, objstore.DirDelim) {
+			attr.SetVersion(&objstore.ObjectVersion{Type: objstore.ETag, Value: object.ETag})
 		}
 
 		if err := f(attr); err != nil {
