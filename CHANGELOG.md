@@ -72,6 +72,7 @@ We use *breaking :warning:* to mark changes that are not backward compatible (re
 - [#266](https://github.com/thanos-io/objstore/pull/266) *: Add `force_attempt_http2` option to `http_config` to re-enable HTTP/2 for the custom transport.
 - [#271](https://github.com/thanos-io/objstore/pull/271) Add metrics `net_conntrack_dialer_conn_*_total` for every connection attempted, failed, etc.
 - [#305](https://github.com/thanos-io/objstore/pull/305) Add `WithSize` and `WithVersion` iter options so `IterWithAttributes` could report the object size and the version without extra Attributes() call on supported providers. For now, it is only supported by the s3 and filesystem providers.
+- [#198](https://github.com/thanos-io/objstore/pull/198) oss: Add `sdk_auth` config to support more authentication methods.
 
 ### Changed
 - [#38](https://github.com/thanos-io/objstore/pull/38) *: Upgrade minio-go version to `v7.0.45`.

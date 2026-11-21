@@ -643,8 +643,13 @@ config:
   bucket: ""
   access_key_id: ""
   access_key_secret: ""
+  sdk_auth: false
 prefix: ""
 ```
+
+At a minimum, you will need to provide a value for the `bucket`, `endpoint`, `access_key_id` and `access_key_secret` keys. The rest of the keys are optional.
+
+However if you set `sdk_auth: true` Thanos will use the [Alibaba Cloud credentials go SDK](https://github.com/aliyun/credentials-go) to resolve credentials instead of the static `access_key_id` and `access_key_secret` keys. This makes keyless authentication possible, e.g. via [known environment variables](https://github.com/aliyun/credentials-go?tab=readme-ov-file#credential-types) (`ALIBABA_CLOUD_ACCESS_KEY_ID`, `ALIBABA_CLOUD_ACCESS_KEY_SECRET`, `ALIBABA_CLOUD_SECURITY_TOKEN`, `ALIBABA_CLOUD_CREDENTIALS_URI` ... etc), Elastic Compute Service instance RAM roles or Container Service RRSA. If you turn this on, then the `access_key_id` and `access_key_secret` keys are not required anymore.
 
 ##### Baidu BOS
 
