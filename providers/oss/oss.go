@@ -372,6 +372,10 @@ func (b *Bucket) getRange(_ context.Context, name string, off, length int64) (io
 			return nil, err
 		}
 		opts = append(opts, opt)
+	} else if off > 0 {
+		// An unspecified length means "read to the end of the object", so the
+		// offset still has to be sent as an open-ended range.
+		opts = append(opts, alioss.NormalizedRange(fmt.Sprintf("%d-", off)))
 	}
 
 	resp, err := b.bucket.DoGetObject(&oss.GetObjectRequest{ObjectKey: name}, opts)
