@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
@@ -86,12 +87,29 @@ func getContainerClient(conf Config, wrapRoundtripper func(http.RoundTripper) ht
 }
 
 func getTokenCredential(conf Config) (azcore.TokenCredential, error) {
+	clientOptions := azcore.ClientOptions{}
+	if conf.ActiveDirectoryEndpoint != "" {
+		clientOptions.Cloud = cloud.Configuration{ActiveDirectoryAuthorityHost: conf.ActiveDirectoryEndpoint}
+	}
+
+	if conf.UseWorkloadIdentity {
+		return azidentity.NewWorkloadIdentityCredential(&azidentity.WorkloadIdentityCredentialOptions{
+			ClientOptions: clientOptions,
+			TenantID:      conf.AzTenantID,
+			ClientID:      conf.ClientID,
+		})
+	}
+
 	if conf.ClientSecret != "" && conf.AzTenantID != "" && conf.ClientID != "" {
-		return azidentity.NewClientSecretCredential(conf.AzTenantID, conf.ClientID, conf.ClientSecret, &azidentity.ClientSecretCredentialOptions{})
+		return azidentity.NewClientSecretCredential(conf.AzTenantID, conf.ClientID, conf.ClientSecret, &azidentity.ClientSecretCredentialOptions{
+			ClientOptions: clientOptions,
+		})
 	}
 
 	if conf.UserAssignedID == "" {
-		return azidentity.NewDefaultAzureCredential(nil)
+		return azidentity.NewDefaultAzureCredential(&azidentity.DefaultAzureCredentialOptions{
+			ClientOptions: clientOptions,
+		})
 	}
 
 	msiOpt := &azidentity.ManagedIdentityCredentialOptions{}

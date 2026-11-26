@@ -61,6 +61,8 @@ type Config struct {
 	ReaderConfig            ReaderConfig       `yaml:"reader_config"`
 	PipelineConfig          PipelineConfig     `yaml:"pipeline_config"`
 	HTTPConfig              exthttp.HTTPConfig `yaml:"http_config"`
+	ActiveDirectoryEndpoint string             `yaml:"active_directory_endpoint"`
+	UseWorkloadIdentity     bool               `yaml:"use_workload_identity"`
 
 	// Deprecated: Is automatically set by the Azure SDK.
 	MSIResource string `yaml:"msi_resource"`
@@ -92,8 +94,17 @@ func (conf *Config) validate() error {
 		errMsg = append(errMsg, "user_assigned_id cannot be set when using client_id authentication")
 	}
 
-	if (conf.AzTenantID != "" || conf.ClientSecret != "" || conf.ClientID != "") && (conf.AzTenantID == "" || conf.ClientSecret == "" || conf.ClientID == "") {
+	if !conf.UseWorkloadIdentity && (conf.AzTenantID != "" || conf.ClientSecret != "" || conf.ClientID != "") && (conf.AzTenantID == "" || conf.ClientSecret == "" || conf.ClientID == "") {
 		errMsg = append(errMsg, "az_tenant_id, client_id, and client_secret must be set together")
+	}
+
+	if conf.UseWorkloadIdentity {
+		if (conf.AzTenantID == "") != (conf.ClientID == "") {
+			errMsg = append(errMsg, "az_tenant_id and client_id must be set together when using workload identity authentication")
+		}
+		if conf.ClientSecret != "" {
+			errMsg = append(errMsg, "client_secret cannot be set when using workload identity authentication")
+		}
 	}
 
 	if conf.StorageAccountKey != "" && conf.StorageConnectionString != "" {
