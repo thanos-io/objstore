@@ -12,6 +12,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+var _ credentials.Provider = (*AWSSDKAuth)(nil)
+
 // AWSSDKAuth retrieves credentials from the aws-sdk-go.
 type AWSSDKAuth struct {
 	Region string
@@ -26,7 +28,7 @@ func NewAWSSDKAuth(region string) *credentials.Credentials {
 	})
 }
 
-func (a *AWSSDKAuth) RetrieveWithCredContext(cc *credentials.CredContext) (credentials.Value, error) {
+func (a *AWSSDKAuth) RetrieveWithCredContext(_ *credentials.CredContext) (credentials.Value, error) {
 	cfg, err := awsconfig.LoadDefaultConfig(context.TODO(), awsconfig.WithRegion(a.Region))
 	if err != nil {
 		return credentials.Value{}, errors.Wrap(err, "load AWS SDK config")
