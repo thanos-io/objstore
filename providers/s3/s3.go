@@ -5,6 +5,7 @@
 package s3
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -97,6 +98,10 @@ const (
 
 	// Storage class header.
 	amzStorageClass = "X-Amz-Storage-Class"
+
+	// maxSinglePutObjectSize is the largest body in bytes that AWS S3 accepts
+	// in a single PutObject call. Some S3-compatible stores accept less.
+	maxSinglePutObjectSize = 5 * 1024 * 1024 * 1024
 )
 
 var DefaultConfig = Config{
@@ -558,13 +563,63 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, opts ...o
 		return err
 	}
 
+	uploadOpts := objstore.ApplyObjectUploadOptions(opts...)
+	conditional := isConditionalUpload(uploadOpts)
+
 	// TODO(https://github.com/thanos-io/thanos/issues/678): Remove guessing length when minio provider will support multipart upload without this.
 	size, err := objstore.TryToGetSize(r)
-	if err != nil {
+	if err != nil && conditional {
+		// A conditional write must use a single PutObject call, and minio-go
+		// needs the size for that call. This buffers the whole body in memory.
+		level.Warn(b.logger).Log("msg", "could not guess file size for conditional upload; buffering the whole object in memory", "name", name, "err", err)
+		data, err := io.ReadAll(io.LimitReader(r, maxSinglePutObjectSize+1))
+		if err != nil {
+			return errors.Wrap(err, "read body of conditional upload")
+		}
+		r = bytes.NewReader(data)
+		size = int64(len(data))
+	} else if err != nil {
 		level.Warn(b.logger).Log("msg", "could not guess file size for multipart upload; upload might be not optimized", "name", name, "err", err)
 		size = -1
 	}
 
+	putOpts, err := b.putObjectOptions(size, uploadOpts, sse)
+	if err != nil {
+		return err
+	}
+
+	if _, err := b.client.PutObject(
+		ctx,
+		b.name,
+		name,
+		r,
+		size,
+		putOpts,
+	); err != nil {
+		if conditional && minio.ToErrorResponse(errors.Cause(err)).Code == "EntityTooLarge" {
+			return errors.Wrap(err, "upload s3 object: a conditional write must fit in a single PutObject call")
+		}
+		return errors.Wrap(err, "upload s3 object")
+	}
+
+	return nil
+}
+
+// isConditionalUpload reports whether the upload must only succeed if the
+// current object matches a condition.
+func isConditionalUpload(uploadOpts objstore.UploadObjectParams) bool {
+	return uploadOpts.IfNotExists || uploadOpts.Condition != nil
+}
+
+// putObjectOptions returns the PutObject options for a body of the given
+// size. A negative size means that the size is unknown.
+//
+// A conditional write always uses a single PutObject call, so it needs a
+// known size of at most maxSinglePutObjectSize. For a multipart upload, S3
+// checks the condition only on CompleteMultipartUpload. minio-go does not
+// send the condition headers with that call, so a multipart write would
+// succeed unconditionally.
+func (b *Bucket) putObjectOptions(size int64, uploadOpts objstore.UploadObjectParams, sse encrypt.ServerSide) (minio.PutObjectOptions, error) {
 	partSize := b.partSize
 	if size >= 0 && size < int64(partSize) {
 		partSize = 0
@@ -574,9 +629,7 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, opts ...o
 	userMetadata := make(map[string]string, len(b.putUserMetadata))
 	maps.Copy(userMetadata, b.putUserMetadata)
 
-	uploadOpts := objstore.ApplyObjectUploadOptions(opts...)
-
-	putOpts := &minio.PutObjectOptions{
+	putOpts := minio.PutObjectOptions{
 		DisableMultipart:     b.disableMultipart,
 		PartSize:             partSize,
 		ServerSideEncryption: sse,
@@ -590,28 +643,27 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, opts ...o
 		ContentType: uploadOpts.ContentType,
 	}
 
+	if isConditionalUpload(uploadOpts) {
+		if size < 0 {
+			return minio.PutObjectOptions{}, errors.New("conditional upload needs a known object size")
+		}
+		if size > maxSinglePutObjectSize {
+			return minio.PutObjectOptions{}, errors.Errorf("conditional upload of %d bytes exceeds the single PutObject limit of %d bytes", size, int64(maxSinglePutObjectSize))
+		}
+		putOpts.DisableMultipart = true
+	}
+
 	if uploadOpts.IfNotExists {
 		putOpts.SetMatchETagExcept("*")
 	} else if uploadOpts.Condition != nil {
 		// If-None-Match with header values other than "*" is not supported by AWS yet.
 		if uploadOpts.IfNotMatch {
-			return fmt.Errorf("%w: IfNotMatch with a specific ETag is not supported by S3", objstore.ErrUploadOptionNotSupported)
+			return minio.PutObjectOptions{}, fmt.Errorf("%w: IfNotMatch with a specific ETag is not supported by S3", objstore.ErrUploadOptionNotSupported)
 		}
 		putOpts.SetMatchETag(uploadOpts.Condition.Value)
 	}
 
-	if _, err := b.client.PutObject(
-		ctx,
-		b.name,
-		name,
-		r,
-		size,
-		*putOpts,
-	); err != nil {
-		return errors.Wrap(err, "upload s3 object")
-	}
-
-	return nil
+	return putOpts, nil
 }
 
 func (b *Bucket) SupportedObjectUploadOptions() []objstore.ObjectUploadOptionType {
