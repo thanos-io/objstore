@@ -18,6 +18,9 @@ We use *breaking :warning:* to mark changes that are not backward compatible (re
 - [#298](https://github.com/thanos-io/objstore/pull/298) GCS: Pass through a ContentType regardless of whether chunk size is set.
 - [#298](https://github.com/thanos-io/objstore/pull/298) Azure: Only set a header if the ContentType is set.
 
+### Added
+- [#74](https://github.com/thanos-io/objstore/pull/74) S3: Implementing `ToErrorResponse` function to return the parsed S3 ErrorResponse.
+
 ### Fixed
 - [#287](https://github.com/thanos-io/objstore/pull/287) S3: Fix goroutine leak in `Iter` and `IterWithAttributes` when iteration stops early.
 - [#283](https://github.com/thanos-io/objstore/pull/283) Metrics: Fix `objstore_bucket_operation_transferred_bytes` never recorded when the underlying reader is read via `io.ReaderAt` (e.g. concurrent multipart uploads).
