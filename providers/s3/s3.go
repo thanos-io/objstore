@@ -558,10 +558,13 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, opts ...o
 		return err
 	}
 
-	// TODO(https://github.com/thanos-io/thanos/issues/678): Remove guessing length when minio provider will support multipart upload without this.
+	// Best-effort size detection: a known size lets minio use a single-part
+	// PUT for small objects (partSize = 0 below) and keeps DisableMultipart
+	// working. When the size cannot be determined, minio-go streams the
+	// upload as multipart until EOF (size -1), so an unknown size is fully
+	// supported — see https://github.com/thanos-io/thanos/issues/678.
 	size, err := objstore.TryToGetSize(r)
 	if err != nil {
-		level.Warn(b.logger).Log("msg", "could not guess file size for multipart upload; upload might be not optimized", "name", name, "err", err)
 		size = -1
 	}
 
