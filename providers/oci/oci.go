@@ -29,6 +29,15 @@ import (
 // DirDelim is the delimiter used to model a directory structure in an object store bucket.
 const DirDelim = "/"
 
+// OCI PutObject supports objects up to 50 GiB. Conditional writes cannot use
+// multipart uploads because the OCI SDK applies the conditions to each part.
+const maxConditionalUploadSize int64 = 50 << 30
+
+var (
+	errConditionInvalid          = errors.New("invalid condition: OCI supports ETag object versions")
+	errConditionalUploadTooLarge = errors.New("conditional OCI upload exceeds the 50 GiB PutObject limit")
+)
+
 type Provider string
 
 const (
@@ -200,24 +209,35 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, opts ...o
 	if err := objstore.ValidateUploadOptions(b.SupportedObjectUploadOptions(), opts...); err != nil {
 		return err
 	}
+	uploadOptions := objstore.ApplyObjectUploadOptions(opts...)
+
+	uploadRequest := transfer.UploadRequest{
+		NamespaceName:                       &b.namespace,
+		BucketName:                          &b.name,
+		ObjectName:                          &name,
+		EnableMultipartChecksumVerification: common.Bool(true),
+		ObjectStorageClient:                 b.client,
+		RequestMetadata:                     b.requestMetadata,
+	}
+
+	if err := applyUploadConditions(&uploadRequest, uploadOptions); err != nil {
+		return err
+	}
+
+	if uploadOptions.ContentType != "" {
+		uploadRequest.ContentType = &uploadOptions.ContentType
+	}
+
+	if uploadRequest.IfMatch != nil || uploadRequest.IfNoneMatch != nil {
+		return b.uploadConditionally(ctx, r, uploadRequest)
+	}
+
 	req := transfer.UploadStreamRequest{
-		UploadRequest: transfer.UploadRequest{
-			NamespaceName:                       common.String(b.namespace),
-			BucketName:                          common.String(b.name),
-			ObjectName:                          &name,
-			EnableMultipartChecksumVerification: common.Bool(true), // TODO: should we check?
-			ObjectStorageClient:                 b.client,
-			RequestMetadata:                     b.requestMetadata,
-		},
-		StreamReader: r,
+		UploadRequest: uploadRequest,
+		StreamReader:  r,
 	}
 	if b.partSize > 0 {
 		req.UploadRequest.PartSize = &b.partSize
-	}
-
-	uploadOptions := objstore.ApplyObjectUploadOptions(opts...)
-	if uploadOptions.ContentType != "" {
-		req.UploadRequest.ContentType = &uploadOptions.ContentType
 	}
 
 	uploadManager := transfer.NewUploadManager()
@@ -226,18 +246,81 @@ func (b *Bucket) Upload(ctx context.Context, name string, r io.Reader, opts ...o
 	return err
 }
 
+func (b *Bucket) uploadConditionally(ctx context.Context, r io.Reader, uploadRequest transfer.UploadRequest) error {
+	tmp, err := os.CreateTemp("", "thanos-oci-conditional-upload-*")
+	if err != nil {
+		return errors.Wrap(err, "create temporary file for conditional OCI upload")
+	}
+	defer func() { _ = tmp.Close() }()
+	defer func() { _ = os.Remove(tmp.Name()) }()
+
+	size, err := copyConditionalUpload(ctx, tmp, r, maxConditionalUploadSize)
+	if err != nil {
+		return err
+	}
+
+	if _, err := tmp.Seek(0, io.SeekStart); err != nil {
+		return errors.Wrap(err, "rewind temporary file for conditional OCI upload")
+	}
+
+	request := conditionalPutObjectRequest(uploadRequest, tmp, size)
+	_, err = b.client.PutObject(ctx, request)
+	return err
+}
+
+func copyConditionalUpload(ctx context.Context, dst io.Writer, src io.Reader, maxSize int64) (int64, error) {
+	size, err := io.Copy(dst, io.LimitReader(&contextReader{ctx: ctx, r: src}, maxSize+1))
+	if err != nil {
+		return size, errors.Wrap(err, "write object data for conditional OCI upload")
+	}
+	if size > maxSize {
+		return size, errConditionalUploadTooLarge
+	}
+	return size, nil
+}
+
+type contextReader struct {
+	ctx context.Context
+	r   io.Reader
+}
+
+func (r *contextReader) Read(p []byte) (int, error) {
+	if err := r.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return r.r.Read(p)
+}
+
+func conditionalPutObjectRequest(uploadRequest transfer.UploadRequest, body io.ReadCloser, size int64) objectstorage.PutObjectRequest {
+	return objectstorage.PutObjectRequest{
+		NamespaceName:   uploadRequest.NamespaceName,
+		BucketName:      uploadRequest.BucketName,
+		ObjectName:      uploadRequest.ObjectName,
+		ContentLength:   &size,
+		PutObjectBody:   body,
+		IfMatch:         uploadRequest.IfMatch,
+		IfNoneMatch:     uploadRequest.IfNoneMatch,
+		ContentType:     uploadRequest.ContentType,
+		RequestMetadata: uploadRequest.RequestMetadata,
+	}
+}
+
 func (b *Bucket) SupportedObjectUploadOptions() []objstore.ObjectUploadOptionType {
-	return []objstore.ObjectUploadOptionType{objstore.ContentType}
+	return []objstore.ObjectUploadOptionType{
+		objstore.ContentType,
+		objstore.IfMatch,
+		objstore.IfNotExists,
+	}
 }
 
 // Exists checks if the given object exists in the bucket.
 func (b *Bucket) Exists(ctx context.Context, name string) (bool, error) {
-	_, err := getObject(ctx, *b, name, "")
+	_, err := headObject(ctx, *b, name)
 	if err != nil {
 		if b.IsObjNotFoundErr(err) {
 			return false, nil
 		}
-		return false, errors.Wrapf(err, "cannot get OCI object '%s'", name)
+		return false, errors.Wrapf(err, "cannot get OCI object attributes %q", name)
 	}
 	return true, nil
 }
@@ -276,13 +359,23 @@ func (b *Bucket) IsAccessDeniedErr(err error) bool {
 	return false
 }
 
-func (b *Bucket) IsConditionNotMetErr(_ error) bool { return false }
+func (b *Bucket) IsConditionNotMetErr(err error) bool {
+	if errors.Is(err, errConditionInvalid) {
+		return true
+	}
+
+	failure, ok := common.IsServiceError(err)
+	return ok && failure.GetHTTPStatusCode() == http.StatusPreconditionFailed
+}
 
 // ObjectSize returns the size of the specified object.
 func (b *Bucket) ObjectSize(ctx context.Context, name string) (uint64, error) {
-	response, err := getObject(ctx, *b, name, "")
+	response, err := headObject(ctx, *b, name)
 	if err != nil {
 		return 0, err
+	}
+	if response.ContentLength == nil {
+		panic(fmt.Sprintf("OCI object %q response has no content length", name))
 	}
 	return uint64(*response.ContentLength), nil
 }
@@ -294,14 +387,11 @@ func (b *Bucket) Close() error {
 
 // Attributes returns information about the specified object.
 func (b *Bucket) Attributes(ctx context.Context, name string) (objstore.ObjectAttributes, error) {
-	response, err := getObject(ctx, *b, name, "")
+	response, err := headObject(ctx, *b, name)
 	if err != nil {
 		return objstore.ObjectAttributes{}, err
 	}
-	return objstore.ObjectAttributes{
-		Size:         *response.ContentLength,
-		LastModified: response.LastModified.Time,
-	}, nil
+	return attributesFromHeadObjectResponse(response), nil
 }
 
 // createBucket creates bucket.
@@ -444,4 +534,33 @@ func NewTestBucket(t testing.TB) (objstore.Bucket, func(), error) {
 		}
 		t.Logf("deleted temporary Oracle Cloud Infrastructure bucket '%s' for testing", bkt.name)
 	}, nil
+}
+
+func applyUploadConditions(req *transfer.UploadRequest, uploadOptions objstore.UploadObjectParams) error {
+	if uploadOptions.Condition != nil {
+		if uploadOptions.Condition.Type != objstore.ETag {
+			return errConditionInvalid
+		}
+		req.IfMatch = &uploadOptions.Condition.Value
+		return nil
+	}
+
+	if uploadOptions.IfNotExists {
+		req.IfNoneMatch = common.String("*")
+	}
+	return nil
+}
+
+func attributesFromHeadObjectResponse(response objectstorage.HeadObjectResponse) objstore.ObjectAttributes {
+	attrs := objstore.ObjectAttributes{}
+	if response.ContentLength != nil {
+		attrs.Size = *response.ContentLength
+	}
+	if response.LastModified != nil {
+		attrs.LastModified = response.LastModified.Time
+	}
+	if response.ETag != nil {
+		attrs.Version = &objstore.ObjectVersion{Type: objstore.ETag, Value: *response.ETag}
+	}
+	return attrs
 }
