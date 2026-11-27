@@ -888,13 +888,13 @@ func TestBucket_UploadConditionalUnknownSize(t *testing.T) {
 			defer srv.Close()
 
 			cfg := DefaultConfig
-			cfg.Bucket = "test-bucket"
+			cfg.Bucket = "conditional-upload-bucket"
 			cfg.Endpoint = srv.Listener.Addr().String()
 			cfg.Insecure = true
-			cfg.Region = "test"
-			cfg.AccessKey = "test"
-			cfg.SecretKey = "test"
-			bkt, err := NewBucketWithConfig(log.NewNopLogger(), cfg, "test", nil)
+			cfg.Region = "us-east-1"
+			cfg.AccessKey = "access-key"
+			cfg.SecretKey = "secret-key"
+			bkt, err := NewBucketWithConfig(log.NewNopLogger(), cfg, "conditional-upload", nil)
 			testutil.Ok(t, err)
 
 			// objstore.TryToGetSize cannot get the size of an io.MultiReader.
@@ -902,7 +902,7 @@ func TestBucket_UploadConditionalUnknownSize(t *testing.T) {
 			_, err = objstore.TryToGetSize(r)
 			testutil.NotOk(t, err)
 
-			testutil.Ok(t, bkt.Upload(context.Background(), "test", r, tc.opt))
+			testutil.Ok(t, bkt.Upload(context.Background(), "conditional-upload-object", r, tc.opt))
 
 			testutil.Equals(t, 1, len(fake.puts))
 			put := fake.puts[0]
